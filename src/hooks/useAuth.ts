@@ -83,25 +83,21 @@ export const useAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('driver-login', {
-        body: { email, password }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
       if (error) {
         throw new Error(error.message || 'Erreur de connexion');
       }
 
-      // Check if the response contains an error message
-      if (data?.error) {
-        throw new Error(data.error);
+      if (!data?.session) {
+        throw new Error('Connexion échouée - session manquante');
       }
-      
-      if (data?.session) {
-        await supabase.auth.setSession(data.session);
-        return data;
-      }
-      
-      throw new Error('Connexion échouée - réponse invalide');
+
+      setSession(data.session);
+      return data;
     } catch (error: any) {
       console.error('Login error in hook:', error);
       throw error;
