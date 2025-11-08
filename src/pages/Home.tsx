@@ -92,20 +92,28 @@ const Home = () => {
   // Filter pending courses
   const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
 
-  // Load Google Maps script
+  // Load Google Maps script from backend secret
   useEffect(() => {
-    const GOOGLE_MAPS_API_KEY = 'AIzaSyDINevIQHW3nmiz1Z1nYlkbOeH3XYSsTyc';
-    
-    // Check if script already exists
-    if ((window as any).google) return;
+    const load = async () => {
+      if ((window as any).google) return;
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) return;
 
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) return;
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    document.head.appendChild(script);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-google-maps-key');
+        if (error || !data?.key) {
+          console.error('Maps key error:', error);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places`;
+        script.async = true;
+        document.head.appendChild(script);
+      } catch (e) {
+        console.error('Maps loader error:', e);
+      }
+    };
+    load();
   }, []);
 
   return (
