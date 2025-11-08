@@ -116,7 +116,6 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Use native Supabase signup; if email exists, ask user to login
       const { error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
@@ -127,18 +126,13 @@ const Login = () => {
       });
 
       if (error) {
-        const msg = (error.message || '').toLowerCase();
-        if (msg.includes('already') || msg.includes('exists')) {
-          toast.info("Cet email possède déjà un compte. Connectez-vous avec le même mot de passe.");
-          setView('login');
-          return;
-        }
+        console.error('Signup error:', error);
         throw error;
       }
 
-      toast.success("Compte créé ! Vérifiez votre email pour confirmer, puis connectez-vous.");
+      toast.success("Compte créé ! Connectez-vous maintenant.");
 
-      // Reset form
+      // Reset form and switch to login
       setSignupName('');
       setSignupPhone('');
       setSignupEmail('');
@@ -147,7 +141,8 @@ const Login = () => {
       setView('login');
     } catch (error: any) {
       console.error('Signup error:', error);
-      toast.error(error.message || 'Erreur lors de la création du compte');
+      const msg = error.message || 'Erreur lors de la création du compte';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
