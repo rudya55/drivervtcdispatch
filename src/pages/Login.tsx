@@ -116,27 +116,28 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Call driver-signup edge function
-      const { data, error } = await supabase.functions.invoke('driver-signup', {
-        body: {
-          name: signupName,
-          phone: signupPhone,
-          email: signupEmail,
-          password: signupPassword
+      // Use native Supabase signup; if email exists, ask user to login
+      const { error } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: {
+          data: { name: signupName, phone: signupPhone },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
       if (error) {
-        console.error('Function invoke error:', error);
-        throw new Error(error.message || 'Erreur lors de la communication avec le serveur');
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('already') || msg.includes('exists')) {
+          toast.info("Cet email possède déjà un compte. Connectez-vous avec le même mot de passe.");
+          setView('login');
+          return;
+        }
+        throw error;
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      toast.success("Compte créé ! Vérifiez votre email pour confirmer, puis connectez-vous.");
 
-      toast.success(data?.message || 'Compte chauffeur créé avec succès !');
-      
       // Reset form
       setSignupName('');
       setSignupPhone('');
