@@ -41,10 +41,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppContent = () => {
   const { session, loading } = useAuth();
 
-  useEffect(() => {
-    // Set dark mode by default
-    document.documentElement.classList.add('dark');
-  }, []);
+  // Mode clair par défaut (pas de dark mode forcé)
 
   if (loading) {
     return (

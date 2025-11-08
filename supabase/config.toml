@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.setup-database]
 verify_jwt = false
+
+[functions.driver-update-status]
+verify_jwt = true
