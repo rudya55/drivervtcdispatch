@@ -94,9 +94,8 @@ const Home = () => {
 
   // Load Google Maps script
   useEffect(() => {
-    const apiKey = driver?.google_maps_api_key;
-    if (!apiKey) return;
-
+    const GOOGLE_MAPS_API_KEY = 'AIzaSyDINevIQHW3nmiz1Z1nYlkbOeH3XYSsTyc';
+    
     // Check if script already exists
     if ((window as any).google) return;
 
@@ -104,16 +103,40 @@ const Home = () => {
     if (existingScript) return;
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
     script.async = true;
     document.head.appendChild(script);
-  }, [driver?.google_maps_api_key]);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Accueil" unreadCount={unreadCount} />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
+        {/* Driver Status Toggle Button */}
+        <div className="flex justify-center mb-2">
+          <Card className="p-0 overflow-hidden inline-block">
+            <button
+              onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
+              disabled={statusMutation.isPending}
+              className="flex items-center gap-3 px-4 py-2 hover:bg-accent/5 transition-colors"
+            >
+              <span className="text-sm font-semibold">
+                {isActive ? 'En ligne' : 'Hors ligne'}
+              </span>
+              <div className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors ${
+                isActive ? 'bg-success' : 'bg-muted'
+              }`}>
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${
+                    isActive ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
+            </button>
+          </Card>
+        </div>
+
         {/* Map */}
         <Card className="p-0 overflow-hidden">
           <div className="h-64">
@@ -123,28 +146,6 @@ const Home = () => {
               markers={mapMarkers}
             />
           </div>
-        </Card>
-
-        {/* Driver Status Toggle Button */}
-        <Card className="p-0 overflow-hidden">
-          <button
-            onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
-            disabled={statusMutation.isPending}
-            className="w-full flex items-center justify-between p-6 hover:bg-accent/5 transition-colors"
-          >
-            <span className="text-2xl font-bold">
-              {isActive ? 'En ligne' : 'Hors ligne'}
-            </span>
-            <div className={`relative inline-flex h-14 w-28 items-center rounded-full transition-colors ${
-              isActive ? 'bg-success' : 'bg-muted'
-            }`}>
-              <span
-                className={`inline-block h-12 w-12 transform rounded-full bg-white shadow-lg transition-transform ${
-                  isActive ? 'translate-x-14' : 'translate-x-1'
-                }`}
-              />
-            </div>
-          </button>
         </Card>
 
         {/* Pending Courses */}

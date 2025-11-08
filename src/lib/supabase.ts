@@ -35,7 +35,6 @@ export type Driver = {
   siret?: string | null;
   notifications_enabled?: boolean;
   notification_sound?: string | null;
-  google_maps_api_key?: string | null;
   rating?: number;
 };
 

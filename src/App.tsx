@@ -23,7 +23,6 @@ import Vehicle from './pages/settings/Vehicle';
 import Documents from './pages/settings/Documents';
 import BankAccount from './pages/settings/BankAccount';
 import NotificationsSettings from './pages/settings/Notifications';
-import GoogleMaps from './pages/settings/GoogleMaps';
 
 const queryClient = new QueryClient();
 
@@ -179,14 +178,6 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <NotificationsSettings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings/google-maps"
-        element={
-          <ProtectedRoute>
-            <GoogleMaps />
           </ProtectedRoute>
         }
       />

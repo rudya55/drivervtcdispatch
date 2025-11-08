@@ -15,7 +15,6 @@ import {
   ChevronRight,
   LogOut,
   CreditCard,
-  Map,
   Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -45,7 +44,6 @@ const Settings = () => {
       title: 'Préférences',
       items: [
         { icon: Bell, label: 'Notifications', path: '/settings/notifications' },
-        { icon: Map, label: 'Google Maps API', path: '/settings/google-maps' },
       ],
     },
     {
