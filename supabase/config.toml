@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.driver-signup]
 verify_jwt = false
+
+[functions.setup-database]
+verify_jwt = false
