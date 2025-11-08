@@ -30,7 +30,24 @@ const Login = () => {
       toast.success('Connexion réussie');
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || 'Erreur de connexion');
+      console.error('Login error:', error);
+      
+      // Display user-friendly error messages
+      let errorMessage = 'Erreur de connexion';
+      
+      if (error.message) {
+        if (error.message.includes("n'est pas un compte chauffeur")) {
+          errorMessage = "Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application admin.";
+        } else if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email ou mot de passe incorrect';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Veuillez confirmer votre email';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
