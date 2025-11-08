@@ -9,6 +9,7 @@ interface GeolocationState {
   accuracy: number | null;
   error: string | null;
   isTracking: boolean;
+  coordinates: { lat: number; lng: number } | null;
 }
 
 export const useGeolocation = (enabled: boolean) => {
@@ -20,6 +21,7 @@ export const useGeolocation = (enabled: boolean) => {
     accuracy: null,
     error: null,
     isTracking: false,
+    coordinates: null,
   });
 
   const watchIdRef = useRef<number | null>(null);
@@ -56,6 +58,10 @@ export const useGeolocation = (enabled: boolean) => {
       setState(prev => ({
         ...prev,
         ...locationData,
+        coordinates: {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        },
         error: null,
         isTracking: true,
       }));

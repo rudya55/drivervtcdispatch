@@ -22,6 +22,7 @@ import Security from './pages/settings/Security';
 import Vehicle from './pages/settings/Vehicle';
 import Documents from './pages/settings/Documents';
 import BankAccount from './pages/settings/BankAccount';
+import NotificationsSettings from './pages/settings/Notifications';
 
 const queryClient = new QueryClient();
 
@@ -169,6 +170,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <BankAccount />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/notifications"
+        element={
+          <ProtectedRoute>
+            <NotificationsSettings />
           </ProtectedRoute>
         }
       />

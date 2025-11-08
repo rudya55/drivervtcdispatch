@@ -28,6 +28,13 @@ export type Driver = {
   license_number?: string | null;
   iban?: string | null;
   bic?: string | null;
+  profile_photo_url?: string | null;
+  company_name?: string | null;
+  company_address?: string | null;
+  company_logo_url?: string | null;
+  siret?: string | null;
+  notifications_enabled?: boolean;
+  notification_sound?: string | null;
 };
 
 export type Course = {

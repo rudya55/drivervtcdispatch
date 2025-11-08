@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -7,10 +7,9 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { supabase, Course } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import GoogleMap from '@/components/GoogleMap';
 import { toast } from 'sonner';
 import { 
   MapPin, 
@@ -18,9 +17,9 @@ import {
   Users, 
   Briefcase, 
   Euro,
-  Navigation,
   CheckCircle,
-  XCircle
+  XCircle,
+  Power
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -33,6 +32,16 @@ const Home = () => {
 
   // Enable geolocation when driver is active
   const locationState = useGeolocation(isActive);
+  
+  // Get center for map
+  const mapCenter = locationState.coordinates || { lat: 48.8566, lng: 2.3522 };
+  const mapMarkers = locationState.coordinates ? [
+    { 
+      lat: locationState.coordinates.lat, 
+      lng: locationState.coordinates.lng,
+      label: 'Vous'
+    }
+  ] : [];
 
   // Fetch courses
   const { data: courses = [], isLoading } = useQuery({
@@ -84,52 +93,53 @@ const Home = () => {
   // Filter pending courses
   const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
 
+  // Load Google Maps script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places`;
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Accueil" unreadCount={unreadCount} />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Driver Status Card */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label htmlFor="status" className="text-base font-semibold">
-                Statut chauffeur
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {isActive ? 'Vous recevez les courses' : 'Vous ne recevez pas de courses'}
-              </p>
-            </div>
-            <Switch
-              id="status"
-              checked={isActive}
-              onCheckedChange={(checked) => {
-                statusMutation.mutate(checked ? 'active' : 'inactive');
-              }}
-              disabled={statusMutation.isPending}
+        {/* Map */}
+        <Card className="p-0 overflow-hidden">
+          <div className="h-64">
+            <GoogleMap
+              center={mapCenter}
+              zoom={13}
+              markers={mapMarkers}
             />
           </div>
-
-          {/* GPS Status */}
-          {isActive && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="flex items-center gap-2 text-sm">
-                <Navigation className={`w-4 h-4 ${locationState.isTracking ? 'text-success' : 'text-muted-foreground'}`} />
-                <span className={locationState.isTracking ? 'text-success' : 'text-muted-foreground'}>
-                  GPS: {locationState.isTracking ? 'Actif' : 'En attente...'}
-                </span>
-                {locationState.accuracy && (
-                  <span className="text-muted-foreground">
-                    (±{Math.round(locationState.accuracy)}m)
-                  </span>
-                )}
-              </div>
-              {locationState.error && (
-                <p className="text-sm text-destructive mt-1">{locationState.error}</p>
-              )}
-            </div>
-          )}
         </Card>
+
+        {/* Driver Status Toggle Button */}
+        <div className="flex justify-center">
+          <Button
+            onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
+            disabled={statusMutation.isPending}
+            className={`h-24 w-24 rounded-full transition-all shadow-lg ${
+              isActive 
+                ? 'bg-success hover:bg-success/90 text-success-foreground' 
+                : 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
+            }`}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <Power className="w-8 h-8" />
+              <span className="text-xs font-semibold">
+                {isActive ? 'En ligne' : 'Hors ligne'}
+              </span>
+            </div>
+          </Button>
+        </div>
 
         {/* Pending Courses */}
         <div className="space-y-3">
