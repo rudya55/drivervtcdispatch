@@ -116,56 +116,37 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Create account in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: {
-            name: signupName,
-            phone: signupPhone
-          },
-          emailRedirectTo: `${window.location.origin}/`
+      // Call driver-signup edge function
+      const { data, error } = await supabase.functions.invoke('driver-signup', {
+        body: {
+          name: signupName,
+          phone: signupPhone,
+          email: signupEmail,
+          password: signupPassword
         }
       });
 
-      if (authError) throw authError;
+      if (error) throw error;
 
-      if (!authData.user) {
-        throw new Error('Erreur lors de la création du compte');
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
-      // Create driver profile
-      const { error: profileError } = await supabase
-        .from('drivers')
-        .insert({
-          user_id: authData.user.id,
-          name: signupName,
-          email: signupEmail,
-          phone: signupPhone,
-          status: 'inactive'
-        });
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        toast.error('Compte créé mais erreur lors de la création du profil');
-      } else {
-        toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
-        // Reset form
-        setSignupName('');
-        setSignupPhone('');
-        setSignupEmail('');
-        setSignupPassword('');
-        setSignupConfirmPassword('');
-      }
+      toast.success(data.message || 'Compte créé avec succès !');
+      
+      // Reset form
+      setSignupName('');
+      setSignupPhone('');
+      setSignupEmail('');
+      setSignupPassword('');
+      setSignupConfirmPassword('');
+      setView('login');
     } catch (error: any) {
       console.error('Signup error:', error);
       
       let errorMessage = 'Erreur lors de la création du compte';
       
-      if (error.message.includes('already registered')) {
-        errorMessage = 'Cet email est déjà utilisé';
-      } else if (error.message) {
+      if (error.message) {
         errorMessage = error.message;
       }
       

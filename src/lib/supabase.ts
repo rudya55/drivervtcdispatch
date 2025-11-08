@@ -61,3 +61,12 @@ export type DriverNotification = {
   created_at: string;
   data: Record<string, any> | null;
 };
+
+export type AppRole = 'driver' | 'fleet_manager';
+
+export type UserRole = {
+  id: string;
+  user_id: string;
+  role: AppRole;
+  created_at: string;
+};

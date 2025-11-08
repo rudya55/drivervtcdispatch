@@ -1,0 +1,7 @@
+project_id = "qroqygbculbfqkbinqmp"
+
+[functions.driver-login]
+verify_jwt = false
+
+[functions.driver-signup]
+verify_jwt = false
