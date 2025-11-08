@@ -24,7 +24,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const Home = () => {
-  const { driver } = useAuth();
+  const { driver, session } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
@@ -57,8 +57,10 @@ const Home = () => {
   // Update driver status
   const statusMutation = useMutation({
     mutationFn: async (status: 'active' | 'inactive') => {
+      const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
       const { error } = await supabase.functions.invoke('driver-update-status', {
-        body: { status }
+        body: { status },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (error) throw error;
     },
