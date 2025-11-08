@@ -55,17 +55,8 @@ Deno.serve(async (req) => {
         throw new Error('Vous avez déjà un compte chauffeur. Veuillez vous connecter.');
       }
 
-      // Check if user has driver role
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'driver')
-        .maybeSingle();
+      // No role table required; driver profile presence is enough to treat as driver
 
-      if (existingRole) {
-        throw new Error('Vous avez déjà le rôle chauffeur.');
-      }
 
       // Create driver profile
       const { error: profileError } = await supabase
@@ -83,20 +74,7 @@ Deno.serve(async (req) => {
         throw new Error('Erreur lors de la création du profil chauffeur');
       }
 
-      // Add driver role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userId,
-          role: 'driver'
-        });
-
-      if (roleError) {
-        console.error('Role creation error:', roleError);
-        throw new Error('Erreur lors de l\'ajout du rôle chauffeur');
-      }
-
-      console.log('Driver role and profile added to existing user');
+      console.log('Driver profile added to existing user');
 
       return new Response(
         JSON.stringify({
@@ -151,20 +129,7 @@ Deno.serve(async (req) => {
         throw new Error('Erreur lors de la création du profil');
       }
 
-      // Add driver role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userId,
-          role: 'driver'
-        });
-
-      if (roleError) {
-        console.error('Role creation error:', roleError);
-        throw new Error('Erreur lors de l\'ajout du rôle');
-      }
-
-      console.log('Driver profile and role created');
+      console.log('Driver profile created');
 
       return new Response(
         JSON.stringify({

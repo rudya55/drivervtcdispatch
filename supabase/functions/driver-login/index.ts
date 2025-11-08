@@ -41,25 +41,9 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', authData.user.id);
 
-    // Check if user has driver role
-    const { data: roleData, error: roleError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', authData.user.id)
-      .eq('role', 'driver')
-      .maybeSingle();
+    // Get driver profile (serves as driver verification)
+    // If a driver profile exists for this user, they are considered a driver
 
-    if (roleError) {
-      console.error('Role check error:', roleError);
-      throw new Error('Erreur lors de la vérification du rôle');
-    }
-
-    if (!roleData) {
-      console.error('User does not have driver role:', authData.user.id);
-      throw new Error("Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application admin.");
-    }
-
-    console.log('User has driver role');
 
     // Get driver profile
     const { data: driver, error: driverError } = await supabase
