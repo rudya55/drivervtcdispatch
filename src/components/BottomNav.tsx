@@ -1,4 +1,4 @@
-import { Home, Calendar, Settings, Car } from 'lucide-react';
+import { Home, Calendar, Settings, Car, Wallet } from 'lucide-react';
 import { NavLink } from './NavLink';
 
 export const BottomNav = () => {
@@ -21,7 +21,16 @@ export const BottomNav = () => {
           activeClassName="text-primary"
         >
           <Car className="w-5 h-5" />
-          <span className="text-xs font-medium">Réservations</span>
+          <span className="text-xs font-medium">Courses</span>
+        </NavLink>
+
+        <NavLink
+          to="/accounting"
+          className="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors text-muted-foreground"
+          activeClassName="text-primary"
+        >
+          <Wallet className="w-5 h-5" />
+          <span className="text-xs font-medium">Compta</span>
         </NavLink>
 
         <NavLink
@@ -39,7 +48,7 @@ export const BottomNav = () => {
           activeClassName="text-primary"
         >
           <Settings className="w-5 h-5" />
-          <span className="text-xs font-medium">Paramètres</span>
+          <span className="text-xs font-medium">Plus</span>
         </NavLink>
       </div>
     </nav>

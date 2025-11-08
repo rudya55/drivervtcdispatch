@@ -13,6 +13,8 @@ import Bookings from "./pages/Bookings";
 import Planning from "./pages/Planning";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
+import Accounting from "./pages/Accounting";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +107,22 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <Notifications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accounting"
+        element={
+          <ProtectedRoute>
+            <Accounting />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Analytics />
           </ProtectedRoute>
         }
       />

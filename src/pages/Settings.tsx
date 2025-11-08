@@ -45,7 +45,7 @@ const Settings = () => {
     {
       title: 'Professionnel',
       items: [
-        { icon: BarChart3, label: 'Analyses', path: '/settings/analytics' },
+        { icon: BarChart3, label: 'Analyses', path: '/analytics' },
         { icon: Car, label: 'Véhicule', path: '/settings/vehicle' },
         { icon: FileText, label: 'Documents', path: '/settings/documents' },
       ],
