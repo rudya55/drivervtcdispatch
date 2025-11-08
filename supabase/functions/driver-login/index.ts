@@ -72,15 +72,21 @@ Deno.serve(async (req) => {
           status: 'inactive'
         })
         .select('*')
-        .maybeSingle();
+        .single();
 
       if (createError) {
         console.error('Driver create error:', createError);
-        throw new Error('Impossible de créer le profil chauffeur');
+        throw new Error(`Impossible de créer le profil chauffeur: ${createError.message}`);
       }
 
-      driver = created!;
-      console.log('Driver profile created:', driver.id);
+      if (!created) {
+        throw new Error('Profil chauffeur non créé');
+      }
+
+      driver = created;
+      console.log('Driver profile created successfully:', driver.id);
+    } else {
+      console.log('Driver profile found:', driver.id);
     }
 
     return new Response(
