@@ -14,13 +14,26 @@ export const useAuth = () => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          // Fetch driver profile
+          // Fetch or create driver profile (deferred to avoid deadlocks)
           setTimeout(async () => {
-            const { data } = await supabase
+            const user = currentSession.user;
+            let { data, error } = await supabase
               .from('drivers')
               .select('*')
-              .eq('user_id', currentSession.user.id)
-              .single();
+              .eq('user_id', user.id)
+              .maybeSingle();
+            
+            if (!data) {
+              const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
+              const email = user.email as string | null;
+              const phone = (user.user_metadata?.phone as string) || null;
+              const { data: created, error: createError } = await supabase
+                .from('drivers')
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
+                .select('*')
+                .maybeSingle();
+              if (!createError && created) data = created;
+            }
             
             if (data) {
               setDriver(data);
@@ -39,15 +52,25 @@ export const useAuth = () => {
       setSession(currentSession);
       
       if (currentSession?.user) {
+        const user = currentSession.user;
         supabase
           .from('drivers')
           .select('*')
-          .eq('user_id', currentSession.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) {
-              setDriver(data);
+          .eq('user_id', user.id)
+          .maybeSingle()
+          .then(async ({ data }) => {
+            if (!data) {
+              const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
+              const email = user.email as string | null;
+              const phone = (user.user_metadata?.phone as string) || null;
+              const { data: created } = await supabase
+                .from('drivers')
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
+                .select('*')
+                .maybeSingle();
+              if (created) data = created;
             }
+            if (data) setDriver(data);
             setLoading(false);
           });
       } else {
