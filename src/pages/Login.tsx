@@ -116,24 +116,26 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Call driver-signup edge function
-      const { data, error } = await supabase.functions.invoke('driver-signup', {
-        body: {
-          name: signupName,
-          phone: signupPhone,
-          email: signupEmail,
-          password: signupPassword
+      const { data, error } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: {
+          data: { name: signupName, phone: signupPhone },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
-      if (error) throw error;
-
-      if (data?.error) {
-        throw new Error(data.error);
+      if (error) {
+        if (error.message?.toLowerCase().includes('already') || error.message?.includes('user_already_exists')) {
+          toast.info("Cet email a déjà un compte. Connectez-vous ou réinitialisez votre mot de passe.");
+          setView('login');
+          return;
+        }
+        throw error;
       }
 
-      toast.success(data.message || 'Compte créé avec succès !');
-      
+      toast.success("Compte créé ! Vérifiez votre email pour confirmer, puis connectez-vous.");
+
       // Reset form
       setSignupName('');
       setSignupPhone('');
@@ -143,14 +145,7 @@ const Login = () => {
       setView('login');
     } catch (error: any) {
       console.error('Signup error:', error);
-      
-      let errorMessage = 'Erreur lors de la création du compte';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast.error(errorMessage);
+      toast.error(error.message || 'Erreur lors de la création du compte');
     } finally {
       setLoading(false);
     }

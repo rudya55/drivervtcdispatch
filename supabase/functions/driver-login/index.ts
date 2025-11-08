@@ -45,8 +45,8 @@ Deno.serve(async (req) => {
     // If a driver profile exists for this user, they are considered a driver
 
 
-    // Get driver profile
-    const { data: driver, error: driverError } = await supabase
+    // Get or create driver profile
+    let { data: driver, error: driverError } = await supabase
       .from('drivers')
       .select('*')
       .eq('user_id', authData.user.id)
@@ -58,11 +58,30 @@ Deno.serve(async (req) => {
     }
 
     if (!driver) {
-      console.error('No driver profile found for user:', authData.user.id);
-      throw new Error('Profil chauffeur introuvable');
-    }
+      console.log('No driver profile found, creating one...');
+      const nameFromMeta = (authData.user.user_metadata?.name as string) || authData.user.email?.split('@')[0] || 'Chauffeur';
+      const emailFromUser = authData.user.email as string | null;
 
-    console.log('Driver profile found:', driver.id);
+      const { data: created, error: createError } = await supabase
+        .from('drivers')
+        .insert({
+          user_id: authData.user.id,
+          name: nameFromMeta,
+          email: emailFromUser,
+          phone: authData.user.user_metadata?.phone ?? null,
+          status: 'inactive'
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (createError) {
+        console.error('Driver create error:', createError);
+        throw new Error('Impossible de créer le profil chauffeur');
+      }
+
+      driver = created!;
+      console.log('Driver profile created:', driver.id);
+    }
 
     return new Response(
       JSON.stringify({
