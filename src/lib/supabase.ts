@@ -21,6 +21,13 @@ export type Driver = {
   status: 'active' | 'inactive';
   fcm_token: string | null;
   created_at: string;
+  vehicle_brand?: string | null;
+  vehicle_model?: string | null;
+  vehicle_year?: string | null;
+  vehicle_plate?: string | null;
+  license_number?: string | null;
+  iban?: string | null;
+  bic?: string | null;
 };
 
 export type Course = {

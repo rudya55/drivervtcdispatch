@@ -17,6 +17,12 @@ import Accounting from "./pages/Accounting";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
+import Profile from './pages/settings/Profile';
+import Security from './pages/settings/Security';
+import Vehicle from './pages/settings/Vehicle';
+import Documents from './pages/settings/Documents';
+import BankAccount from './pages/settings/BankAccount';
+
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -123,6 +129,46 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/security"
+        element={
+          <ProtectedRoute>
+            <Security />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/vehicle"
+        element={
+          <ProtectedRoute>
+            <Vehicle />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/documents"
+        element={
+          <ProtectedRoute>
+            <Documents />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/bank"
+        element={
+          <ProtectedRoute>
+            <BankAccount />
           </ProtectedRoute>
         }
       />

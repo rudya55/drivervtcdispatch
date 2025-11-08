@@ -12,7 +12,8 @@ import {
   FileText, 
   User,
   ChevronRight,
-  LogOut
+  LogOut,
+  CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -34,6 +35,7 @@ const Settings = () => {
       items: [
         { icon: User, label: 'Profil', path: '/settings/profile' },
         { icon: Shield, label: 'Sécurité', path: '/settings/security' },
+        { icon: CreditCard, label: 'Coordonnées bancaires', path: '/settings/bank' },
       ],
     },
     {
