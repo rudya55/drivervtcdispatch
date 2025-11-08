@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Car, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -32,7 +31,11 @@ const resetSchema = z.object({
   email: z.string().trim().email({ message: "Email invalide" })
 });
 
+type ViewType = 'login' | 'signup' | 'reset';
+
 const Login = () => {
+  const [view, setView] = useState<ViewType>('login');
+  
   // Login state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -203,6 +206,14 @@ const Login = () => {
     }
   };
 
+  const getTitle = () => {
+    switch (view) {
+      case 'signup': return 'Créer un compte';
+      case 'reset': return 'Réinitialiser le mot de passe';
+      default: return 'Connexion';
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-6 space-y-6">
@@ -216,156 +227,199 @@ const Login = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="login">Connexion</TabsTrigger>
-            <TabsTrigger value="signup">Inscription</TabsTrigger>
-            <TabsTrigger value="reset">Mot de passe</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-center">{getTitle()}</h2>
 
-          {/* Login Tab */}
-          <TabsContent value="login" className="space-y-4">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="login-email">Email</Label>
-                <Input
-                  id="login-email"
-                  type="email"
-                  placeholder="votre@email.com"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  disabled={loading}
-                  autoComplete="email"
-                />
+          {/* Login View */}
+          {view === 'login' && (
+            <div className="space-y-4 animate-fade-in">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="votre@email.com"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    disabled={loading}
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Mot de passe</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Se connecter
+                </Button>
+              </form>
+
+              <div className="space-y-2 text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => setView('reset')}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Mot de passe oublié ?
+                </button>
+                <div className="text-muted-foreground">
+                  Pas encore de compte ?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setView('signup')}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    S'inscrire
+                  </button>
+                </div>
               </div>
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <Label htmlFor="login-password">Mot de passe</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
+          {/* Signup View */}
+          {view === 'signup' && (
+            <div className="space-y-4 animate-fade-in">
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Nom complet *</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Jean Dupont"
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                    disabled={loading}
+                    maxLength={100}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone">Téléphone *</Label>
+                  <Input
+                    id="signup-phone"
+                    type="tel"
+                    placeholder="+33612345678"
+                    value={signupPhone}
+                    onChange={(e) => setSignupPhone(e.target.value)}
+                    disabled={loading}
+                    maxLength={20}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email *</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="votre@email.com"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    disabled={loading}
+                    autoComplete="email"
+                    maxLength={255}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Mot de passe *</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="new-password"
+                    maxLength={100}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Au moins 8 caractères
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-confirm">Confirmer le mot de passe *</Label>
+                  <Input
+                    id="signup-confirm"
+                    type="password"
+                    placeholder="••••••••"
+                    value={signupConfirmPassword}
+                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="new-password"
+                    maxLength={100}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Créer mon compte
+                </Button>
+              </form>
+
+              <div className="text-center text-sm text-muted-foreground">
+                Déjà un compte ?{' '}
+                <button
+                  type="button"
+                  onClick={() => setView('login')}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Se connecter
+                </button>
               </div>
+            </div>
+          )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Se connecter
-              </Button>
-            </form>
-          </TabsContent>
+          {/* Reset Password View */}
+          {view === 'reset' && (
+            <div className="space-y-4 animate-fade-in">
+              <p className="text-sm text-muted-foreground text-center">
+                Entrez votre email pour recevoir un lien de réinitialisation de mot de passe.
+              </p>
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="votre@email.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    disabled={loading}
+                    autoComplete="email"
+                  />
+                </div>
 
-          {/* Signup Tab */}
-          <TabsContent value="signup" className="space-y-4">
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="signup-name">Nom complet *</Label>
-                <Input
-                  id="signup-name"
-                  type="text"
-                  placeholder="Jean Dupont"
-                  value={signupName}
-                  onChange={(e) => setSignupName(e.target.value)}
-                  disabled={loading}
-                  maxLength={100}
-                />
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Envoyer le lien
+                </Button>
+              </form>
+
+              <div className="text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => setView('login')}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Retour à la connexion
+                </button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-phone">Téléphone *</Label>
-                <Input
-                  id="signup-phone"
-                  type="tel"
-                  placeholder="+33612345678"
-                  value={signupPhone}
-                  onChange={(e) => setSignupPhone(e.target.value)}
-                  disabled={loading}
-                  maxLength={20}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-email">Email *</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="votre@email.com"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
-                  disabled={loading}
-                  autoComplete="email"
-                  maxLength={255}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-password">Mot de passe *</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="new-password"
-                  maxLength={100}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Au moins 8 caractères
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-confirm">Confirmer le mot de passe *</Label>
-                <Input
-                  id="signup-confirm"
-                  type="password"
-                  placeholder="••••••••"
-                  value={signupConfirmPassword}
-                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="new-password"
-                  maxLength={100}
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Créer mon compte
-              </Button>
-            </form>
-          </TabsContent>
-
-          {/* Reset Password Tab */}
-          <TabsContent value="reset" className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Entrez votre email pour recevoir un lien de réinitialisation de mot de passe.
-            </p>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
-                <Input
-                  id="reset-email"
-                  type="email"
-                  placeholder="votre@email.com"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  disabled={loading}
-                  autoComplete="email"
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Envoyer le lien
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   );
