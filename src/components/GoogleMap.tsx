@@ -18,47 +18,63 @@ const GoogleMap = ({
   const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
-    if (!mapRef.current || !(window as any).google) return;
+    if (!mapRef.current) return;
+    
+    // Check if Google Maps is loaded
+    if (!(window as any).google) {
+      // Display placeholder
+      return;
+    }
 
     const google = (window as any).google;
 
-    if (!mapInstanceRef.current) {
-      mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-        center,
-        zoom,
-        styles: [
-          {
-            featureType: 'poi',
-            elementType: 'labels',
-            stylers: [{ visibility: 'off' }],
-          },
-        ],
+    try {
+      if (!mapInstanceRef.current) {
+        mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+          center,
+          zoom,
+          styles: [
+            {
+              featureType: 'poi',
+              elementType: 'labels',
+              stylers: [{ visibility: 'off' }],
+            },
+          ],
+        });
+      }
+
+      markersRef.current.forEach(marker => marker.setMap(null));
+      markersRef.current = [];
+
+      markers.forEach(({ lat, lng, label }) => {
+        const marker = new google.maps.Marker({
+          position: { lat, lng },
+          map: mapInstanceRef.current,
+          label: label ? {
+            text: label,
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: 'bold',
+          } : undefined,
+        });
+        markersRef.current.push(marker);
       });
-    }
 
-    markersRef.current.forEach(marker => marker.setMap(null));
-    markersRef.current = [];
-
-    markers.forEach(({ lat, lng, label }) => {
-      const marker = new google.maps.Marker({
-        position: { lat, lng },
-        map: mapInstanceRef.current,
-        label: label ? {
-          text: label,
-          color: 'white',
-          fontSize: '14px',
-          fontWeight: 'bold',
-        } : undefined,
-      });
-      markersRef.current.push(marker);
-    });
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setCenter(center);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setCenter(center);
+      }
+    } catch (error) {
+      console.error('Google Maps error:', error);
     }
   }, [center, zoom, markers]);
 
-  return <div ref={mapRef} className={`w-full h-full rounded-lg ${className}`} />;
+  return (
+    <div ref={mapRef} className={`w-full h-full rounded-lg bg-muted flex items-center justify-center ${className}`}>
+      {!(window as any).google && (
+        <p className="text-muted-foreground text-sm">Chargement de la carte...</p>
+      )}
+    </div>
+  );
 };
 
 export default GoogleMap;

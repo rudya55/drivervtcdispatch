@@ -18,8 +18,7 @@ import {
   Briefcase, 
   Euro,
   CheckCircle,
-  XCircle,
-  Power
+  XCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -95,15 +94,20 @@ const Home = () => {
 
   // Load Google Maps script
   useEffect(() => {
+    const apiKey = driver?.google_maps_api_key;
+    if (!apiKey) return;
+
+    // Check if script already exists
+    if ((window as any).google) return;
+
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) return;
+
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     document.head.appendChild(script);
-
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
+  }, [driver?.google_maps_api_key]);
 
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
@@ -122,24 +126,26 @@ const Home = () => {
         </Card>
 
         {/* Driver Status Toggle Button */}
-        <div className="flex justify-center">
-          <Button
+        <Card className="p-0 overflow-hidden">
+          <button
             onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
             disabled={statusMutation.isPending}
-            className={`h-24 w-24 rounded-full transition-all shadow-lg ${
-              isActive 
-                ? 'bg-success hover:bg-success/90 text-success-foreground' 
-                : 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
-            }`}
+            className="w-full flex items-center justify-between p-6 hover:bg-accent/5 transition-colors"
           >
-            <div className="flex flex-col items-center gap-1">
-              <Power className="w-8 h-8" />
-              <span className="text-xs font-semibold">
-                {isActive ? 'En ligne' : 'Hors ligne'}
-              </span>
+            <span className="text-2xl font-bold">
+              {isActive ? 'En ligne' : 'Hors ligne'}
+            </span>
+            <div className={`relative inline-flex h-14 w-28 items-center rounded-full transition-colors ${
+              isActive ? 'bg-success' : 'bg-muted'
+            }`}>
+              <span
+                className={`inline-block h-12 w-12 transform rounded-full bg-white shadow-lg transition-transform ${
+                  isActive ? 'translate-x-14' : 'translate-x-1'
+                }`}
+              />
             </div>
-          </Button>
-        </div>
+          </button>
+        </Card>
 
         {/* Pending Courses */}
         <div className="space-y-3">
