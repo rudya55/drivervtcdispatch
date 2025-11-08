@@ -18,53 +18,99 @@ Deno.serve(async (req) => {
 
     console.log('Starting database setup...');
 
-    // Check if app_role enum already exists
-    const { data: enumCheck } = await supabase
-      .from('pg_type')
-      .select('typname')
-      .eq('typname', 'app_role')
-      .maybeSingle();
+    // Add missing columns to drivers table
+    console.log('Adding missing columns to drivers table...');
+    const { error: alterError } = await supabase.rpc('exec_sql', {
+      sql: `
+        ALTER TABLE drivers 
+          ADD COLUMN IF NOT EXISTS vehicle_brand TEXT,
+          ADD COLUMN IF NOT EXISTS vehicle_model TEXT,
+          ADD COLUMN IF NOT EXISTS vehicle_year TEXT,
+          ADD COLUMN IF NOT EXISTS vehicle_plate TEXT,
+          ADD COLUMN IF NOT EXISTS license_number TEXT,
+          ADD COLUMN IF NOT EXISTS iban TEXT,
+          ADD COLUMN IF NOT EXISTS bic TEXT,
+          ADD COLUMN IF NOT EXISTS profile_photo_url TEXT,
+          ADD COLUMN IF NOT EXISTS company_name TEXT,
+          ADD COLUMN IF NOT EXISTS company_address TEXT,
+          ADD COLUMN IF NOT EXISTS company_logo_url TEXT,
+          ADD COLUMN IF NOT EXISTS siret TEXT,
+          ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN DEFAULT true,
+          ADD COLUMN IF NOT EXISTS notification_sound TEXT,
+          ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 0 CHECK (rating >= 0 AND rating <= 5);
+        
+        ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_type_check;
+        ALTER TABLE drivers DROP COLUMN IF EXISTS type;
+      `
+    });
 
-    if (!enumCheck) {
-      console.log('Creating app_role enum...');
-      // Create enum for user roles
-      const { error: enumError } = await supabase.rpc('exec_sql', {
-        sql: `create type public.app_role as enum ('driver', 'fleet_manager');`
-      });
-      
-      if (enumError && !enumError.message.includes('already exists')) {
-        console.error('Error creating enum:', enumError);
-        throw enumError;
-      }
+    if (alterError && !alterError.message.includes('already exists')) {
+      console.error('Error altering drivers table:', alterError);
     }
 
-    // Check if user_roles table exists
-    const { data: tableCheck } = await supabase
-      .from('user_roles')
-      .select('id')
-      .limit(1)
+    // Create storage bucket for driver documents
+    console.log('Creating storage bucket...');
+    const { error: bucketError } = await supabase
+      .from('storage.buckets')
+      .insert({ id: 'driver-documents', name: 'driver-documents', public: true })
+      .select()
       .maybeSingle();
 
-    if (!tableCheck && tableCheck !== null) {
-      console.log('Creating user_roles table...');
-      const { error: tableError } = await supabase.rpc('exec_sql', {
-        sql: `
-          create table public.user_roles (
-            id uuid primary key default gen_random_uuid(),
-            user_id uuid references auth.users(id) on delete cascade not null,
-            role text not null,
-            created_at timestamptz default now() not null,
-            unique (user_id, role)
-          );
-          
-          alter table public.user_roles enable row level security;
-        `
-      });
+    if (bucketError && !bucketError.message.includes('already exists') && !bucketError.message.includes('duplicate')) {
+      console.log('Bucket might already exist or error:', bucketError);
+    }
 
-      if (tableError && !tableError.message.includes('already exists')) {
-        console.error('Error creating table:', tableError);
-        throw tableError;
-      }
+    // Create RLS policies for storage
+    console.log('Creating storage policies...');
+    const { error: policyError } = await supabase.rpc('exec_sql', {
+      sql: `
+        DROP POLICY IF EXISTS "Drivers can upload their own documents" ON storage.objects;
+        DROP POLICY IF EXISTS "Drivers can view their own documents" ON storage.objects;
+        DROP POLICY IF EXISTS "Drivers can update their own documents" ON storage.objects;
+        DROP POLICY IF EXISTS "Drivers can delete their own documents" ON storage.objects;
+        DROP POLICY IF EXISTS "Public can view documents in public bucket" ON storage.objects;
+
+        CREATE POLICY "Drivers can upload their own documents"
+        ON storage.objects FOR INSERT
+        TO authenticated
+        WITH CHECK (
+          bucket_id = 'driver-documents' AND
+          (storage.foldername(name))[1] = auth.uid()::text
+        );
+
+        CREATE POLICY "Drivers can view their own documents"
+        ON storage.objects FOR SELECT
+        TO authenticated
+        USING (
+          bucket_id = 'driver-documents' AND
+          (storage.foldername(name))[1] = auth.uid()::text
+        );
+
+        CREATE POLICY "Drivers can update their own documents"
+        ON storage.objects FOR UPDATE
+        TO authenticated
+        USING (
+          bucket_id = 'driver-documents' AND
+          (storage.foldername(name))[1] = auth.uid()::text
+        );
+
+        CREATE POLICY "Drivers can delete their own documents"
+        ON storage.objects FOR DELETE
+        TO authenticated
+        USING (
+          bucket_id = 'driver-documents' AND
+          (storage.foldername(name))[1] = auth.uid()::text
+        );
+
+        CREATE POLICY "Public can view documents in public bucket"
+        ON storage.objects FOR SELECT
+        TO public
+        USING (bucket_id = 'driver-documents');
+      `
+    });
+
+    if (policyError && !policyError.message.includes('already exists')) {
+      console.log('Storage policies info:', policyError);
     }
 
     console.log('Database setup completed successfully');
