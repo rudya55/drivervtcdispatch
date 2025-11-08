@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -29,7 +28,19 @@ Deno.serve(async (req) => {
       throw new Error('Tous les champs sont requis');
     }
 
-    // Check if user already exists
+    // Check if driver profile already exists
+    const { data: existingDriver } = await supabase
+      .from('drivers')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingDriver) {
+      console.log('Driver profile already exists for email:', email);
+      throw new Error('Un compte chauffeur existe déjà avec cet email. Veuillez vous connecter.');
+    }
+
+    // Check if user already exists in Auth
     const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers();
     
     if (listError) {
@@ -41,24 +52,11 @@ Deno.serve(async (req) => {
     let userId: string;
 
     if (existingUser) {
-      // User exists, check if they already have a driver profile
-      console.log('User already exists:', existingUser.id);
+      // User exists (from fleet app), just create driver profile
+      console.log('User already exists in Auth (fleet user):', existingUser.id);
       userId = existingUser.id;
-
-      const { data: existingDriver } = await supabase
-        .from('drivers')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (existingDriver) {
-        throw new Error('Vous avez déjà un compte chauffeur. Veuillez vous connecter.');
-      }
-
-      // No role table required; driver profile presence is enough to treat as driver
-
-
-      // Create driver profile
+      
+      // Create driver profile linked to existing auth user
       const { error: profileError } = await supabase
         .from('drivers')
         .insert({
@@ -74,13 +72,12 @@ Deno.serve(async (req) => {
         throw new Error('Erreur lors de la création du profil chauffeur');
       }
 
-      console.log('Driver profile added to existing user');
+      console.log('Driver profile created for existing user');
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Compte chauffeur créé ! Connectez-vous avec vos identifiants existants.',
-          existing_user: true
+          message: 'Compte chauffeur créé ! Utilisez votre mot de passe existant pour vous connecter.',
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -88,8 +85,8 @@ Deno.serve(async (req) => {
         }
       );
     } else {
-      // Create new user
-      console.log('Creating new user');
+      // Create new user in Auth
+      console.log('Creating new user in Auth');
 
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
@@ -135,7 +132,6 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: true,
           message: 'Compte créé avec succès ! Connectez-vous pour continuer.',
-          existing_user: false
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
