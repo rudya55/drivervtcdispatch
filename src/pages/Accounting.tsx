@@ -21,7 +21,7 @@ const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3
 const Accounting = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>('month');
   const [courses, setCourses] = useState<Course[]>([]);
   const [downloading, setDownloading] = useState(false);
@@ -29,6 +29,8 @@ const Accounting = () => {
   useEffect(() => {
     if (driver) {
       fetchCourses();
+    } else {
+      setLoading(false);
     }
   }, [driver, period]);
 

@@ -18,12 +18,14 @@ const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3
 const Analytics = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
 
   useEffect(() => {
     if (driver) {
       fetchAnalytics();
+    } else {
+      setLoading(false);
     }
   }, [driver]);
 

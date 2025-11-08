@@ -16,7 +16,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 const Bookings = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [newCourses, setNewCourses] = useState<Course[]>([]);
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);
   const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
@@ -25,6 +25,8 @@ const Bookings = () => {
   useEffect(() => {
     if (driver) {
       fetchCourses();
+    } else {
+      setLoading(false);
     }
   }, [driver]);
 
