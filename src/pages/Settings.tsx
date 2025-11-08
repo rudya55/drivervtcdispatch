@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Shield, 
   Bell, 
@@ -13,7 +14,9 @@ import {
   User,
   ChevronRight,
   LogOut,
-  CreditCard
+  CreditCard,
+  Map,
+  Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -42,6 +45,7 @@ const Settings = () => {
       title: 'Préférences',
       items: [
         { icon: Bell, label: 'Notifications', path: '/settings/notifications' },
+        { icon: Map, label: 'Google Maps API', path: '/settings/google-maps' },
       ],
     },
     {
@@ -54,6 +58,23 @@ const Settings = () => {
     },
   ];
 
+  const renderStars = (rating: number = 0) => {
+    return (
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-muted-foreground/30'
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Paramètres" unreadCount={unreadCount} />
@@ -62,12 +83,18 @@ const Settings = () => {
         {/* Driver Info */}
         <Card className="p-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-              <User className="w-8 h-8 text-primary-foreground" />
-            </div>
+            <Avatar className="w-16 h-16">
+              {driver?.profile_photo_url ? (
+                <AvatarImage src={driver.profile_photo_url} alt={driver.name} />
+              ) : null}
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                <User className="w-8 h-8" />
+              </AvatarFallback>
+            </Avatar>
             <div className="flex-1">
               <h3 className="font-semibold">{driver?.name}</h3>
               <p className="text-sm text-muted-foreground">{driver?.email}</p>
+              {renderStars(driver?.rating || 0)}
             </div>
           </div>
         </Card>
