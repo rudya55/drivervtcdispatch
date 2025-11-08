@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
     // Get authorization header
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      throw new Error('Non autorisé');
+      console.error('No authorization header');
+      throw new Error('Non autorisé - en-tête manquant');
     }
 
     // Verify JWT and get user
@@ -35,10 +36,50 @@ Deno.serve(async (req) => {
 
     if (authError || !user) {
       console.error('Auth error:', authError);
-      throw new Error('Non autorisé');
+      throw new Error('Non autorisé - authentification échouée');
     }
 
     console.log('User authenticated:', user.id);
+
+    // Check if driver profile exists
+    const { data: existingDriver, error: selectError } = await supabase
+      .from('drivers')
+      .select('id, status')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (selectError) {
+      console.error('Select error:', selectError);
+      throw new Error(`Erreur de lecture: ${selectError.message}`);
+    }
+
+    if (!existingDriver) {
+      console.error('No driver profile found for user:', user.id);
+      // Create driver profile if it doesn't exist
+      const { error: insertError } = await supabase
+        .from('drivers')
+        .insert({
+          user_id: user.id,
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
+          email: user.email,
+          phone: user.user_metadata?.phone || null,
+          status: status,
+        });
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw new Error(`Erreur création profil: ${insertError.message}`);
+      }
+
+      console.log('Driver profile created with status:', status);
+      return new Response(
+        JSON.stringify({ success: true, status, created: true }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
 
     // Update driver status
     const { error: updateError } = await supabase
@@ -48,10 +89,10 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error('Update error:', updateError);
-      throw new Error('Erreur lors de la mise à jour du statut');
+      throw new Error(`Erreur mise à jour: ${updateError.message}`);
     }
 
-    console.log('Driver status updated successfully');
+    console.log('Driver status updated successfully to:', status);
 
     return new Response(
       JSON.stringify({ success: true, status }),
@@ -62,8 +103,10 @@ Deno.serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Update status error:', error);
+    const errorMessage = error?.message || error?.toString() || 'Erreur inconnue';
+    console.error('Error message:', errorMessage);
     return new Response(
-      JSON.stringify({ error: error.message || 'Erreur inconnue' }),
+      JSON.stringify({ error: errorMessage }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
