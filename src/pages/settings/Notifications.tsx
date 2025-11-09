@@ -130,7 +130,7 @@ const Notifications = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        playSound(sound.url);
+                        playSound();
                       }}
                     >
                       <Volume2 className="w-4 h-4" />

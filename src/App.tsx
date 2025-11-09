@@ -7,8 +7,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
-import SetupDatabase from "./pages/SetupDatabase";
-import InitDemo from "./pages/InitDemo";
 import Home from "./pages/Home";
 import Bookings from "./pages/Bookings";
 import Planning from "./pages/Planning";
@@ -66,18 +64,6 @@ const AppContent = () => {
 
   return (
     <Routes>
-      <Route 
-        path="/setup-database" 
-        element={<SetupDatabase />} 
-      />
-      <Route 
-        path="/init-demo" 
-        element={
-          <ProtectedRoute>
-            <InitDemo />
-          </ProtectedRoute>
-        } 
-      />
       <Route 
         path="/login" 
         element={session ? <Navigate to="/" replace /> : <Login />} 

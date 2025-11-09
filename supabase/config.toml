@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.setup-driver-tracking]
 verify_jwt = false
 
+[functions.fix-drivers-table]
+verify_jwt = false
+
 [functions.driver-update-status]
 verify_jwt = true
 

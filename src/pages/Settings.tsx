@@ -17,42 +17,20 @@ import {
   LogOut,
   CreditCard,
   Star,
-  MapPin
+  Database
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useState } from 'react';
 
 const Settings = () => {
   const { driver, logout } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
-  const [isSettingUpTracking, setIsSettingUpTracking] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     toast.success('Déconnexion réussie');
     navigate('/login');
-  };
-
-  const setupTracking = async () => {
-    setIsSettingUpTracking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('setup-driver-tracking');
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        toast.success(data.message);
-      } else {
-        toast.error(data?.message || 'Configuration nécessaire');
-      }
-    } catch (error: any) {
-      console.error('Setup tracking error:', error);
-      toast.error('Erreur lors de la configuration');
-    } finally {
-      setIsSettingUpTracking(false);
-    }
   };
 
   const settingsGroups = [
@@ -143,15 +121,23 @@ const Settings = () => {
           </div>
         ))}
 
-        {/* Logout */}
+        {/* Fix Database & Logout */}
         <Button
           variant="outline"
           className="w-full mb-2"
-          onClick={setupTracking}
-          disabled={isSettingUpTracking}
+          onClick={async () => {
+            try {
+              const { error } = await supabase.functions.invoke('fix-drivers-table');
+              if (error) throw error;
+              toast.success('Table vérifiée avec succès');
+            } catch (error: any) {
+              console.error('Fix table error:', error);
+              toast.error('Vérifiez manuellement dans Cloud → Database');
+            }
+          }}
         >
-          <MapPin className="w-4 h-4 mr-2" />
-          {isSettingUpTracking ? 'Configuration...' : 'Activer le tracking GPS'}
+          <Database className="w-4 h-4 mr-2" />
+          Corriger la base de données
         </Button>
 
         <Button
