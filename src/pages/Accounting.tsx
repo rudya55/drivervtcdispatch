@@ -158,7 +158,7 @@ const Accounting = () => {
 
       return {
         date: period === 'day' ? `${format(date, 'HH')}h` :
-              period === 'week' ? format(date, 'EEE', { locale: fr }) :
+              period === 'week' ? format(date, 'EEEE', { locale: fr }) :
               period === 'month' ? `S${format(date, 'w')}` :
               format(date, 'MMM', { locale: fr }),
         revenue,
