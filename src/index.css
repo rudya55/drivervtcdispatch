@@ -9,22 +9,22 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 221 83% 25%;
+    --foreground: 221 83% 53%;
 
     --card: 0 0% 100%;
-    --card-foreground: 221 83% 25%;
+    --card-foreground: 221 83% 53%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 221 83% 25%;
+    --popover-foreground: 221 83% 53%;
 
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
-    --secondary-foreground: 221 83% 25%;
+    --secondary-foreground: 221 83% 53%;
 
     --muted: 210 40% 96%;
-    --muted-foreground: 221 50% 40%;
+    --muted-foreground: 221 70% 45%;
 
     --accent: 142 76% 36%;
     --accent-foreground: 0 0% 100%;
@@ -38,8 +38,8 @@ All colors MUST be HSL.
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 221 20% 85%;
+    --input: 221 20% 85%;
     --ring: 221 83% 53%;
 
     --radius: 0.75rem;
@@ -52,41 +52,41 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 221 83% 53%;
+    --foreground: 45 93% 47%;
 
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
+    --card: 221 80% 48%;
+    --card-foreground: 45 93% 47%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 221 83% 53%;
+    --popover-foreground: 45 93% 47%;
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 45 93% 47%;
+    --primary-foreground: 221 83% 53%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 221 70% 40%;
+    --secondary-foreground: 45 93% 47%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 221 70% 40%;
+    --muted-foreground: 45 80% 60%;
 
-    --accent: 142 76% 36%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 93% 47%;
+    --accent-foreground: 221 83% 53%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 45 93% 47%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 221 83% 53%;
 
     --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 45 93% 47%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 221 83% 53%;
+    --border: 221 60% 30%;
+    --input: 221 60% 30%;
+    --ring: 45 93% 47%;
 
-    --chart-1: 221 83% 53%;
+    --chart-1: 45 93% 47%;
     --chart-2: 142 76% 36%;
     --chart-3: 38 92% 50%;
     --chart-4: 280 80% 50%;
@@ -101,5 +101,16 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  .dark {
+    font-weight: 600;
+  }
+
+  .dark h1,
+  .dark h2,
+  .dark h3,
+  .dark .font-bold {
+    font-weight: 700;
   }
 }

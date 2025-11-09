@@ -412,72 +412,109 @@ const Accounting = () => {
           </TabsList>
 
           <TabsContent value="revenue" className="mt-4">
-            <Card className="p-6">
-              <h3 className="font-semibold mb-4">Revenus par période</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="revenue" name="Revenu (€)" fill={COLORS[0]} />
-                  <Bar dataKey="commission" name="Commission (€)" fill={COLORS[2]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
+            {period === 'week' ? (
+              <Card className="p-6">
+                <h3 className="font-semibold mb-4">📊 Chiffre d'Affaires - 7 derniers jours</h3>
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--foreground))"
+                      style={{ fontWeight: 600 }}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--foreground))"
+                      style={{ fontWeight: 600 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        color: 'hsl(var(--foreground))'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="revenue" 
+                      name="CA (€)" 
+                      fill="hsl(var(--primary))"
+                      radius={[8, 8, 0, 0]}
+                      label={{ 
+                        position: 'top', 
+                        fill: 'hsl(var(--foreground))',
+                        fontWeight: 'bold',
+                        formatter: (value: number) => `${value.toFixed(0)}€`
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            ) : (
+              <>
+                <Card className="p-6">
+                  <h3 className="font-semibold mb-4">Revenus par période</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="revenue" name="Revenu (€)" fill={COLORS[0]} />
+                      <Bar dataKey="commission" name="Commission (€)" fill={COLORS[2]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
 
-            <Card className="p-6 mt-4">
-              <h3 className="font-semibold mb-4">Nombre de courses</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="count" name="Courses" stroke={COLORS[1]} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </Card>
+                <Card className="p-6 mt-4">
+                  <h3 className="font-semibold mb-4">Nombre de courses</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="count" name="Courses" stroke={COLORS[1]} strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Card>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="companies" className="mt-4">
             <Card className="p-6">
-              <h3 className="font-semibold mb-4">Répartition par société</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={companyData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry) => `${entry.name}: ${entry.value.toFixed(0)}€`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {companyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-
-              <div className="mt-6 space-y-2">
-                {companyData.map((company, index) => (
-                  <div key={company.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                      <span className="font-medium">{company.name}</span>
+              <h3 className="font-semibold mb-4">🏢 Répartition par Dispatcher</h3>
+              <div className="space-y-4">
+                {companyData.map((company, index) => {
+                  const percentage = (company.value / getTotalRevenue()) * 100;
+                  return (
+                    <div key={company.name} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold" style={{ color: 'hsl(var(--foreground))' }}>
+                          {company.name.toUpperCase()}
+                        </span>
+                        <span className="text-2xl font-bold" style={{ color: 'hsl(var(--primary))' }}>
+                          {company.value.toFixed(0)}€
+                        </span>
+                      </div>
+                      <div className="relative w-full h-8 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+                          style={{ 
+                            width: `${percentage}%`,
+                            background: `linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--chart-4)) 100%)`
+                          }}
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {company.count} course{company.count > 1 ? 's' : ''} • {percentage.toFixed(1)}% du CA
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">{company.value.toFixed(2)}€</p>
-                      <p className="text-sm text-muted-foreground">{company.count} courses</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           </TabsContent>
