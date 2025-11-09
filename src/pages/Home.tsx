@@ -30,42 +30,8 @@ const Home = () => {
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
 
-  // Enable geolocation when driver is active
+  // Enable geolocation when driver is active (handles GPS sending automatically)
   const locationState = useGeolocation(isActive);
-
-  // Update driver location in realtime when active
-  useEffect(() => {
-    if (!driver?.id || !isActive || !locationState.coordinates) return;
-
-    const updateLocation = async () => {
-      try {
-        const { error } = await supabase
-          .from('driver_locations')
-          .upsert({
-            driver_id: driver.id,
-            latitude: locationState.coordinates!.lat,
-            longitude: locationState.coordinates!.lng,
-            heading: null,
-            speed: null,
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'driver_id'
-          });
-
-        if (error) console.error('Location update error:', error);
-      } catch (error) {
-        console.error('Location update failed:', error);
-      }
-    };
-
-    // Update location immediately
-    updateLocation();
-
-    // Then update every 5 seconds
-    const interval = setInterval(updateLocation, 5000);
-
-    return () => clearInterval(interval);
-  }, [driver?.id, isActive, locationState.coordinates]);
   
   // Get center for map
   const mapCenter = locationState.coordinates || { lat: 48.8566, lng: 2.3522 };
