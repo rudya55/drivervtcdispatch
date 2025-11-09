@@ -14,7 +14,20 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
+    // Validate envs early for clearer errors
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      console.error('Missing Supabase envs', {
+        hasUrl: !!supabaseUrl,
+        hasAnon: !!supabaseAnonKey,
+        hasService: !!supabaseServiceKey,
+      });
+      return new Response(
+        JSON.stringify({ error: 'Configuration manquante du backend (clés d\'environnement).' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+
     // Client for auth verification (uses anon key with user's JWT)
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     // Client for database operations (uses service key to bypass RLS)
@@ -95,7 +108,32 @@ Deno.serve(async (req) => {
 
       if (!created) {
         const reason = lastInsertError?.message || 'Insertion failed for unknown reason';
-        console.error('Insert error (final):', reason);
+        console.error('Insert error before migration attempt:', reason);
+
+        // Attempt one-off migration to remove legacy "type" constraints
+        try {
+          const { data: migData, error: migError } = await supabaseAdmin.functions.invoke('setup-database');
+          if (migError) {
+            console.error('Migration invoke error:', migError);
+          } else {
+            console.log('Migration response:', migData);
+            // Retry minimal insert after migration
+            const { error: retryError } = await supabaseAdmin
+              .from('drivers')
+              .insert(basePayload);
+            if (!retryError) {
+              console.log('Driver profile created after migration with status:', status);
+              return new Response(
+                JSON.stringify({ success: true, status, created: true, migrated: true }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+              );
+            }
+            console.error('Retry insert after migration failed:', retryError);
+          }
+        } catch (e) {
+          console.error('Migration attempt threw:', e);
+        }
+
         throw new Error(`Erreur création profil: ${reason}`);
       }
 
@@ -131,10 +169,14 @@ Deno.serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Update status error:', error);
-    const errorMessage = error?.message || error?.toString() || 'Erreur inconnue';
-    console.error('Error message:', errorMessage);
+    const errorMessage = (error && (error.message || error.toString())) || 'Erreur inconnue';
+    const payload: Record<string, any> = {
+      error: errorMessage,
+      hint: error?.hint,
+      code: error?.code,
+    };
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify(payload),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
