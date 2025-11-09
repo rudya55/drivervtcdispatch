@@ -120,9 +120,12 @@ const Accounting = () => {
         });
         break;
       case 'week':
+        // Ensure we always get all 7 days of the week
+        const weekStart = startOfWeek(now, { locale: fr, weekStartsOn: 1 });
+        const weekEnd = endOfWeek(now, { locale: fr, weekStartsOn: 1 });
         intervals = eachDayOfInterval({
-          start: startOfWeek(now, { locale: fr }),
-          end: endOfWeek(now, { locale: fr })
+          start: weekStart,
+          end: weekEnd
         });
         break;
       case 'month':
@@ -158,7 +161,7 @@ const Accounting = () => {
 
       return {
         date: period === 'day' ? `${format(date, 'HH')}h` :
-              period === 'week' ? format(date, 'EEE', { locale: fr }) :
+              period === 'week' ? format(date, 'EEEE', { locale: fr }).slice(0, 3) + '.' :
               period === 'month' ? `S${format(date, 'w')}` :
               format(date, 'MMM', { locale: fr }),
         revenue,
