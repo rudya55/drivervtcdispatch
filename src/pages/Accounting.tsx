@@ -151,6 +151,22 @@ const Accounting = () => {
   const getTotalCommission = () => courses.reduce((sum, c) => sum + (c.commission || 0), 0);
   const getNetRevenue = () => getTotalRevenue() - getTotalCommission();
 
+  // Calculate today's revenue
+  const getTodayRevenue = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const todayCourses = courses.filter(c => {
+      const courseDate = format(new Date(c.completed_at!), 'yyyy-MM-dd');
+      return courseDate === today;
+    });
+    return {
+      revenue: todayCourses.reduce((sum, c) => sum + (c.net_driver || c.client_price), 0),
+      commission: todayCourses.reduce((sum, c) => sum + (c.commission || 0), 0),
+      count: todayCourses.length
+    };
+  };
+
+  const todayStats = getTodayRevenue();
+
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
@@ -200,6 +216,36 @@ const Accounting = () => {
             Télécharger PDF
           </Button>
         </div>
+
+        {/* Today's Revenue - Highlighted */}
+        <Card className="p-6 border-2 border-primary bg-primary/5">
+          <div className="flex items-center gap-2 mb-3">
+            <Calendar className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-lg">Aujourd'hui</h3>
+            <span className="text-sm text-muted-foreground ml-auto">
+              {format(new Date(), 'EEEE dd MMMM yyyy', { locale: fr })}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Chiffre d'affaires</p>
+              <p className="text-2xl font-bold text-primary">{todayStats.revenue.toFixed(2)}€</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Commission</p>
+              <p className="text-2xl font-bold text-warning">-{todayStats.commission.toFixed(2)}€</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Net</p>
+              <p className="text-2xl font-bold text-success">{(todayStats.revenue - todayStats.commission).toFixed(2)}€</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t">
+            <p className="text-sm text-muted-foreground">
+              {todayStats.count} course{todayStats.count > 1 ? 's' : ''} terminée{todayStats.count > 1 ? 's' : ''} aujourd'hui
+            </p>
+          </div>
+        </Card>
 
         {/* Revenue Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

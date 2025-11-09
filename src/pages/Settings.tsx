@@ -5,7 +5,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { supabase } from '@/lib/supabase';
 import { 
   Shield, 
   Bell, 
@@ -16,8 +15,7 @@ import {
   ChevronRight,
   LogOut,
   CreditCard,
-  Star,
-  Database
+  Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -122,24 +120,6 @@ const Settings = () => {
         ))}
 
         {/* Fix Database & Logout */}
-        <Button
-          variant="outline"
-          className="w-full mb-2"
-          onClick={async () => {
-            try {
-              const { error } = await supabase.functions.invoke('fix-drivers-table');
-              if (error) throw error;
-              toast.success('Table vérifiée avec succès');
-            } catch (error: any) {
-              console.error('Fix table error:', error);
-              toast.error('Vérifiez manuellement dans Cloud → Database');
-            }
-          }}
-        >
-          <Database className="w-4 h-4 mr-2" />
-          Corriger la base de données
-        </Button>
-
         <Button
           variant="destructive"
           className="w-full"

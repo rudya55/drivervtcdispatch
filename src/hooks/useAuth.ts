@@ -8,6 +8,17 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Auto-fix database on first load
+    const fixDatabase = async () => {
+      try {
+        await supabase.functions.invoke('fix-drivers-table');
+      } catch (e) {
+        // Silent fail - non-blocking
+      }
+    };
+    
+    fixDatabase();
+
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
