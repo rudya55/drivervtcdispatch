@@ -8,13 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Download, Euro, FileText, TrendingUp, Calendar, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfWeek, startOfMonth, startOfYear, endOfWeek, endOfMonth, endOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, startOfYear, endOfWeek, endOfMonth, endOfYear, eachHourOfInterval, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-type Period = 'week' | 'month' | 'year';
+type Period = 'day' | 'week' | 'month' | 'year';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -69,6 +71,10 @@ const Accounting = () => {
       let endDate: Date;
 
       switch (period) {
+        case 'day':
+          startDate = startOfDay(now);
+          endDate = endOfDay(now);
+          break;
         case 'week':
           startDate = startOfWeek(now, { locale: fr });
           endDate = endOfWeek(now, { locale: fr });
@@ -107,6 +113,12 @@ const Accounting = () => {
     let intervals: Date[] = [];
 
     switch (period) {
+      case 'day':
+        intervals = eachHourOfInterval({
+          start: startOfDay(now),
+          end: endOfDay(now)
+        });
+        break;
       case 'week':
         intervals = eachDayOfInterval({
           start: startOfWeek(now, { locale: fr }),
@@ -130,7 +142,9 @@ const Accounting = () => {
     return intervals.map(date => {
       const periodCourses = courses.filter(c => {
         const courseDate = new Date(c.completed_at!);
-        if (period === 'week') {
+        if (period === 'day') {
+          return courseDate >= date && courseDate < new Date(date.getTime() + 60 * 60 * 1000);
+        } else if (period === 'week') {
           return format(courseDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
         } else if (period === 'month') {
           return courseDate >= date && courseDate < new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -143,7 +157,8 @@ const Accounting = () => {
       const commission = periodCourses.reduce((sum, c) => sum + (c.commission || 0), 0);
 
       return {
-        date: period === 'week' ? format(date, 'EEE', { locale: fr }) :
+        date: period === 'day' ? `${format(date, 'HH')}h` :
+              period === 'week' ? format(date, 'EEE', { locale: fr }) :
               period === 'month' ? `S${format(date, 'w')}` :
               format(date, 'MMM', { locale: fr }),
         revenue,
@@ -186,10 +201,101 @@ const Accounting = () => {
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
-      // TODO: Implémenter la génération PDF avec une edge function
-      toast.info('Génération du PDF en cours...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('Facture téléchargée !');
+      const usedCourses = courses;
+      if (!usedCourses.length) {
+        toast.info('Aucune course sur la période sélectionnée');
+        setDownloading(false);
+        return;
+      }
+
+      // Compute period boundaries and label
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+      let periodLabel = '';
+
+      switch (period) {
+        case 'day':
+          startDate = startOfDay(now);
+          endDate = endOfDay(now);
+          periodLabel = format(now, "EEEE dd MMMM yyyy", { locale: fr });
+          break;
+        case 'week':
+          startDate = startOfWeek(now, { locale: fr });
+          endDate = endOfWeek(now, { locale: fr });
+          periodLabel = `Semaine du ${format(startDate, 'dd/MM', { locale: fr })} au ${format(endDate, 'dd/MM', { locale: fr })}`;
+          break;
+        case 'month':
+          startDate = startOfMonth(now);
+          endDate = endOfMonth(now);
+          periodLabel = format(now, 'MMMM yyyy', { locale: fr });
+          break;
+        case 'year':
+          startDate = startOfYear(now);
+          endDate = endOfYear(now);
+          periodLabel = format(now, 'yyyy', { locale: fr });
+          break;
+      }
+
+      const totalRevenue = usedCourses.reduce((sum, c) => sum + (c.net_driver || c.client_price), 0);
+      const totalCommission = usedCourses.reduce((sum, c) => sum + (c.commission || 0), 0);
+      const totalNet = totalRevenue - totalCommission;
+
+      const dispatcherSet = Array.from(new Set(usedCourses.map(c => c.company_name || 'Particulier').filter(Boolean)));
+
+      const doc = new jsPDF();
+
+      // Header
+      doc.setFontSize(16);
+      doc.text('Facture / Relevé de courses', 14, 20);
+      doc.setFontSize(11);
+      doc.text(`Période: ${periodLabel}`, 14, 28);
+
+      // Driver & companies
+      const yStart = 36;
+      const driverName = driver?.name || '';
+      const driverCompany = driver?.company_name || '';
+      const driverAddress = driver?.company_address || '';
+      const driverSiret = driver?.siret || '';
+      doc.text(`Chauffeur: ${driverName}`, 14, yStart);
+      if (driverCompany) doc.text(`Société: ${driverCompany}`, 14, yStart + 6);
+      if (driverAddress) doc.text(`Adresse: ${driverAddress}`, 14, yStart + 12);
+      if (driverSiret) doc.text(`SIRET: ${driverSiret}`, 14, yStart + 18);
+
+      doc.text(`Dispatcher(s): ${dispatcherSet.join(', ') || '—'}`, 120, yStart);
+
+      // Table
+      const rows = usedCourses.map(c => [
+        c.completed_at ? format(new Date(c.completed_at), 'dd/MM/yyyy HH:mm') : '',
+        c.departure_location,
+        c.destination_location,
+        c.client_name,
+        c.company_name || 'Particulier',
+        `${(c.client_price ?? 0).toFixed(2)}€`,
+        `${(c.commission ?? 0).toFixed(2)}€`,
+        `${(c.net_driver ?? c.client_price).toFixed(2)}€`
+      ]);
+
+      autoTable(doc, {
+        head: [[
+          'Date', 'Départ', 'Destination', 'Client', 'Société', 'Prix client', 'Commission', 'Net'
+        ]],
+        body: rows,
+        startY: 60,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [25, 91, 255] },
+      });
+
+      // Totals
+      const endY = (doc as any).lastAutoTable.finalY + 8;
+      doc.setFontSize(12);
+      doc.text(`Total CA: ${totalRevenue.toFixed(2)}€`, 14, endY);
+      doc.text(`Total commission: ${totalCommission.toFixed(2)}€`, 80, endY);
+      doc.text(`Net chauffeur: ${totalNet.toFixed(2)}€`, 155, endY);
+
+      const fname = `facture_${period}_${format(startDate, 'yyyyMMdd')}_${format(endDate, 'yyyyMMdd')}.pdf`;
+      doc.save(fname);
+      toast.success('Facture téléchargée');
     } catch (error: any) {
       console.error('PDF download error:', error);
       toast.error('Erreur lors du téléchargement');
@@ -221,6 +327,7 @@ const Accounting = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="day">Aujourd'hui</SelectItem>
               <SelectItem value="week">Cette semaine</SelectItem>
               <SelectItem value="month">Ce mois</SelectItem>
               <SelectItem value="year">Cette année</SelectItem>
@@ -233,35 +340,37 @@ const Accounting = () => {
           </Button>
         </div>
 
-        {/* Today's Revenue - Highlighted */}
-        <Card className="p-6 border-2 border-primary bg-primary/5">
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-lg">Aujourd'hui</h3>
-            <span className="text-sm text-muted-foreground ml-auto">
-              {format(new Date(), 'EEEE dd MMMM yyyy', { locale: fr })}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Chiffre d'affaires</p>
-              <p className="text-2xl font-bold text-primary">{todayStats.revenue.toFixed(2)}€</p>
+        {/* Period Highlight - only for day */}
+        {period === 'day' && (
+          <Card className="p-6 border-2 border-primary bg-primary/5">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-lg">Aujourd'hui</h3>
+              <span className="text-sm text-muted-foreground ml-auto">
+                {format(new Date(), 'EEEE dd MMMM yyyy', { locale: fr })}
+              </span>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Commission</p>
-              <p className="text-2xl font-bold text-warning">-{todayStats.commission.toFixed(2)}€</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Chiffre d'affaires</p>
+                <p className="text-2xl font-bold text-primary">{todayStats.revenue.toFixed(2)}€</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Commission</p>
+                <p className="text-2xl font-bold text-warning">-{todayStats.commission.toFixed(2)}€</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Net</p>
+                <p className="text-2xl font-bold text-success">{(todayStats.revenue - todayStats.commission).toFixed(2)}€</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Net</p>
-              <p className="text-2xl font-bold text-success">{(todayStats.revenue - todayStats.commission).toFixed(2)}€</p>
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-sm text-muted-foreground">
+                {todayStats.count} course{todayStats.count > 1 ? 's' : ''} terminée{todayStats.count > 1 ? 's' : ''} aujourd'hui
+              </p>
             </div>
-          </div>
-          <div className="mt-3 pt-3 border-t">
-            <p className="text-sm text-muted-foreground">
-              {todayStats.count} course{todayStats.count > 1 ? 's' : ''} terminée{todayStats.count > 1 ? 's' : ''} aujourd'hui
-            </p>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Revenue Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
