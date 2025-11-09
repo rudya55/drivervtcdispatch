@@ -41,3 +41,6 @@ verify_jwt = true
 
 [functions.driver-update-location]
 verify_jwt = true
+
+[functions.notify-drivers-new-course]
+verify_jwt = false
