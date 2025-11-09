@@ -413,37 +413,42 @@ const Accounting = () => {
 
           <TabsContent value="revenue" className="mt-4">
             {period === 'week' ? (
-              <Card className="p-6">
-                <h3 className="font-semibold mb-4">📊 Chiffre d'Affaires - 7 derniers jours</h3>
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <Card className="p-6 bg-card">
+                <h3 className="font-semibold mb-4 text-foreground">📊 Chiffre d'Affaires - 7 derniers jours</h3>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart 
+                    data={revenueData}
+                    margin={{ top: 30, right: 20, left: 20, bottom: 5 }}
+                  >
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6B8EF5" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#8B5CF6" stopOpacity={1} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                     <XAxis 
                       dataKey="date" 
                       stroke="hsl(var(--foreground))"
-                      style={{ fontWeight: 600 }}
+                      style={{ fontWeight: 600, fontSize: '14px' }}
+                      tickLine={false}
                     />
                     <YAxis 
                       stroke="hsl(var(--foreground))"
-                      style={{ fontWeight: 600 }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        color: 'hsl(var(--foreground))'
-                      }}
+                      style={{ fontWeight: 600, fontSize: '12px' }}
+                      tickLine={false}
+                      axisLine={false}
                     />
                     <Bar 
                       dataKey="revenue" 
                       name="CA (€)" 
-                      fill="hsl(var(--primary))"
+                      fill="url(#barGradient)"
                       radius={[8, 8, 0, 0]}
                       label={{ 
                         position: 'top', 
                         fill: 'hsl(var(--foreground))',
                         fontWeight: 'bold',
+                        fontSize: 14,
                         formatter: (value: number) => `${value.toFixed(0)}€`
                       }}
                     />
