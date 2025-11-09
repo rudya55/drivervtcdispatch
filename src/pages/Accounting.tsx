@@ -80,11 +80,13 @@ const Accounting = () => {
           endDate = endOfWeek(now, { locale: fr });
           break;
         case 'month':
-          startDate = startOfMonth(now);
-          endDate = endOfMonth(now);
+          // Fetch all data for the current year
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
           break;
         case 'year':
-          startDate = startOfYear(now);
+          // Fetch last 5 years of data
+          startDate = new Date(now.getFullYear() - 4, 0, 1);
           endDate = endOfYear(now);
           break;
       }
@@ -129,15 +131,17 @@ const Accounting = () => {
         });
         break;
       case 'month':
-        intervals = eachWeekOfInterval({
-          start: startOfMonth(now),
-          end: endOfMonth(now)
+        // Show all 12 months of the current year
+        intervals = eachMonthOfInterval({
+          start: new Date(now.getFullYear(), 0, 1),
+          end: new Date(now.getFullYear(), 11, 31)
         });
         break;
       case 'year':
-        intervals = eachMonthOfInterval({
-          start: startOfYear(now),
-          end: endOfYear(now)
+        // Show last 5 years
+        intervals = Array.from({ length: 5 }, (_, i) => {
+          const year = now.getFullYear() - 4 + i;
+          return new Date(year, 0, 1);
         });
         break;
     }
@@ -150,9 +154,9 @@ const Accounting = () => {
         } else if (period === 'week') {
           return format(courseDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
         } else if (period === 'month') {
-          return courseDate >= date && courseDate < new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
+          return format(courseDate, 'MM') === format(date, 'MM') && format(courseDate, 'yyyy') === format(date, 'yyyy');
         } else {
-          return format(courseDate, 'MM') === format(date, 'MM');
+          return format(courseDate, 'yyyy') === format(date, 'yyyy');
         }
       });
 
@@ -161,9 +165,9 @@ const Accounting = () => {
 
       return {
         date: period === 'day' ? `${format(date, 'HH')}h` :
-              period === 'week' ? format(date, 'EEEE', { locale: fr }).slice(0, 3) + '.' :
-              period === 'month' ? `S${format(date, 'w')}` :
-              format(date, 'MMM', { locale: fr }),
+              period === 'week' ? format(date, 'EEEEEE', { locale: fr }) + '.' :
+              period === 'month' ? format(date, 'MMM', { locale: fr }) :
+              format(date, 'yyyy', { locale: fr }),
         revenue,
         commission,
         count: periodCourses.length
@@ -229,14 +233,14 @@ const Accounting = () => {
           periodLabel = `Semaine du ${format(startDate, 'dd/MM', { locale: fr })} au ${format(endDate, 'dd/MM', { locale: fr })}`;
           break;
         case 'month':
-          startDate = startOfMonth(now);
-          endDate = endOfMonth(now);
-          periodLabel = format(now, 'MMMM yyyy', { locale: fr });
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          periodLabel = format(now, 'yyyy', { locale: fr });
           break;
         case 'year':
-          startDate = startOfYear(now);
+          startDate = new Date(now.getFullYear() - 4, 0, 1);
           endDate = endOfYear(now);
-          periodLabel = format(now, 'yyyy', { locale: fr });
+          periodLabel = `${now.getFullYear() - 4} - ${now.getFullYear()}`;
           break;
       }
 
@@ -415,9 +419,15 @@ const Accounting = () => {
           </TabsList>
 
           <TabsContent value="revenue" className="mt-4">
-            {period === 'week' ? (
+            {period === 'week' || period === 'month' || period === 'year' ? (
               <Card className="p-6 bg-card">
-                <h3 className="font-semibold mb-4 text-foreground">📊 Chiffre d'Affaires - 7 derniers jours</h3>
+                <h3 className="font-semibold mb-4 text-foreground">
+                  📊 Chiffre d'Affaires - {
+                    period === 'week' ? '7 derniers jours' :
+                    period === 'month' ? '12 mois de l\'année' :
+                    '5 dernières années'
+                  }
+                </h3>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart 
                     data={revenueData}
