@@ -98,12 +98,16 @@ const Home = () => {
     return (c.status === 'pending' || c.status === 'dispatched') || (c.status === 'accepted' && isToday);
   });
 
-  // Load Google Maps script from backend secret
+  // Load Google Maps script from backend secret and track readiness
+  const [mapsReady, setMapsReady] = useState<boolean>(!!(window as any).google);
   useEffect(() => {
     const load = async () => {
-      if ((window as any).google) return;
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existingScript) return;
+      if ((window as any).google) { setMapsReady(true); return; }
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]') as HTMLScriptElement | null;
+      if (existingScript) {
+        existingScript.addEventListener('load', () => setMapsReady(true));
+        return;
+      }
 
       try {
         const { data, error } = await supabase.functions.invoke('get-google-maps-key');
@@ -115,6 +119,8 @@ const Home = () => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places&loading=async`;
         script.async = true;
         script.defer = true;
+        script.addEventListener('load', () => setMapsReady(true));
+        script.addEventListener('error', (e) => console.error('Maps script error:', e));
         document.head.appendChild(script);
       } catch (e) {
         console.error('Maps loader error:', e);
@@ -122,6 +128,7 @@ const Home = () => {
     };
     load();
   }, []);
+
 
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
@@ -156,6 +163,7 @@ const Home = () => {
         <Card className="p-0 overflow-hidden">
           <div className="h-64">
             <GoogleMap
+              key={mapsReady ? 'ready' : 'loading'}
               center={mapCenter}
               zoom={13}
               markers={mapMarkers}

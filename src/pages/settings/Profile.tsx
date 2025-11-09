@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 const Profile = () => {
   const { driver } = useAuth();
@@ -192,10 +193,11 @@ const Profile = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="company_address">Adresse</Label>
-                  <Input
+                  <AddressAutocomplete
                     id="company_address"
                     value={formData.company_address}
-                    onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
+                    onChange={(val) => setFormData({ ...formData, company_address: val })}
+                    placeholder="Saisissez l'adresse de votre société"
                   />
                 </div>
 
