@@ -188,6 +188,58 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Map action to status for tracking
+    const statusMapping: Record<string, string> = {
+      'accept': 'accepted',
+      'refuse': 'refused',
+      'start': 'in_progress',
+      'arrived': 'arrived',
+      'pickup': 'picked_up',
+      'dropoff': 'dropped_off',
+      'complete': 'completed',
+      'cancel': 'cancelled',
+    };
+
+    const titleMapping: Record<string, string> = {
+      'accept': 'Course acceptée',
+      'refuse': 'Course refusée',
+      'start': 'Course démarrée',
+      'arrived': 'Arrivée sur place',
+      'pickup': 'Client à bord',
+      'dropoff': 'Client déposé',
+      'complete': 'Course terminée',
+      'cancel': 'Course annulée',
+    };
+
+    // Insert tracking notification into driver_notifications
+    try {
+      const notificationData: any = {
+        driver_id: driver.id,
+        course_id,
+        type: 'course_status',
+        title: titleMapping[action] || 'Mise à jour de course',
+        message: trackingNotes,
+        read: false,
+        data: {
+          action,
+          status: statusMapping[action] || course.status,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          rating: rating || null,
+          comment: comment || null,
+        },
+      };
+
+      await supabase
+        .from('driver_notifications')
+        .insert(notificationData);
+      
+      console.log('Tracking notification inserted successfully');
+    } catch (notificationError) {
+      console.error('Failed to insert tracking notification:', notificationError);
+      // Don't fail the request if notification fails
+    }
+
     // Add tracking entry with location if provided (optional, table may not exist yet)
     try {
       const trackingData: any = {

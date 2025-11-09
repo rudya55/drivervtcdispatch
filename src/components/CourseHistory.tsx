@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase, CourseTracking } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -19,10 +19,20 @@ interface CourseHistoryProps {
   courseId: string;
 }
 
+interface TrackingEvent {
+  id: string;
+  created_at: string;
+  status: string;
+  notes: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 const statusConfig: Record<string, { icon: any; label: string; color: string }> = {
   pending: { icon: Clock, label: 'En attente', color: 'text-muted-foreground' },
   dispatched: { icon: AlertCircle, label: 'Dispatchée', color: 'text-blue-500' },
   accepted: { icon: CheckCircle2, label: 'Acceptée', color: 'text-green-500' },
+  refused: { icon: XCircle, label: 'Refusée', color: 'text-destructive' },
   in_progress: { icon: Play, label: 'En cours', color: 'text-purple-500' },
   arrived: { icon: MapPin, label: 'Arrivé', color: 'text-orange-500' },
   picked_up: { icon: UserCheck, label: 'Client à bord', color: 'text-indigo-500' },
@@ -35,14 +45,31 @@ export const CourseHistory = ({ courseId }: CourseHistoryProps) => {
   const { data: trackingEvents, isLoading } = useQuery({
     queryKey: ['course-tracking', courseId],
     queryFn: async () => {
+      // Fetch notifications related to this course (course_status and new_course events)
       const { data, error } = await supabase
-        .from('course_tracking')
-        .select('*')
-        .eq('course_id', courseId)
+        .from('driver_notifications')
+        .select('id, created_at, type, message, data')
+        .eq('data->>course_id', courseId)
+        .in('type', ['course_status', 'new_course'])
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as CourseTracking[];
+      
+      // Transform notifications into tracking events
+      const events: TrackingEvent[] = (data || []).map((notification: any) => {
+        const notifData = notification.data || {};
+        
+        return {
+          id: notification.id,
+          created_at: notification.created_at,
+          status: notification.type === 'new_course' ? 'dispatched' : (notifData.status || 'pending'),
+          notes: notification.message || '',
+          latitude: notifData.latitude,
+          longitude: notifData.longitude,
+        };
+      });
+
+      return events;
     },
     enabled: !!courseId,
   });
