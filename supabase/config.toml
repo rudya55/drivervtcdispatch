@@ -35,3 +35,9 @@ verify_jwt = true
 
 [functions.initialize-driver-demo]
 verify_jwt = true
+
+[functions.driver-get-notifications]
+verify_jwt = true
+
+[functions.driver-update-location]
+verify_jwt = true
