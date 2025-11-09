@@ -14,3 +14,15 @@ verify_jwt = true
 
 [functions.get-google-maps-key]
 verify_jwt = false
+
+[functions.create-demo-courses]
+verify_jwt = true
+
+[functions.check-course-notifications]
+verify_jwt = false
+
+[functions.driver-update-course-status]
+verify_jwt = true
+
+[functions.driver-courses]
+verify_jwt = true

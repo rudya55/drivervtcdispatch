@@ -5,13 +5,15 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2, Play, Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
+import { CourseTimer } from '@/components/CourseTimer';
+import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
 
 const Bookings = () => {
   const { driver } = useAuth();
@@ -21,6 +23,8 @@ const Bookings = () => {
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);
   const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [creatingDemo, setCreatingDemo] = useState(false);
 
   useEffect(() => {
     if (driver) {
@@ -96,12 +100,102 @@ const Bookings = () => {
     }
   };
 
-  const CourseCard = ({ course, showActions = false }: { course: Course; showActions?: boolean }) => {
+  const handleStartCourse = async (courseId: string) => {
+    setProcessing(courseId);
+    try {
+      const { error } = await supabase.functions.invoke('driver-update-course-status', {
+        body: { course_id: courseId, action: 'start' }
+      });
+      if (error) throw error;
+      toast.success('Course démarrée');
+      fetchCourses();
+    } catch (error: any) {
+      console.error('Start course error:', error);
+      toast.error('Erreur lors du démarrage de la course');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleCompleteCourse = async (courseId: string) => {
+    setProcessing(courseId);
+    try {
+      const { error } = await supabase.functions.invoke('driver-update-course-status', {
+        body: { course_id: courseId, action: 'complete' }
+      });
+      if (error) throw error;
+      
+      const { data: completedCourse } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single();
+      
+      if (completedCourse) {
+        setSelectedCourse(completedCourse);
+      }
+      
+      toast.success('Course terminée !');
+      fetchCourses();
+    } catch (error: any) {
+      console.error('Complete course error:', error);
+      toast.error('Erreur lors de la fin de la course');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const createDemoCourses = async () => {
+    setCreatingDemo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-demo-courses');
+      if (error) throw error;
+      toast.success(data.message || 'Courses de démo créées !');
+      fetchCourses();
+    } catch (error: any) {
+      console.error('Demo courses error:', error);
+      toast.error('Erreur lors de la création des courses de démo');
+    } finally {
+      setCreatingDemo(false);
+    }
+  };
+
+  const canStartCourse = (pickupDate: string) => {
+    const pickup = new Date(pickupDate);
+    const unlockTime = new Date(pickup.getTime() - 60 * 60000);
+    const now = new Date();
+    return now >= unlockTime;
+  };
+
+  const CourseCard = ({ 
+    course, 
+    showActions = false,
+    showTimer = false,
+    showStartButton = false 
+  }: { 
+    course: Course; 
+    showActions?: boolean;
+    showTimer?: boolean;
+    showStartButton?: boolean;
+  }) => {
     const pickupDate = new Date(course.pickup_date);
     const isPending = processing === course.id;
+    const isUnlocked = canStartCourse(course.pickup_date);
 
     return (
       <Card className="p-4 space-y-3">
+        {showTimer && (
+          <div className="flex justify-center mb-2">
+            <CourseTimer 
+              pickupDate={course.pickup_date}
+              onUnlock={() => {
+                toast.success('Course débloquée ! Vous pouvez la démarrer.');
+                fetchCourses();
+              }}
+            />
+          </div>
+        )}
+
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -188,6 +282,35 @@ const Bookings = () => {
             </Button>
           </div>
         )}
+
+        {showStartButton && (
+          <div className="flex gap-2 pt-2">
+            {course.status === 'accepted' && (
+              <Button
+                variant="default"
+                className="flex-1 bg-success hover:bg-success/90 text-white"
+                onClick={() => handleStartCourse(course.id)}
+                disabled={!isUnlocked || isPending}
+                size="sm"
+              >
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                {isUnlocked ? 'Démarrer' : 'En attente...'}
+              </Button>
+            )}
+            {course.status === 'in_progress' && (
+              <Button
+                variant="default"
+                className="flex-1 bg-primary hover:bg-primary/90"
+                onClick={() => handleCompleteCourse(course.id)}
+                disabled={isPending}
+                size="sm"
+              >
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />}
+                Terminer
+              </Button>
+            )}
+          </div>
+        )}
       </Card>
     );
   };
@@ -205,7 +328,23 @@ const Bookings = () => {
       <Header title="Réservations" unreadCount={unreadCount} />
       
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        <Tabs defaultValue="new" className="w-full">
+        <Button 
+          onClick={createDemoCourses} 
+          disabled={creatingDemo}
+          className="w-full"
+          variant="outline"
+        >
+          {creatingDemo ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Création en cours...
+            </>
+          ) : (
+            'Créer des courses de démo'
+          )}
+        </Button>
+
+        <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="new">
               Nouvelles
@@ -241,7 +380,12 @@ const Bookings = () => {
               </Card>
             ) : (
               activeCourses.map(course => (
-                <CourseCard key={course.id} course={course} />
+                <CourseCard 
+                  key={course.id} 
+                  course={course}
+                  showTimer={course.status === 'accepted'}
+                  showStartButton={true}
+                />
               ))
             )}
           </TabsContent>
@@ -253,12 +397,35 @@ const Bookings = () => {
               </Card>
             ) : (
               completedCourses.map(course => (
-                <CourseCard key={course.id} course={course} />
+                <Card 
+                  key={course.id} 
+                  className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
+                  onClick={() => setSelectedCourse(course)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="default" className="bg-success text-white">Terminée</Badge>
+                    <span className="font-bold text-success">
+                      {(course.net_driver || course.client_price).toFixed(2)}€
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium">{course.client_name}</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      {format(new Date(course.completed_at!), 'PPp', { locale: fr })}
+                    </p>
+                  </div>
+                </Card>
               ))
             )}
           </TabsContent>
         </Tabs>
       </div>
+
+      <CompletedCourseDetails 
+        course={selectedCourse}
+        open={!!selectedCourse}
+        onOpenChange={(open) => !open && setSelectedCourse(null)}
+      />
 
       <BottomNav />
     </div>
