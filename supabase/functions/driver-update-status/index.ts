@@ -59,20 +59,44 @@ Deno.serve(async (req) => {
 
     if (!existingDriver) {
       console.error('No driver profile found for user:', user.id);
-      // Create driver profile if it doesn't exist
-      const { error: insertError } = await supabaseAdmin
-        .from('drivers')
-        .insert({
-          user_id: user.id,
-          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
-          email: user.email,
-          phone: user.user_metadata?.phone || null,
-          status: status,
-        });
 
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw new Error(`Erreur création profil: ${insertError.message}`);
+      // Attempt inserting with progressive fallbacks for legacy schemas
+      const basePayload: any = {
+        user_id: user.id,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
+        email: user.email,
+        phone: user.user_metadata?.phone || null,
+        status: status,
+      };
+
+      const tryInserts: Array<Record<string, any>> = [
+        { ...basePayload },
+        { ...basePayload, type: 'driver' },
+        { ...basePayload, type: 'chauffeur' },
+        { ...basePayload, type: 'vtc' },
+      ];
+
+      let created = false;
+      let lastInsertError: any = null;
+
+      for (const payload of tryInserts) {
+        const { error: insertError } = await supabaseAdmin
+          .from('drivers')
+          .insert(payload);
+        if (!insertError) { created = true; break; }
+        lastInsertError = insertError;
+        console.log('Insert attempt failed with payload keys:', Object.keys(payload), 'error:', insertError?.message);
+        // If error is not related to "type" constraint, no point trying more
+        const msg = (insertError?.message || '').toLowerCase();
+        if (!msg.includes('type') && !msg.includes('check constraint') && !msg.includes('not-null')) {
+          break;
+        }
+      }
+
+      if (!created) {
+        const reason = lastInsertError?.message || 'Insertion failed for unknown reason';
+        console.error('Insert error (final):', reason);
+        throw new Error(`Erreur création profil: ${reason}`);
       }
 
       console.log('Driver profile created with status:', status);

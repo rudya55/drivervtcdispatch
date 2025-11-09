@@ -58,19 +58,23 @@ const Home = () => {
   const statusMutation = useMutation({
     mutationFn: async (status: 'active' | 'inactive') => {
       const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
-      const { error } = await supabase.functions.invoke('driver-update-status', {
+      const { data, error } = await supabase.functions.invoke('driver-update-status', {
         body: { status },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      if (error) throw error;
+      if (error) {
+        const serverMsg = (data as any)?.error || (data as any)?.message;
+        throw new Error(serverMsg || error.message || 'Erreur inconnue');
+      }
     },
     onSuccess: (_, status) => {
       setIsActive(status === 'active');
       toast.success(status === 'active' ? 'Vous êtes maintenant actif' : 'Vous êtes maintenant inactif');
       queryClient.invalidateQueries({ queryKey: ['courses'] });
     },
-    onError: () => {
-      toast.error('Erreur lors de la mise à jour du statut');
+    onError: (e: any) => {
+      console.error('Status update failed:', e);
+      toast.error(e?.message || 'Erreur lors de la mise à jour du statut');
     },
   });
 
