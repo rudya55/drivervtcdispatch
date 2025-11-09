@@ -22,7 +22,6 @@ const GoogleMap = ({
     
     // Check if Google Maps is loaded
     if (!(window as any).google) {
-      // Display placeholder
       return;
     }
 
