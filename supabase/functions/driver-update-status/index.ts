@@ -12,9 +12,13 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Client for auth verification (uses anon key with user's JWT)
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+    // Client for database operations (uses service key to bypass RLS)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const { status } = await req.json();
     console.log('Update driver status request:', status);
@@ -30,9 +34,9 @@ Deno.serve(async (req) => {
       throw new Error('Non autorisé - en-tête manquant');
     }
 
-    // Verify JWT and get user
+    // Verify JWT and get user using anon key client
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
 
     if (authError || !user) {
       console.error('Auth error:', authError);
@@ -41,8 +45,8 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', user.id);
 
-    // Check if driver profile exists
-    const { data: existingDriver, error: selectError } = await supabase
+    // Check if driver profile exists (using admin client)
+    const { data: existingDriver, error: selectError } = await supabaseAdmin
       .from('drivers')
       .select('id, status')
       .eq('user_id', user.id)
@@ -56,7 +60,7 @@ Deno.serve(async (req) => {
     if (!existingDriver) {
       console.error('No driver profile found for user:', user.id);
       // Create driver profile if it doesn't exist
-      const { error: insertError } = await supabase
+      const { error: insertError } = await supabaseAdmin
         .from('drivers')
         .insert({
           user_id: user.id,
@@ -81,8 +85,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update driver status
-    const { error: updateError } = await supabase
+    // Update driver status (using admin client)
+    const { error: updateError } = await supabaseAdmin
       .from('drivers')
       .update({ status })
       .eq('user_id', user.id);
