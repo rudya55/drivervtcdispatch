@@ -49,14 +49,14 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     
-    // Course 1: Dans 45 minutes (bloquée, sera débloquée dans 15 min)
-    const course1Time = new Date(now.getTime() + 45 * 60000);
+    // Course 1: Dans 10 secondes (débloquée immédiatement)
+    const course1Time = new Date(now.getTime() + 10000);
     
-    // Course 2: Dans 2 heures (bloquée)
-    const course2Time = new Date(now.getTime() + 2 * 60 * 60000);
+    // Course 2: Dans 2 minutes (débloquée immédiatement)
+    const course2Time = new Date(now.getTime() + 2 * 60000);
     
-    // Course 3: Dans 30 minutes (débloquée car < 1h)
-    const course3Time = new Date(now.getTime() + 30 * 60000);
+    // Course 3: Dans 5 minutes (débloquée immédiatement)
+    const course3Time = new Date(now.getTime() + 5 * 60000);
 
     const demoCourses = [
       {
