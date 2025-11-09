@@ -68,7 +68,6 @@ Deno.serve(async (req) => {
           email: user.email,
           phone: user.user_metadata?.phone || null,
           status: status,
-          type: 'driver',
         });
 
       if (insertError) {

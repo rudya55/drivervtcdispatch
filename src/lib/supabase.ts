@@ -16,7 +16,6 @@ export type Driver = {
   name: string;
   email: string;
   phone: string;
-  type: string;
   company_id: string | null;
   status: 'active' | 'inactive';
   fcm_token: string | null;
