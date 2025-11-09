@@ -27,9 +27,23 @@ const Notifications = () => {
   const [selectedSound, setSelectedSound] = useState(driver?.notification_sound || 'default');
   const [loading, setLoading] = useState(false);
 
-  const playSound = (soundUrl: string) => {
-    const audio = new Audio(soundUrl);
-    audio.play().catch(err => console.error('Error playing sound:', err));
+  const playSound = () => {
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880; // A5
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      osc.stop(ctx.currentTime + 0.36);
+    } catch (e) {
+      console.error('Audio preview error', e);
+    }
   };
 
   const handleSave = async () => {

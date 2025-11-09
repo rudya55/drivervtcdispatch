@@ -29,21 +29,24 @@ isSupported().then((supported) => {
 
 export const requestNotificationPermission = async () => {
   try {
-    if (!messaging) {
-      console.warn('Firebase Messaging not available');
-      return null;
-    }
-
+    // Always try to ask permission if Notifications API exists
     if (!('Notification' in window)) {
       console.warn('Notifications not supported');
       return null;
     }
 
     const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
+    if (permission !== 'granted') {
+      return null;
+    }
+
+    // If Firebase Messaging is available, return a token
+    if (messaging) {
       const token = await getToken(messaging, { vapidKey });
       return token;
     }
+
+    // Permission granted but messaging not available (e.g., iOS Safari not installed as PWA)
     return null;
   } catch (error) {
     console.error('Error getting notification permission:', error);
