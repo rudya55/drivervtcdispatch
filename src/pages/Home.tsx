@@ -4,7 +4,8 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useGeolocation } from '@/hooks/useGeolocation';
+import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
+import { useNativePushNotifications } from '@/hooks/useNativePushNotifications';
 import { supabase, Course } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,8 +31,11 @@ const Home = () => {
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
 
-  // Enable geolocation when driver is active (handles GPS sending automatically)
-  const locationState = useGeolocation(isActive);
+  // Native geolocation with background tracking
+  const locationState = useNativeGeolocation(isActive);
+  
+  // Native push notifications
+  useNativePushNotifications(driver?.id);
   
   // Get center for map
   const mapCenter = locationState.coordinates || { lat: 48.8566, lng: 2.3522 };
