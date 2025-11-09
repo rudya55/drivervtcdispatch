@@ -5,6 +5,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { supabase } from '@/lib/supabase';
 import { 
   Shield, 
   Bell, 
@@ -15,20 +16,43 @@ import {
   ChevronRight,
   LogOut,
   CreditCard,
-  Star
+  Star,
+  MapPin
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useState } from 'react';
 
 const Settings = () => {
   const { driver, logout } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
+  const [isSettingUpTracking, setIsSettingUpTracking] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     toast.success('Déconnexion réussie');
     navigate('/login');
+  };
+
+  const setupTracking = async () => {
+    setIsSettingUpTracking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('setup-driver-tracking');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data?.message || 'Configuration nécessaire');
+      }
+    } catch (error: any) {
+      console.error('Setup tracking error:', error);
+      toast.error('Erreur lors de la configuration');
+    } finally {
+      setIsSettingUpTracking(false);
+    }
   };
 
   const settingsGroups = [
@@ -120,6 +144,16 @@ const Settings = () => {
         ))}
 
         {/* Logout */}
+        <Button
+          variant="outline"
+          className="w-full mb-2"
+          onClick={setupTracking}
+          disabled={isSettingUpTracking}
+        >
+          <MapPin className="w-4 h-4 mr-2" />
+          {isSettingUpTracking ? 'Configuration...' : 'Activer le tracking GPS'}
+        </Button>
+
         <Button
           variant="destructive"
           className="w-full"
