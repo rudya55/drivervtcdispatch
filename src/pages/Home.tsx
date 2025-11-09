@@ -31,6 +31,40 @@ const Home = () => {
 
   // Enable geolocation when driver is active
   const locationState = useGeolocation(isActive);
+
+  // Update driver location in realtime when active
+  useEffect(() => {
+    if (!driver?.id || !isActive || !locationState.coordinates) return;
+
+    const updateLocation = async () => {
+      try {
+        const { error } = await supabase
+          .from('driver_locations')
+          .upsert({
+            driver_id: driver.id,
+            latitude: locationState.coordinates!.lat,
+            longitude: locationState.coordinates!.lng,
+            heading: null,
+            speed: null,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'driver_id'
+          });
+
+        if (error) console.error('Location update error:', error);
+      } catch (error) {
+        console.error('Location update failed:', error);
+      }
+    };
+
+    // Update location immediately
+    updateLocation();
+
+    // Then update every 5 seconds
+    const interval = setInterval(updateLocation, 5000);
+
+    return () => clearInterval(interval);
+  }, [driver?.id, isActive, locationState.coordinates]);
   
   // Get center for map
   const mapCenter = locationState.coordinates || { lat: 48.8566, lng: 2.3522 };
@@ -51,8 +85,51 @@ const Home = () => {
       return (data?.courses || []) as Course[];
     },
     enabled: !!driver?.id,
-    refetchInterval: 5000, // Refresh every 5 seconds
   });
+
+  // Realtime listener for courses
+  useEffect(() => {
+    if (!driver?.id) return;
+
+    const channel = supabase
+      .channel('driver-courses-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'courses',
+          filter: `driver_id=eq.${driver.id}`,
+        },
+        (payload) => {
+          console.log('Course update:', payload);
+          queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
+          
+          if (payload.eventType === 'INSERT') {
+            toast.info('Nouvelle course reçue !');
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'courses',
+          filter: `status=eq.dispatched`,
+        },
+        (payload) => {
+          console.log('New dispatched course:', payload);
+          queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
+          toast.info('Nouvelle course disponible !');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [driver?.id, queryClient]);
 
   // Update driver status
   const statusMutation = useMutation({

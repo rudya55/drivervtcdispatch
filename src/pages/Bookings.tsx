@@ -33,6 +33,41 @@ const Bookings = () => {
     }
   }, [driver]);
 
+  // Realtime listener for courses
+  useEffect(() => {
+    if (!driver) return;
+
+    const channel = supabase
+      .channel('bookings-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'courses',
+          filter: `driver_id=eq.${driver.id}`,
+        },
+        (payload) => {
+          console.log('Booking update:', payload);
+          fetchCourses();
+          
+          if (payload.eventType === 'INSERT') {
+            toast.info('Nouvelle course reçue !');
+          } else if (payload.eventType === 'UPDATE') {
+            const course = payload.new as Course;
+            if (course.status === 'dispatched') {
+              toast.info('Une course vous a été assignée !');
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [driver]);
+
   const fetchCourses = async () => {
     if (!driver) return;
 
