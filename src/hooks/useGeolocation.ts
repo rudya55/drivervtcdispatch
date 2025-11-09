@@ -25,17 +25,13 @@ export const useGeolocation = (enabled: boolean) => {
   });
 
   const watchIdRef = useRef<number | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
 
   useEffect(() => {
     if (!enabled) {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
       }
       setState(prev => ({ ...prev, isTracking: false }));
       return;
@@ -95,21 +91,11 @@ export const useGeolocation = (enabled: boolean) => {
       }
     );
 
-    // Also update every 30 seconds
-    intervalRef.current = setInterval(() => {
-      navigator.geolocation.getCurrentPosition(updateLocation, handleError, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000,
-      });
-    }, 30000);
+    // Removed periodic 30s polling; relying on watchPosition for instant updates
 
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
       }
     };
   }, [enabled]);
