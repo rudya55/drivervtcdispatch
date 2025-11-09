@@ -24,15 +24,40 @@ const Accounting = () => {
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>('month');
   const [courses, setCourses] = useState<Course[]>([]);
+  const [todayCourses, setTodayCourses] = useState<Course[]>([]);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (driver) {
       fetchCourses();
+      fetchTodayCourses();
     } else {
       setLoading(false);
     }
   }, [driver, period]);
+
+  const fetchTodayCourses = async () => {
+    if (!driver) return;
+
+    try {
+      const today = new Date();
+      const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+      const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('driver_id', driver.id)
+        .eq('status', 'completed')
+        .gte('completed_at', startOfToday.toISOString())
+        .lte('completed_at', endOfToday.toISOString());
+
+      if (error) throw error;
+      setTodayCourses(data || []);
+    } catch (error: any) {
+      console.error('Fetch today courses error:', error);
+    }
+  };
 
   const fetchCourses = async () => {
     if (!driver) return;
@@ -151,21 +176,12 @@ const Accounting = () => {
   const getTotalCommission = () => courses.reduce((sum, c) => sum + (c.commission || 0), 0);
   const getNetRevenue = () => getTotalRevenue() - getTotalCommission();
 
-  // Calculate today's revenue
-  const getTodayRevenue = () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const todayCourses = courses.filter(c => {
-      const courseDate = format(new Date(c.completed_at!), 'yyyy-MM-dd');
-      return courseDate === today;
-    });
-    return {
-      revenue: todayCourses.reduce((sum, c) => sum + (c.net_driver || c.client_price), 0),
-      commission: todayCourses.reduce((sum, c) => sum + (c.commission || 0), 0),
-      count: todayCourses.length
-    };
+  // Calculate today's revenue from dedicated state
+  const todayStats = {
+    revenue: todayCourses.reduce((sum, c) => sum + (c.net_driver || c.client_price), 0),
+    commission: todayCourses.reduce((sum, c) => sum + (c.commission || 0), 0),
+    count: todayCourses.length
   };
-
-  const todayStats = getTodayRevenue();
 
   const handleDownloadPDF = async () => {
     setDownloading(true);
