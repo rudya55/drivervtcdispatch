@@ -24,7 +24,6 @@ const Bookings = () => {
   const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [creatingDemo, setCreatingDemo] = useState(false);
 
   useEffect(() => {
     if (driver) {
@@ -142,21 +141,6 @@ const Bookings = () => {
       toast.error('Erreur lors de la fin de la course');
     } finally {
       setProcessing(null);
-    }
-  };
-
-  const createDemoCourses = async () => {
-    setCreatingDemo(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-demo-courses');
-      if (error) throw error;
-      toast.success(data.message || 'Courses de démo créées !');
-      fetchCourses();
-    } catch (error: any) {
-      console.error('Demo courses error:', error);
-      toast.error('Erreur lors de la création des courses de démo');
-    } finally {
-      setCreatingDemo(false);
     }
   };
 
@@ -328,22 +312,6 @@ const Bookings = () => {
       <Header title="Réservations" unreadCount={unreadCount} />
       
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        <Button 
-          onClick={createDemoCourses} 
-          disabled={creatingDemo}
-          className="w-full"
-          variant="outline"
-        >
-          {creatingDemo ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Création en cours...
-            </>
-          ) : (
-            'Créer des courses de démo'
-          )}
-        </Button>
-
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="new">
