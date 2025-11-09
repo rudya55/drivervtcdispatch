@@ -91,8 +91,12 @@ const Home = () => {
     },
   });
 
-  // Filter pending courses
-  const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
+  // Filter pending and today's accepted courses
+  const today = new Date().toDateString();
+  const displayedCourses = courses.filter(c => {
+    const isToday = new Date(c.pickup_date).toDateString() === today;
+    return (c.status === 'pending' || c.status === 'dispatched') || (c.status === 'accepted' && isToday);
+  });
 
   // Load Google Maps script from backend secret
   useEffect(() => {
@@ -158,24 +162,22 @@ const Home = () => {
           </div>
         </Card>
 
-        {/* Pending Courses */}
+        {/* Courses */}
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">
-            Nouvelles courses {pendingCourses.length > 0 && `(${pendingCourses.length})`}
+            Mes courses {displayedCourses.length > 0 && `(${displayedCourses.length})`}
           </h2>
 
           {isLoading ? (
             <Card className="p-6">
               <p className="text-center text-muted-foreground">Chargement...</p>
             </Card>
-          ) : pendingCourses.length === 0 ? (
+          ) : displayedCourses.length === 0 ? (
             <Card className="p-6">
-              <p className="text-center text-muted-foreground">
-                {isActive ? 'Aucune course en attente' : 'Activez votre statut pour recevoir des courses'}
-              </p>
+              <p className="text-center text-muted-foreground">Aucune course</p>
             </Card>
           ) : (
-            pendingCourses.map((course) => (
+            displayedCourses.map((course) => (
               <Card key={course.id} className="p-4 space-y-4">
                 {/* Company & Vehicle */}
                 {course.company_name && (
