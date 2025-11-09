@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import GoogleMap from '@/components/GoogleMap';
+import { CourseHistory } from '@/components/CourseHistory';
 import { Course } from '@/lib/supabase';
 import { 
   MapPin, 
@@ -189,6 +190,9 @@ export const CompletedCourseDetails = ({
               <p className="text-sm"><span className="font-semibold">Notes:</span> {course.notes}</p>
             </Card>
           )}
+
+          {/* Course History Timeline */}
+          <CourseHistory courseId={course.id} />
         </div>
       </DialogContent>
     </Dialog>

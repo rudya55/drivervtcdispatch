@@ -86,3 +86,13 @@ export type UserRole = {
   role: AppRole;
   created_at: string;
 };
+
+export type CourseTracking = {
+  id: string;
+  course_id: string;
+  status: string;
+  latitude: number | null;
+  longitude: number | null;
+  notes: string | null;
+  created_at: string;
+};
