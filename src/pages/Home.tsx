@@ -95,23 +95,6 @@ const Home = () => {
     },
   });
 
-  // Generate demo courses
-  const demoMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('initialize-driver-demo');
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      toast.success('Courses de test créées ! Rafraîchissement...');
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
-    },
-    onError: (error: any) => {
-      console.error('Demo error:', error);
-      toast.error(error?.message || 'Erreur lors de la création des courses de test');
-    },
-  });
-
   // Filter pending and today's accepted courses
   const today = new Date().toDateString();
   const displayedCourses = courses.filter(c => {
@@ -157,7 +140,7 @@ const Home = () => {
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
         {/* Driver Status Toggle Button */}
-        <div className="flex flex-col items-center gap-2 mb-2">
+        <div className="flex justify-center mb-2">
           <Card className="p-0 overflow-hidden inline-block">
             <button
               onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
@@ -178,15 +161,6 @@ const Home = () => {
               </div>
             </button>
           </Card>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => demoMutation.mutate()}
-            disabled={demoMutation.isPending}
-          >
-            {demoMutation.isPending ? 'Création...' : '🧪 Générer courses de test'}
-          </Button>
         </div>
 
         {/* Map */}
