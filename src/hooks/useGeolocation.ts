@@ -25,6 +25,7 @@ export const useGeolocation = (enabled: boolean) => {
   });
 
   const watchIdRef = useRef<number | null>(null);
+  const lastPositionRef = useRef<{ lat: number; lng: number; timestamp: number } | null>(null);
   
 
   useEffect(() => {
@@ -41,6 +42,23 @@ export const useGeolocation = (enabled: boolean) => {
       setState(prev => ({ ...prev, error: 'Geolocation not supported' }));
       return;
     }
+
+    const shouldSendUpdate = (lat: number, lng: number): boolean => {
+      const now = Date.now();
+      if (!lastPositionRef.current) return true;
+      
+      // Calculate distance in km
+      const R = 6371;
+      const dLat = (lat - lastPositionRef.current.lat) * Math.PI / 180;
+      const dLng = (lng - lastPositionRef.current.lng) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lastPositionRef.current.lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1000; // in meters
+      
+      // Send if moved > 10m OR if > 1s elapsed
+      return distance > 10 || (now - lastPositionRef.current.timestamp) > 1000;
+    };
 
     const updateLocation = async (position: GeolocationPosition) => {
       const locationData = {
@@ -62,13 +80,21 @@ export const useGeolocation = (enabled: boolean) => {
         isTracking: true,
       }));
 
-      // Send location to backend
-      try {
-        await supabase.functions.invoke('driver-update-location', {
-          body: locationData
-        });
-      } catch (error) {
-        console.error('Error updating location:', error);
+      // Send location to backend only if needed
+      if (shouldSendUpdate(position.coords.latitude, position.coords.longitude)) {
+        lastPositionRef.current = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          timestamp: Date.now()
+        };
+        
+        try {
+          await supabase.functions.invoke('driver-update-location', {
+            body: locationData
+          });
+        } catch (error) {
+          console.error('Error updating location:', error);
+        }
       }
     };
 
@@ -80,18 +106,16 @@ export const useGeolocation = (enabled: boolean) => {
       }));
     };
 
-    // Start watching position
+    // Start web geolocation watcher with 1s timeout for instant updates
     watchIdRef.current = navigator.geolocation.watchPosition(
       updateLocation,
       handleError,
       {
         enableHighAccuracy: true,
         maximumAge: 0,
-        timeout: 5000,
+        timeout: 1000,
       }
     );
-
-    // Removed periodic 30s polling; relying on watchPosition for instant updates
 
     return () => {
       if (watchIdRef.current !== null) {

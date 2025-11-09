@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import GoogleMap from '@/components/GoogleMap';
+import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { toast } from 'sonner';
 import { 
   MapPin, 
@@ -155,29 +156,43 @@ const Home = () => {
     },
   });
 
-  // Accept/refuse course
+  // Accept/refuse/update course
   const courseActionMutation = useMutation({
-    mutationFn: async ({ courseId, action }: { courseId: string; action: string }) => {
+    mutationFn: async ({ courseId, action, data }: { courseId: string; action: string; data?: any }) => {
       const { error } = await supabase.functions.invoke('driver-update-course-status', {
-        body: { course_id: courseId, action }
+        body: { 
+          course_id: courseId, 
+          action,
+          ...data
+        }
       });
       if (error) throw error;
     },
     onSuccess: (_, { action }) => {
-      toast.success(action === 'accept' ? 'Course acceptée' : 'Course refusée');
+      const messages: Record<string, string> = {
+        accept: 'Course acceptée',
+        refuse: 'Course refusée',
+        start: 'Course démarrée',
+        arrived: 'Arrivée confirmée',
+        pickup: 'Client à bord',
+        dropoff: 'Client déposé',
+        complete: 'Course terminée'
+      };
+      toast.success(messages[action] || 'Course mise à jour');
       queryClient.invalidateQueries({ queryKey: ['courses'] });
     },
-    onError: () => {
-      toast.error('Erreur lors de la mise à jour de la course');
+    onError: (error: any) => {
+      toast.error(error?.message || 'Erreur lors de la mise à jour de la course');
     },
   });
 
-  // Filter pending and today's accepted courses
+  // Filter courses to display
   const today = new Date().toDateString();
-  const displayedCourses = courses.filter(c => {
-    const isToday = new Date(c.pickup_date).toDateString() === today;
-    return (c.status === 'pending' || c.status === 'dispatched') || (c.status === 'accepted' && isToday);
-  });
+  const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
+  const activeCourses = courses.filter(c => 
+    c.status === 'accepted' || c.status === 'in_progress'
+  );
+  const displayedCourses = [...activeCourses, ...pendingCourses];
 
   // Load Google Maps script from backend secret and track readiness
   const [mapsReady, setMapsReady] = useState<boolean>(!!(window as any).google);
@@ -267,90 +282,111 @@ const Home = () => {
               <p className="text-center text-muted-foreground">Aucune course</p>
             </Card>
           ) : (
-            displayedCourses.map((course) => (
-              <Card key={course.id} className="p-4 space-y-4">
-                {/* Company & Vehicle */}
-                {course.company_name && (
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary">{course.company_name}</Badge>
-                    <Badge variant="outline">{course.vehicle_type}</Badge>
-                  </div>
-                )}
-
-                {/* Pickup Date/Time */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium">
-                    {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
-                  </span>
-                </div>
-
-                {/* Locations */}
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Départ</p>
-                      <p className="text-sm font-medium">{course.departure_location}</p>
+            displayedCourses.map((course) => {
+              // Show swipe actions for accepted/in_progress courses
+              if (course.status === 'accepted' || course.status === 'in_progress') {
+                return (
+                  <CourseSwipeActions
+                    key={course.id}
+                    course={course}
+                    currentLocation={locationState.coordinates}
+                    onAction={(action, data) => 
+                      courseActionMutation.mutate({ 
+                        courseId: course.id, 
+                        action,
+                        data
+                      })
+                    }
+                  />
+                );
+              }
+              
+              // Show accept/refuse for pending courses
+              return (
+                <Card key={course.id} className="p-4 space-y-4">
+                  {/* Company & Vehicle */}
+                  {course.company_name && (
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary">{course.company_name}</Badge>
+                      <Badge variant="outline">{course.vehicle_type}</Badge>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Destination</p>
-                      <p className="text-sm font-medium">{course.destination_location}</p>
-                    </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Details */}
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <span>{course.passengers_count}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Briefcase className="w-4 h-4 text-muted-foreground" />
-                    <span>{course.luggage_count}</span>
-                  </div>
-                  <div className="flex items-center gap-1 ml-auto">
-                    <Euro className="w-4 h-4 text-success" />
-                    <span className="font-semibold text-success">
-                      {course.net_driver ? course.net_driver.toFixed(2) : course.client_price.toFixed(2)}€
+                  {/* Pickup Date/Time */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">
+                      {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
                     </span>
                   </div>
-                </div>
 
-                {/* Notes */}
-                {course.notes && (
-                  <p className="text-sm text-muted-foreground border-l-2 border-primary pl-3">
-                    {course.notes}
-                  </p>
-                )}
+                  {/* Locations */}
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Départ</p>
+                        <p className="text-sm font-medium">{course.departure_location}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Destination</p>
+                        <p className="text-sm font-medium">{course.destination_location}</p>
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
-                    disabled={courseActionMutation.isPending}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Refuser
-                  </Button>
-                  <Button
-                    variant="default"
-                    className="flex-1 bg-accent hover:bg-accent/90"
-                    onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
-                    disabled={courseActionMutation.isPending}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Accepter
-                  </Button>
-                </div>
-              </Card>
-            ))
+                  {/* Details */}
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                      <span>{course.passengers_count}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Briefcase className="w-4 h-4 text-muted-foreground" />
+                      <span>{course.luggage_count}</span>
+                    </div>
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Euro className="w-4 h-4 text-success" />
+                      <span className="font-semibold text-success">
+                        {course.net_driver ? course.net_driver.toFixed(2) : course.client_price.toFixed(2)}€
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {course.notes && (
+                    <p className="text-sm text-muted-foreground border-l-2 border-primary pl-3">
+                      {course.notes}
+                    </p>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
+                      disabled={courseActionMutation.isPending}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Refuser
+                    </Button>
+                    <Button
+                      variant="default"
+                      className="flex-1 bg-accent hover:bg-accent/90"
+                      onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
+                      disabled={courseActionMutation.isPending}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Accepter
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })
           )}
         </div>
       </div>

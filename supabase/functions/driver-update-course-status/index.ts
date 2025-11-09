@@ -12,37 +12,34 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const authHeader = req.headers.get('Authorization')!;
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      });
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Get authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication error:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      });
-    }
-
-    const { course_id, action } = await req.json();
+    // Parse request body
+    const { course_id, action, latitude, longitude, rating, comment, final_price } = await req.json();
 
     if (!course_id || !action) {
-      return new Response(JSON.stringify({ error: 'Paramètres manquants' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
+      return new Response(
+        JSON.stringify({ error: 'Missing course_id or action' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Get driver
+    // Get driver record
     const { data: driver, error: driverError } = await supabase
       .from('drivers')
       .select('id')
@@ -50,122 +47,183 @@ Deno.serve(async (req) => {
       .single();
 
     if (driverError || !driver) {
-      return new Response(JSON.stringify({ error: 'Chauffeur non trouvé' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 404,
-      });
+      console.error('Driver not found:', driverError);
+      return new Response(
+        JSON.stringify({ error: 'Driver not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get current course data
+    const { data: course, error: courseError } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('id', course_id)
+      .single();
+
+    if (courseError || !course) {
+      console.error('Course not found:', courseError);
+      return new Response(
+        JSON.stringify({ error: 'Course not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const now = new Date().toISOString();
     let updateData: any = {};
-    let newStatus: string = '';
+    let trackingNotes = '';
 
+    // Handle different actions
     switch (action) {
       case 'accept':
         updateData = {
           status: 'accepted',
           driver_id: driver.id,
-          accepted_at: now
+          accepted_at: now,
         };
-        newStatus = 'accepted';
+        trackingNotes = 'Course acceptée par le chauffeur';
         break;
 
       case 'refuse':
         updateData = {
           status: 'pending',
           driver_id: null,
-          accepted_at: null
         };
-        newStatus = 'pending';
+        trackingNotes = 'Course refusée par le chauffeur';
         break;
 
       case 'start':
-        // Vérifier que la course peut être démarrée (1h avant pickup_date)
-        const { data: course } = await supabase
-          .from('courses')
-          .select('pickup_date, driver_id')
-          .eq('id', course_id)
-          .single();
+        // Validate timing (within 1 hour before pickup)
+        const pickupTime = new Date(course.pickup_date).getTime();
+        const currentTime = new Date().getTime();
+        const oneHourBefore = pickupTime - 60 * 60 * 1000;
 
-        if (!course || course.driver_id !== driver.id) {
-          return new Response(JSON.stringify({ error: 'Course non trouvée ou non autorisée' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 403,
-          });
-        }
-
-        const pickup = new Date(course.pickup_date);
-        const unlockTime = new Date(pickup.getTime() - 60 * 60000);
-        const currentTime = new Date();
-
-        if (currentTime < unlockTime) {
-          return new Response(JSON.stringify({ 
-            error: 'La course ne peut pas encore être démarrée',
-            unlock_time: unlockTime.toISOString()
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
-          });
+        if (currentTime < oneHourBefore) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Vous ne pouvez démarrer la course qu\'une heure avant l\'heure de prise en charge' 
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
         updateData = {
           status: 'in_progress',
-          started_at: now
+          started_at: now,
         };
-        newStatus = 'in_progress';
+        trackingNotes = 'Chauffeur en route vers le point de départ';
+        break;
+
+      case 'arrived':
+        // Driver arrived at pickup location
+        updateData = {
+          arrived_at: now,
+        };
+        trackingNotes = 'Chauffeur arrivé sur place';
+        break;
+
+      case 'pickup':
+        // Client is on board
+        updateData = {
+          picked_up_at: now,
+        };
+        trackingNotes = 'Client à bord';
+        break;
+
+      case 'dropoff':
+        // Client dropped off
+        updateData = {
+          dropped_off_at: now,
+        };
+        trackingNotes = 'Client déposé';
         break;
 
       case 'complete':
         updateData = {
           status: 'completed',
-          completed_at: now
+          completed_at: now,
         };
-        newStatus = 'completed';
+        
+        // Add rating and comment if provided
+        if (rating !== undefined) {
+          updateData.rating = rating;
+        }
+        if (comment) {
+          updateData.notes = (course.notes ? course.notes + '\n\n' : '') + 
+                            `Commentaire chauffeur: ${comment}`;
+        }
+        if (final_price !== undefined) {
+          updateData.client_price = final_price;
+        }
+        
+        trackingNotes = 'Course terminée';
+        if (rating) trackingNotes += ` - Note: ${rating}/5`;
+        break;
+
+      case 'cancel':
+        updateData = {
+          status: 'cancelled',
+        };
+        trackingNotes = 'Course annulée';
         break;
 
       default:
-        return new Response(JSON.stringify({ error: 'Action non valide' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        });
+        return new Response(
+          JSON.stringify({ error: 'Invalid action' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
     }
 
     // Update course
-    const { data: updatedCourse, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('courses')
       .update(updateData)
-      .eq('id', course_id)
-      .select()
-      .single();
+      .eq('id', course_id);
 
     if (updateError) {
-      console.error('Update error:', updateError);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      });
+      console.error('Error updating course:', updateError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to update course' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log(`Course ${course_id} updated to ${newStatus}`);
+    // Add tracking entry with location if provided (optional, table may not exist yet)
+    try {
+      const trackingData: any = {
+        course_id,
+        status: updateData.status || course.status,
+        notes: trackingNotes,
+      };
+
+      if (latitude && longitude) {
+        trackingData.latitude = latitude;
+        trackingData.longitude = longitude;
+      }
+
+      await supabase
+        .from('course_tracking')
+        .insert(trackingData);
+    } catch (trackingError) {
+      console.log('Tracking insert failed (table may not exist yet):', trackingError);
+      // Don't fail the request if tracking fails
+    }
 
     return new Response(
       JSON.stringify({ 
-        success: true,
-        course: updatedCourse
+        success: true, 
+        message: 'Course updated successfully',
+        action,
+        course_id 
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
-    console.error('Error:', error);
+
+  } catch (error) {
+    console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

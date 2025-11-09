@@ -62,6 +62,7 @@ export type Course = {
   started_at: string | null;
   arrived_at: string | null;
   picked_up_at: string | null;
+  dropped_off_at: string | null;
   completed_at: string | null;
 };
 
