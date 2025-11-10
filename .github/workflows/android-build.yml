@@ -19,6 +19,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Debug: list Gradle files visible to runner
+        run: |
+          echo "Current working dir: $(pwd)"
+          echo "Top-level files:" && ls -la
+          echo "Looking for Gradle-related files (this will help setup-java debug):"
+          find . -type f \( -name "*.gradle*" -o -name "gradle-wrapper.properties" -o -name "Versions.kt" -o -name "Dependencies.kt" -o -name "*.versions.toml" -o -name "versions.properties" \) -print || true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
