@@ -31,6 +31,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
+          # S'assurer que l'action de cache Gradle recherche les fichiers de dépendances
+          # dans le répertoire android/ où se trouvent les fichiers Gradle du projet
+          cache-dependency-path: |
+            android/**/build.gradle,android/**/build.gradle.kts,android/gradle/wrapper/gradle-wrapper.properties,android/**/settings.gradle,android/**/settings.gradle.kts,android/**/gradle.properties
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
