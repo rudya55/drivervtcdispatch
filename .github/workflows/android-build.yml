@@ -1,143 +1,84 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch: # Permet de lancer le build manuellement
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'package.json'
 
 jobs:
   build:
-    name: Build APK (debug)
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: --max_old_space_size=4096
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          name: Build Android APK
+          node-version: '20'
+          cache: 'npm'
 
-          on:
-            workflow_dispatch:  # Permet de lancer le build manuellement
-            push:
-              branches:
-                - main
-              paths:
-                - 'android/**'
-                - 'src/**'
-                - 'package.json'
-
-          jobs:
-            build:
-              runs-on: ubuntu-latest
-              steps:
-                - name: Checkout repository
-                  uses: actions/checkout@v4
-
-                - name: Setup Node.js
-                  uses: actions/setup-node@v4
-                  with:
-                    node-version: '20'
-                    cache: 'npm'
-
-                - name: Setup Java 17
-                  uses: actions/setup-java@v4
-                  with:
-                    distribution: 'temurin'
-                    java-version: '17'
-                    cache: 'gradle'
-
-                - name: Install dependencies
-                  run: npm install --legacy-peer-deps
-
-                - name: Build web app
-                  run: npm run build
-
-                - name: Sync Capacitor
-                  run: npx cap sync android
-
-                - name: Install Android SDK (cmdline-tools)
-                  shell: bash
-                  run: |
-                    ANDROID_SDK_ROOT="$HOME/android-sdk"
-                    mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-                    cd "$RUNNER_TEMP"
-                    curl -sSLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-                    unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-                    mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-                    echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-                    echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-                    echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-                    echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-
-                - name: Accept Android SDK licenses
-                  run: yes | sdkmanager --licenses
-
-                - name: Install Android SDK packages
-                  run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-                - name: Configure local.properties
-                  run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-
-                - name: Build Android APK (Debug)
-                  working-directory: android
-                  run: ./gradlew assembleDebug
-
-                - name: Build Android APK (Release - unsigned)
-                  working-directory: android
-                  continue-on-error: true
-                  run: ./gradlew assembleRelease
-
-                - name: Upload APKs (artifact)
-                  uses: actions/upload-artifact@v4
-                  with:
-                    name: android-apks
-                    path: |
-                      android/app/build/outputs/apk/**/*.apk
-
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build web assets
-        run: npm run build
-
-      - name: Install Java (for Gradle)
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: Install Android SDK components
-        env:
-          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          mkdir -p $ANDROID_SDK_ROOT
-          cd $ANDROID_SDK_ROOT
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d cmdline-tools
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-          mv cmdline-tools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/ || true
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-        
-      - name: Add Capacitor Android platform
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build web app (Vite)
+        run: npm run build
+
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build APK (debug)
-        env:
-          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+      - name: Install Android SDK cmdline-tools
+        shell: bash
         run: |
-          cd android
+          ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          cd "$RUNNER_TEMP"
+          curl -sSLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Configure local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
+      - name: Build Android APK (Debug)
+        working-directory: android
+        run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK artifact
+      - name: Build Android APK (Release - unsigned)
+        working-directory: android
+        continue-on-error: true
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APKs (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: android-apks
+          path: android/app/build/outputs/apk/**/*.apk
