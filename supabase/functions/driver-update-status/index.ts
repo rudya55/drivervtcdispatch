@@ -82,11 +82,11 @@ Deno.serve(async (req) => {
         status: status,
       };
 
+      // Always include type field to avoid constraint errors
       const tryInserts: Array<Record<string, any>> = [
-        { ...basePayload },
+        { ...basePayload, type: 'vtc' },
         { ...basePayload, type: 'driver' },
         { ...basePayload, type: 'chauffeur' },
-        { ...basePayload, type: 'vtc' },
       ];
 
       let created = false;
@@ -168,13 +168,23 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Update status error:', error);
-    const errorMessage = (error && (error.message || error.toString())) || 'Erreur inconnue';
+    console.error('Update status error - Full details:', {
+      error,
+      message: error?.message,
+      stack: error?.stack,
+      hint: error?.hint,
+      code: error?.code,
+      details: error?.details,
+    });
+    
+    const errorMessage = error?.message || error?.toString?.() || String(error) || 'Erreur inconnue';
     const payload: Record<string, any> = {
       error: errorMessage,
       hint: error?.hint,
       code: error?.code,
+      details: error?.details,
     };
+    
     return new Response(
       JSON.stringify(payload),
       {
