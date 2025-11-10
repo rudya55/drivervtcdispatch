@@ -38,24 +38,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
-          # S'assurer que l'action de cache Gradle recherche les fichiers de dépendances
-          # On inclut à la fois des motifs globaux (projets multi-modules) et les chemins
-          # spécifiques au sous-dossier `android/` où vivent les fichiers Gradle de Capacitor.
-          cache-dependency-path: |
-            **/*.gradle*
-            **/gradle-wrapper.properties
-            buildSrc/**/Versions.kt
-            buildSrc/**/Dependencies.kt
-            gradle/*.versions.toml
-            **/versions.properties
-            # Android-specific paths (redundant mais sûr)
-            android/**/build.gradle
-            android/**/build.gradle.kts
-            android/gradle/wrapper/gradle-wrapper.properties
-            android/**/settings.gradle
-            android/**/settings.gradle.kts
-            android/**/gradle.properties
-            android/**/**.gradle*
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
