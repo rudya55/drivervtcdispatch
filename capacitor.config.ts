@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.4abdee7f238d436b9d0d34c8665e5ddf',
+  appId: 'com.lovable.drivervtcdispatch',
   appName: 'drivervtcdispatch',
   webDir: 'dist',
   server: {
