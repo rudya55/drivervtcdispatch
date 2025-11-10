@@ -17,66 +17,86 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          name: Build Android APK
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+          on:
+            workflow_dispatch:  # Permet de lancer le build manuellement
+            push:
+              branches:
+                - main
+              paths:
+                - 'android/**'
+                - 'src/**'
+                - 'package.json'
 
-      - name: Install dependencies
-        run: npm ci
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout repository
+                  uses: actions/checkout@v4
 
-      - name: Build web (vite)
-        run: npm run build
+                - name: Setup Node.js
+                  uses: actions/setup-node@v4
+                  with:
+                    node-version: '20'
+                    cache: 'npm'
 
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli@7
+                - name: Setup Java 17
+                  uses: actions/setup-java@v4
+                  with:
+                    distribution: 'temurin'
+                    java-version: '17'
+                    cache: 'gradle'
 
-      - name: Add Android platform if missing
-        run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          else
-            echo "android platform already present"
-          fi
+                - name: Install dependencies
+                  run: npm install --legacy-peer-deps
 
-      - name: Sync Capacitor (Android)
-        run: npx cap sync android
+                - name: Build web app
+                  run: npm run build
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew || true
+                - name: Sync Capacitor
+                  run: npx cap sync android
 
-      - name: Accept Android SDK licenses
-        run: yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --licenses || true
+                - name: Install Android SDK (cmdline-tools)
+                  shell: bash
+                  run: |
+                    ANDROID_SDK_ROOT="$HOME/android-sdk"
+                    mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+                    cd "$RUNNER_TEMP"
+                    curl -sSLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+                    unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+                    mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+                    echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+                    echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+                    echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+                    echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
 
-      - name: Build Android (assembleDebug)
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+                - name: Accept Android SDK licenses
+                  run: yes | sdkmanager --licenses
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-name: Build Android APK (debug)
+                - name: Install Android SDK packages
+                  run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+                - name: Configure local.properties
+                  run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-jobs:
-  build-android:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+                - name: Build Android APK (Debug)
+                  working-directory: android
+                  run: ./gradlew assembleDebug
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
+                - name: Build Android APK (Release - unsigned)
+                  working-directory: android
+                  continue-on-error: true
+                  run: ./gradlew assembleRelease
+
+                - name: Upload APKs (artifact)
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: android-apks
+                    path: |
+                      android/app/build/outputs/apk/**/*.apk
+
           node-version: '18'
 
       - name: Install dependencies
