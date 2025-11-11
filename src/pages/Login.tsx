@@ -116,21 +116,25 @@ const Login = () => {
     setLoading(true);
     
     try {
-      const { error } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: { name: signupName, phone: signupPhone },
-          emailRedirectTo: `${window.location.origin}/`
+      const { data, error } = await supabase.functions.invoke('driver-signup', {
+        body: {
+          name: signupName,
+          phone: signupPhone,
+          email: signupEmail,
+          password: signupPassword
         }
       });
 
       if (error) {
         console.error('Signup error:', error);
-        throw error;
+        throw new Error(error.message || 'Erreur lors de la création du compte');
       }
 
-      toast.success("Compte créé ! Connectez-vous maintenant.");
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success(data?.message || "Compte créé ! Connectez-vous maintenant.");
 
       // Reset form and switch to login
       setSignupName('');
