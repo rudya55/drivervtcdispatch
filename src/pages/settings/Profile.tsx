@@ -85,7 +85,20 @@ const Profile = () => {
         company_logo_url = publicUrl;
       }
 
-      const { error } = await supabase
+      console.log('Updating driver profile:', { 
+        driverId: driver.id,
+        updates: {
+          name: formData.name,
+          phone: formData.phone,
+          company_name: formData.company_name,
+          company_address: formData.company_address,
+          siret: formData.siret,
+          profile_photo_url,
+          company_logo_url,
+        }
+      });
+
+      const { data, error } = await supabase
         .from('drivers')
         .update({
           name: formData.name,
@@ -96,15 +109,36 @@ const Profile = () => {
           profile_photo_url,
           company_logo_url,
         })
-        .eq('id', driver.id);
+        .eq('id', driver.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
 
+      console.log('Profile updated successfully:', data);
       toast.success('Profil mis à jour avec succès');
       navigate('/settings');
     } catch (error: any) {
       console.error('Update profile error:', error);
-      toast.error('Erreur lors de la mise à jour');
+      
+      let errorMessage = 'Erreur lors de la mise à jour';
+      
+      if (error.message?.includes('permission denied') || error.code === '42501') {
+        errorMessage = 'Permissions insuffisantes pour modifier le profil';
+      } else if (error.message?.includes('JWT')) {
+        errorMessage = 'Session expirée, veuillez vous reconnecter';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
