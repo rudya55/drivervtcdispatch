@@ -6,13 +6,23 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log('driver-signup function called');
+  
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    console.log('Processing signup request...');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables');
+      throw new Error('Configuration serveur manquante');
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -21,7 +31,9 @@ Deno.serve(async (req) => {
       }
     });
 
-    const { name, phone, email, password } = await req.json();
+    const requestBody = await req.json();
+    const { name, phone, email, password } = requestBody;
+    
     console.log('Signup attempt for email:', email);
 
     if (!name || !phone || !email || !password) {
