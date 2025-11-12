@@ -78,7 +78,8 @@ Deno.serve(async (req) => {
           name,
           email,
           phone,
-          status: 'inactive'
+          status: 'inactive',
+          type: 'vtc'
         });
 
       if (profileError) {
@@ -132,7 +133,8 @@ Deno.serve(async (req) => {
           name,
           email,
           phone,
-          status: 'inactive'
+          status: 'inactive',
+          type: 'vtc'
         });
 
       if (profileError) {

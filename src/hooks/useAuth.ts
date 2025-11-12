@@ -40,7 +40,7 @@ export const useAuth = () => {
               const phone = (user.user_metadata?.phone as string) || null;
               const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
                 .select('*')
                 .maybeSingle();
               if (!createError && created) data = created;
@@ -76,7 +76,7 @@ export const useAuth = () => {
               const phone = (user.user_metadata?.phone as string) || null;
               const { data: created } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
                 .select('*')
                 .maybeSingle();
               if (created) data = created;
