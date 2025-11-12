@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Car, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { z } from 'zod';
 
 // Validation schemas
@@ -116,37 +116,123 @@ const Login = () => {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('driver-signup', {
-        body: {
-          name: signupName,
-          phone: signupPhone,
-          email: signupEmail,
-          password: signupPassword
+      // NIVEAU 1: Tentative via supabase.functions.invoke (SDK standard)
+      let signupSuccess = false;
+      let signupError = null;
+
+      try {
+        const { data, error } = await supabase.functions.invoke('driver-signup', {
+          body: {
+            name: signupName,
+            phone: signupPhone,
+            email: signupEmail,
+            password: signupPassword
+          }
+        });
+
+        if (!error && !data?.error) {
+          signupSuccess = true;
+          toast.success(data?.message || "Compte créé ! Connectez-vous maintenant.");
+        } else {
+          signupError = error || data?.error;
         }
-      });
-
-      if (error) {
-        console.error('Signup error:', error);
-        throw new Error(error.message || 'Erreur lors de la création du compte');
+      } catch (err: any) {
+        console.warn('Niveau 1 (invoke) échoué, tentative niveau 2...', err);
+        signupError = err;
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      // NIVEAU 2: Tentative via fetch direct vers l'URL complète
+      if (!signupSuccess && signupError) {
+        try {
+          const functionUrl = `${SUPABASE_URL}/functions/v1/driver-signup`;
+          const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              name: signupName,
+              phone: signupPhone,
+              email: signupEmail,
+              password: signupPassword
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (!data?.error) {
+              signupSuccess = true;
+              toast.success(data?.message || "Compte créé ! Connectez-vous maintenant.");
+            } else {
+              signupError = data.error;
+            }
+          } else {
+            signupError = await response.text();
+          }
+        } catch (err: any) {
+          console.warn('Niveau 2 (fetch direct) échoué, tentative niveau 3...', err);
+          signupError = err;
+        }
       }
 
-      toast.success(data?.message || "Compte créé ! Connectez-vous maintenant.");
+      // NIVEAU 3: Fallback ultime via supabase.auth.signUp côté client
+      if (!signupSuccess && signupError) {
+        try {
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: signupEmail,
+            password: signupPassword,
+            options: {
+              emailRedirectTo: `${window.location.origin}/`,
+              data: {
+                name: signupName,
+                phone: signupPhone
+              }
+            }
+          });
 
-      // Reset form and switch to login
-      setSignupName('');
-      setSignupPhone('');
-      setSignupEmail('');
-      setSignupPassword('');
-      setSignupConfirmPassword('');
-      setView('login');
+          if (authError) {
+            throw authError;
+          }
+
+          if (authData.user) {
+            signupSuccess = true;
+            toast.success("Compte créé ! Vérifiez votre email puis connectez-vous.");
+          }
+        } catch (err: any) {
+          console.error('Tous les niveaux d\'inscription ont échoué', err);
+          throw err;
+        }
+      }
+
+      // Si inscription réussie, réinitialiser le formulaire et basculer vers login
+      if (signupSuccess) {
+        setSignupName('');
+        setSignupPhone('');
+        setSignupEmail('');
+        setSignupPassword('');
+        setSignupConfirmPassword('');
+        setView('login');
+      } else {
+        throw new Error(typeof signupError === 'string' ? signupError : 'Erreur lors de la création du compte');
+      }
+
     } catch (error: any) {
       console.error('Signup error:', error);
-      const msg = error.message || 'Erreur lors de la création du compte';
-      toast.error(msg);
+      let errorMessage = 'Erreur lors de la création du compte';
+      
+      if (error.message) {
+        if (error.message.includes('already registered') || error.message.includes('déjà utilisé')) {
+          errorMessage = 'Cet email est déjà utilisé';
+        } else if (error.message.includes('Invalid email')) {
+          errorMessage = 'Email invalide';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
