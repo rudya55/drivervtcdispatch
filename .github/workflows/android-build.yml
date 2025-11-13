@@ -72,21 +72,71 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           cat android/local.properties
 
+      - name: Decode Keystore
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ ! -z "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            echo "✅ Keystore décodé avec succès"
+          else
+            echo "⚠️ KEYSTORE_BASE64 non configuré, build sans signature"
+          fi
+
+      - name: Create key.properties
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ ! -z "$KEYSTORE_PASSWORD" ]; then
+            cat > android/key.properties << EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+            echo "✅ key.properties créé"
+          else
+            echo "⚠️ Secrets de signature non configurés"
+          fi
+
       - name: Build Android APK (Debug)
         working-directory: android
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Build Android APK (Release - unsigned)
+      - name: Build Android APK (Release - signed)
         working-directory: android
-        continue-on-error: true
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          if [ -f "key.properties" ]; then
+            echo "🔑 Building signed release APK"
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            echo "⚠️ Building unsigned release APK"
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          fi
 
       - name: Upload APKs (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: android-apks
-          path: android/app/build/outputs/apk/**/*.apk
+          path: |
+            android/app/build/outputs/apk/**/*.apk
+            android/app/build/outputs/bundle/**/*.aab
+
+      - name: Build Summary
+        run: |
+          echo "## 📦 Build Android terminé" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "android/key.properties" ]; then
+            echo "✅ **APK signé** prêt pour le Play Store" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **APK non signé** (secrets manquants)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Téléchargez l'APK dans l'onglet 'Artifacts' ci-dessus" >> $GITHUB_STEP_SUMMARY
