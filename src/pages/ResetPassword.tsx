@@ -24,13 +24,32 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have a valid session from the reset link
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // Valid recovery token, user can change password
+        console.log('Token de récupération valide');
+      } else if (!session) {
+        // No valid session
+        toast.error('Lien invalide ou expiré');
+        navigate('/login');
+      }
+    });
+
+    // Also check current session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         toast.error('Lien invalide ou expiré');
         navigate('/login');
       }
     });
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {

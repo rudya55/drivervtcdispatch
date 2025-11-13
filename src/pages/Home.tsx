@@ -58,7 +58,7 @@ const Home = () => {
     enabled: !!driver?.id,
   });
 
-  // Realtime listener for courses
+  // Realtime listener for courses assigned to this driver
   useEffect(() => {
     if (!driver?.id) return;
 
@@ -77,22 +77,12 @@ const Home = () => {
           queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
           
           if (payload.eventType === 'INSERT') {
-            toast.info('Nouvelle course reçue !');
+            const newCourse = payload.new as Course;
+            toast.success('Nouvelle course assignée !', {
+              description: `${newCourse.client_name} - ${newCourse.departure_location}`,
+              duration: 10000,
+            });
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'courses',
-          filter: `status=eq.dispatched`,
-        },
-        (payload) => {
-          console.log('New dispatched course:', payload);
-          queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
-          toast.info('Nouvelle course disponible !');
         }
       )
       .subscribe();
