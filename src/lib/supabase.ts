@@ -78,15 +78,6 @@ export type DriverNotification = {
   data: Record<string, any> | null;
 };
 
-export type AppRole = 'driver' | 'fleet_manager';
-
-export type UserRole = {
-  id: string;
-  user_id: string;
-  role: AppRole;
-  created_at: string;
-};
-
 export type CourseTracking = {
   id: string;
   course_id: string;
