@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Debug: list Gradle files visible to runner
+      - name: "Debug: list Gradle files visible to runner"
         run: |
           echo "Current working dir: $(pwd)"
           echo "Top-level files:" && ls -la
