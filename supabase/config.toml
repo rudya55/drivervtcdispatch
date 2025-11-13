@@ -6,25 +6,10 @@ verify_jwt = false
 [functions.driver-signup]
 verify_jwt = false
 
-[functions.setup-database]
-verify_jwt = false
-
-[functions.setup-driver-tracking]
-verify_jwt = false
-
-[functions.fix-drivers-table]
-verify_jwt = false
-
 [functions.driver-update-status]
 verify_jwt = true
 
 [functions.get-google-maps-key]
-verify_jwt = false
-
-[functions.create-demo-courses]
-verify_jwt = true
-
-[functions.check-course-notifications]
 verify_jwt = false
 
 [functions.driver-update-course-status]
@@ -33,14 +18,8 @@ verify_jwt = true
 [functions.driver-courses]
 verify_jwt = true
 
-[functions.initialize-driver-demo]
-verify_jwt = true
-
 [functions.driver-get-notifications]
 verify_jwt = true
 
 [functions.driver-update-location]
 verify_jwt = true
-
-[functions.notify-drivers-new-course]
-verify_jwt = false
