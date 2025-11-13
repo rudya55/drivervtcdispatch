@@ -182,7 +182,7 @@ const Login = () => {
     
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: 'https://drivervtcdispatch.lovable.app/reset-password'
       });
 
       if (error) throw error;
