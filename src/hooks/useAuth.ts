@@ -15,11 +15,14 @@ export const useAuth = () => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          // Vérifier que l'utilisateur est bien un chauffeur
+          // Vérifier si c'est un compte non-driver (seulement si le rôle est explicitement défini)
           const userRole = currentSession.user.user_metadata?.role;
           
-          if (userRole && userRole !== 'driver') {
-            // Ce n'est pas un compte chauffeur, déconnecter immédiatement
+          // Bloquer SEULEMENT si le rôle est explicitement défini ET différent de 'driver'
+          // Si role est undefined/null, on laisse passer (nouveau compte sans rôle)
+          if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
+            console.warn('❌ Rôle non-driver détecté:', userRole);
+            // Déconnecter et arrêter
             setTimeout(async () => {
               await supabase.auth.signOut();
               setDriver(null);
@@ -70,8 +73,9 @@ export const useAuth = () => {
         const user = currentSession.user;
         const userRole = user.user_metadata?.role;
         
-        // Vérifier que c'est bien un compte chauffeur
-        if (userRole && userRole !== 'driver') {
+        // Bloquer SEULEMENT si le rôle est explicitement défini ET différent de 'driver'
+        if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
+          console.warn('❌ Rôle non-driver détecté à l\'init:', userRole);
           supabase.auth.signOut();
           setDriver(null);
           setSession(null);
@@ -122,9 +126,9 @@ export const useAuth = () => {
         throw new Error('Connexion échouée - session manquante');
       }
 
-      // Vérifier que c'est bien un compte chauffeur
+      // Vérifier que c'est bien un compte chauffeur (seulement si role explicite)
       const userRole = data.session.user.user_metadata?.role;
-      if (userRole && userRole !== 'driver') {
+      if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
         await supabase.auth.signOut();
         throw new Error("Ce compte n'est pas un compte chauffeur");
       }
