@@ -179,6 +179,29 @@ const Login = () => {
 
       // NIVEAU 3: Fallback ultime via supabase.auth.signUp côté client
       if (!signupSuccess && signupError) {
+        // Avant le fallback, vérifier si l'email existe déjà
+        try {
+          console.log('[Signup] Vérification de l\'email avec auth-check-email...');
+          const { data: checkData, error: checkError } = await supabase.functions.invoke('auth-check-email', {
+            body: { email: signupEmail }
+          });
+
+          if (checkError) {
+            console.warn('[Signup] Impossible de vérifier l\'email, tentative de signup quand même...');
+          } else if (checkData?.exists) {
+            // Email existe déjà dans Supabase Auth
+            throw new Error('EMAIL_EXISTS');
+          }
+        } catch (err: any) {
+          if (err.message === 'EMAIL_EXISTS') {
+            toast.error('Cet email est déjà utilisé. Essayez de vous connecter ou utilisez un autre email.');
+            setLoading(false);
+            return;
+          }
+          console.warn('[Signup] Erreur vérification email, on continue quand même...', err);
+        }
+
+        // Si email n'existe pas, on peut tenter le signup
         try {
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email: signupEmail,
@@ -223,10 +246,18 @@ const Login = () => {
       let errorMessage = 'Erreur lors de la création du compte';
       
       if (error.message) {
-        if (error.message.includes('already registered') || error.message.includes('déjà utilisé')) {
-          errorMessage = 'Cet email est déjà utilisé';
+        if (error.message.includes('already registered') || error.message.includes('déjà utilisé') || error.message.includes('User already registered')) {
+          errorMessage = 'Cet email est déjà utilisé. Essayez de vous connecter.';
+        } else if (error.message === 'EMAIL_EXISTS') {
+          errorMessage = 'Cet email est déjà utilisé. Essayez de vous connecter ou utilisez un autre email.';
+        } else if (error.message.includes('Database error saving new user')) {
+          errorMessage = '⚠️ Erreur de configuration serveur. Votre compte existe peut-être déjà. Essayez de vous connecter ou contactez le support.';
+        } else if (error.message.includes('user_roles')) {
+          errorMessage = '⚠️ Configuration serveur incorrecte (trigger SQL). Contactez le support pour résoudre ce problème.';
         } else if (error.message.includes('Invalid email')) {
           errorMessage = 'Email invalide';
+        } else if (error.message.includes('Password should be')) {
+          errorMessage = 'Le mot de passe doit contenir au moins 6 caractères';
         } else {
           errorMessage = error.message;
         }

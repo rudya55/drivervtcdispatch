@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.driver-signup]
 verify_jwt = false
 
+[functions.auth-check-email]
+verify_jwt = false
+
 [functions.driver-update-status]
 verify_jwt = true
 
