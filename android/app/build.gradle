@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// Load keystore properties from key.properties file
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    logger.info("✅ key.properties loaded successfully")
+} else {
+    logger.warn("⚠️ key.properties not found - release will not be signed")
+}
+
 android {
     namespace "com.lovable.drivervtcdispatch"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,7 +17,13 @@ android {
     // Configuration de signature pour release
     signingConfigs {
         release {
-            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+            if (keystoreProperties['storeFile']) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            } else if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                // Fallback to gradle.properties
                 storeFile file(MYAPP_UPLOAD_STORE_FILE)
                 storePassword MYAPP_UPLOAD_STORE_PASSWORD
                 keyAlias MYAPP_UPLOAD_KEY_ALIAS
