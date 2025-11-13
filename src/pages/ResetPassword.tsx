@@ -24,15 +24,30 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('🔐 ResetPassword page loaded - APP CHAUFFEUR');
+    console.log('🌐 Current URL:', window.location.href);
+    
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);
+      console.log('🔔 Auth event:', event);
+      console.log('👤 Session user:', session?.user?.id);
+      console.log('🎭 User role:', session?.user?.user_metadata?.role);
       
       if (event === 'PASSWORD_RECOVERY') {
         // Valid recovery token, user can change password
-        console.log('Token de récupération valide');
+        console.log('✅ Token de récupération valide');
+        
+        // Vérifier immédiatement le rôle
+        const userRole = session?.user?.user_metadata?.role;
+        if (userRole && userRole !== 'driver') {
+          console.error('❌ Rôle incorrect détecté:', userRole);
+          supabase.auth.signOut();
+          toast.error("Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application appropriée.");
+          navigate('/login');
+        }
       } else if (!session) {
         // No valid session
+        console.warn('⚠️ Pas de session valide');
         toast.error('Lien invalide ou expiré');
         navigate('/login');
       }
@@ -40,7 +55,11 @@ const ResetPassword = () => {
 
     // Also check current session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔍 Session check:', session?.user?.id);
+      console.log('🎭 Role check:', session?.user?.user_metadata?.role);
+      
       if (!session) {
+        console.warn('⚠️ Aucune session trouvée au chargement');
         toast.error('Lien invalide ou expiré');
         navigate('/login');
       }
@@ -67,13 +86,19 @@ const ResetPassword = () => {
     setLoading(true);
     
     try {
+      console.log('🔄 Début de la mise à jour du mot de passe');
+      
       // Vérifier le rôle avant de changer le mot de passe
       const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('🔍 Vérification session:', session?.user?.id);
+      console.log('🎭 Vérification rôle:', session?.user?.user_metadata?.role);
       
       if (session?.user) {
         const userRole = session.user.user_metadata?.role;
         
         if (userRole && userRole !== 'driver') {
+          console.error('❌ Rôle non-chauffeur détecté lors de la mise à jour:', userRole);
           await supabase.auth.signOut();
           toast.error("Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application appropriée.");
           navigate('/login');
@@ -85,8 +110,12 @@ const ResetPassword = () => {
         password: password
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur lors de la mise à jour:', error);
+        throw error;
+      }
 
+      console.log('✅ Mot de passe modifié avec succès');
       toast.success('Mot de passe modifié avec succès !');
       navigate('/login');
     } catch (error: any) {
