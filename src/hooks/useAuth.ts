@@ -15,6 +15,20 @@ export const useAuth = () => {
         setSession(currentSession);
         
         if (currentSession?.user) {
+          // Vérifier que l'utilisateur est bien un chauffeur
+          const userRole = currentSession.user.user_metadata?.role;
+          
+          if (userRole && userRole !== 'driver') {
+            // Ce n'est pas un compte chauffeur, déconnecter immédiatement
+            setTimeout(async () => {
+              await supabase.auth.signOut();
+              setDriver(null);
+              setSession(null);
+              setLoading(false);
+            }, 0);
+            return;
+          }
+          
           // Fetch or create driver profile (deferred to avoid deadlocks)
           setTimeout(async () => {
             const user = currentSession.user;
@@ -39,12 +53,12 @@ export const useAuth = () => {
             if (data) {
               setDriver(data);
             }
+            setLoading(false);
           }, 0);
         } else {
           setDriver(null);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
@@ -54,6 +68,17 @@ export const useAuth = () => {
       
       if (currentSession?.user) {
         const user = currentSession.user;
+        const userRole = user.user_metadata?.role;
+        
+        // Vérifier que c'est bien un compte chauffeur
+        if (userRole && userRole !== 'driver') {
+          supabase.auth.signOut();
+          setDriver(null);
+          setSession(null);
+          setLoading(false);
+          return;
+        }
+        
         supabase
           .from('drivers')
           .select('*')
@@ -95,6 +120,13 @@ export const useAuth = () => {
 
       if (!data?.session) {
         throw new Error('Connexion échouée - session manquante');
+      }
+
+      // Vérifier que c'est bien un compte chauffeur
+      const userRole = data.session.user.user_metadata?.role;
+      if (userRole && userRole !== 'driver') {
+        await supabase.auth.signOut();
+        throw new Error("Ce compte n'est pas un compte chauffeur");
       }
 
       setSession(data.session);
