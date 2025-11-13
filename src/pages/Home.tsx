@@ -191,29 +191,8 @@ const Home = () => {
       <Header title="Accueil" unreadCount={unreadCount} />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Driver Status Toggle Button */}
-        <div className="flex justify-center mb-2">
-          <Card className="p-0 overflow-hidden inline-block">
-            <button
-              onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
-              disabled={statusMutation.isPending}
-              className="flex items-center gap-3 px-4 py-2 hover:bg-accent/5 transition-colors"
-            >
-              <span className="text-sm font-semibold">
-                {isActive ? 'En ligne' : 'Hors ligne'}
-              </span>
-              <div className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors ${
-                isActive ? 'bg-success' : 'bg-muted'
-              }`}>
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${
-                    isActive ? 'translate-x-6' : 'translate-x-0.5'
-                  }`}
-                />
-              </div>
-            </button>
-          </Card>
-        </div>
+        {/* Driver Status Toggle Button - TEMPORAIREMENT DÉSACTIVÉ 
+            (Erreur 400 driver-update-status - à réactiver après correction edge function) */}
 
         {/* Map */}
         <Card className="p-0 overflow-hidden">
