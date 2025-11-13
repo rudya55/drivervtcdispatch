@@ -116,148 +116,45 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // NIVEAU 1: Tentative via supabase.functions.invoke (SDK standard)
-      let signupSuccess = false;
-      let signupError = null;
-
-      try {
-        const { data, error } = await supabase.functions.invoke('driver-signup', {
-          body: {
-            name: signupName,
-            phone: signupPhone,
-            email: signupEmail,
-            password: signupPassword
-          }
-        });
-
-        if (!error && !data?.error) {
-          signupSuccess = true;
-          toast.success(data?.message || "Compte créé ! Connectez-vous maintenant.");
-        } else {
-          signupError = error || data?.error;
+      const { data, error } = await supabase.functions.invoke('create-user-account', {
+        body: {
+          email: signupEmail,
+          password: signupPassword,
+          role: 'driver',
+          name: signupName,
+          phone: signupPhone
         }
-      } catch (err: any) {
-        console.warn('Niveau 1 (invoke) échoué, tentative niveau 2...', err);
-        signupError = err;
+      });
+
+      if (error) {
+        throw error;
       }
 
-      // NIVEAU 2: Tentative via fetch direct vers l'URL complète
-      if (!signupSuccess && signupError) {
-        try {
-          const functionUrl = `${SUPABASE_URL}/functions/v1/driver-signup`;
-          const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-              name: signupName,
-              phone: signupPhone,
-              email: signupEmail,
-              password: signupPassword
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (!data?.error) {
-              signupSuccess = true;
-              toast.success(data?.message || "Compte créé ! Connectez-vous maintenant.");
-            } else {
-              signupError = data.error;
-            }
-          } else {
-            signupError = await response.text();
-          }
-        } catch (err: any) {
-          console.warn('Niveau 2 (fetch direct) échoué, tentative niveau 3...', err);
-          signupError = err;
-        }
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
-      // NIVEAU 3: Fallback ultime via supabase.auth.signUp côté client
-      if (!signupSuccess && signupError) {
-        // Avant le fallback, vérifier si l'email existe déjà
-        try {
-          console.log('[Signup] Vérification de l\'email avec auth-check-email...');
-          const { data: checkData, error: checkError } = await supabase.functions.invoke('auth-check-email', {
-            body: { email: signupEmail }
-          });
-
-          if (checkError) {
-            console.warn('[Signup] Impossible de vérifier l\'email, tentative de signup quand même...');
-          } else if (checkData?.exists) {
-            // Email existe déjà dans Supabase Auth
-            throw new Error('EMAIL_EXISTS');
-          }
-        } catch (err: any) {
-          if (err.message === 'EMAIL_EXISTS') {
-            toast.error('Cet email est déjà utilisé. Essayez de vous connecter ou utilisez un autre email.');
-            setLoading(false);
-            return;
-          }
-          console.warn('[Signup] Erreur vérification email, on continue quand même...', err);
-        }
-
-        // Si email n'existe pas, on peut tenter le signup
-        try {
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: signupEmail,
-            password: signupPassword,
-            options: {
-              emailRedirectTo: `${window.location.origin}/`,
-              data: {
-                name: signupName,
-                phone: signupPhone
-              }
-            }
-          });
-
-          if (authError) {
-            throw authError;
-          }
-
-          if (authData.user) {
-            signupSuccess = true;
-            toast.success("Compte créé ! Vérifiez votre email puis connectez-vous.");
-          }
-        } catch (err: any) {
-          console.error('Tous les niveaux d\'inscription ont échoué', err);
-          throw err;
-        }
-      }
-
-      // Si inscription réussie, réinitialiser le formulaire et basculer vers login
-      if (signupSuccess) {
-        setSignupName('');
-        setSignupPhone('');
-        setSignupEmail('');
-        setSignupPassword('');
-        setSignupConfirmPassword('');
-        setView('login');
-      } else {
-        throw new Error(typeof signupError === 'string' ? signupError : 'Erreur lors de la création du compte');
-      }
+      toast.success(data?.message || 'Compte créé avec succès ! Connectez-vous pour continuer.');
+      
+      // Reset form and switch to login
+      setSignupName('');
+      setSignupPhone('');
+      setSignupEmail('');
+      setSignupPassword('');
+      setSignupConfirmPassword('');
+      setView('login');
 
     } catch (error: any) {
       console.error('Signup error:', error);
       let errorMessage = 'Erreur lors de la création du compte';
       
       if (error.message) {
-        if (error.message.includes('already registered') || error.message.includes('déjà utilisé') || error.message.includes('User already registered')) {
+        if (error.message.includes('déjà') || error.message.includes('already')) {
           errorMessage = 'Cet email est déjà utilisé. Essayez de vous connecter.';
-        } else if (error.message === 'EMAIL_EXISTS') {
-          errorMessage = 'Cet email est déjà utilisé. Essayez de vous connecter ou utilisez un autre email.';
-        } else if (error.message.includes('Database error saving new user')) {
-          errorMessage = '⚠️ Erreur de configuration serveur. Votre compte existe peut-être déjà. Essayez de vous connecter ou contactez le support.';
-        } else if (error.message.includes('user_roles')) {
-          errorMessage = '⚠️ Configuration serveur incorrecte (trigger SQL). Contactez le support pour résoudre ce problème.';
         } else if (error.message.includes('Invalid email')) {
           errorMessage = 'Email invalide';
-        } else if (error.message.includes('Password should be')) {
-          errorMessage = 'Le mot de passe doit contenir au moins 6 caractères';
+        } else if (error.message.includes('Password')) {
+          errorMessage = 'Le mot de passe doit contenir au moins 8 caractères';
         } else {
           errorMessage = error.message;
         }
