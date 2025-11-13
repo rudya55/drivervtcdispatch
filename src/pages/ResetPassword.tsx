@@ -67,6 +67,20 @@ const ResetPassword = () => {
     setLoading(true);
     
     try {
+      // Vérifier le rôle avant de changer le mot de passe
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const userRole = session.user.user_metadata?.role;
+        
+        if (userRole && userRole !== 'driver') {
+          await supabase.auth.signOut();
+          toast.error("Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application appropriée.");
+          navigate('/login');
+          return;
+        }
+      }
+      
       const { error } = await supabase.auth.updateUser({
         password: password
       });

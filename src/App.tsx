@@ -26,7 +26,7 @@ import NotificationsSettings from './pages/settings/Notifications';
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuth();
+  const { session, driver, loading } = useAuth();
   
   if (loading) {
     return (
@@ -40,6 +40,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Vérifier que l'utilisateur a un profil driver valide
+  if (!driver) {
     return <Navigate to="/login" replace />;
   }
   
