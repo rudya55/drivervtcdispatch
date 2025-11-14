@@ -49,23 +49,20 @@ Deno.serve(async (req) => {
     const { data: existingDriver } = await supabase
       .from('drivers')
       .select('*')
-      .eq('id', userId)
-      .single();
+      .eq('user_id', userId)
+      .maybeSingle();
 
     if (!existingDriver) {
       // Create driver profile
       const { error: driverError } = await supabase.from('drivers').insert({
-        id: userId,
-        first_name: 'Jean',
-        last_name: 'Démo',
+        user_id: userId,
+        name: 'Jean Démo',
         phone: '+33612345678',
         email: demoEmail,
         license_number: 'DEMO123456',
-        vehicle_type: 'Berline',
         vehicle_model: 'Mercedes Classe E',
         vehicle_plate: 'AB-123-CD',
-        status: 'available',
-        is_active: true
+        status: 'available'
       });
 
       if (driverError) throw driverError;
