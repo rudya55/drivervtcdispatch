@@ -49,7 +49,25 @@ Deno.serve(async (req) => {
     const existingUser = existingUsers.users.find(u => u.email === email);
 
     if (existingUser) {
-      // User exists, check if they already have this role
+      console.log('User already exists, updating password and ensuring role/profile');
+      
+      // Update user password
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        existingUser.id,
+        {
+          password,
+          email_confirm: true
+        }
+      );
+
+      if (updateError) {
+        console.error('Error updating password:', updateError);
+        throw new Error('Erreur lors de la mise à jour du mot de passe');
+      }
+
+      console.log('Password updated successfully');
+
+      // Check if they already have this role
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('role')
@@ -57,24 +75,26 @@ Deno.serve(async (req) => {
         .eq('role', role)
         .maybeSingle();
 
-      if (existingRole) {
-        throw new Error('Un compte avec ce rôle existe déjà pour cet email');
+      let roleAdded = false;
+      if (!existingRole) {
+        // Add role to existing user
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: existingUser.id,
+            role
+          });
+
+        if (roleError) {
+          console.error('Error adding role:', roleError);
+          throw new Error('Erreur lors de l\'ajout du rôle');
+        }
+        roleAdded = true;
+        console.log('Role added:', role);
       }
 
-      // Add new role to existing user
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: existingUser.id,
-          role
-        });
-
-      if (roleError) {
-        console.error('Error adding role:', roleError);
-        throw new Error('Erreur lors de l\'ajout du rôle');
-      }
-
-      // If driver role, create driver profile
+      // If driver role, ensure driver profile exists
+      let driverProfileCreated = false;
       if (role === 'driver') {
         const { data: existingDriver } = await supabase
           .from('drivers')
@@ -98,13 +118,20 @@ Deno.serve(async (req) => {
             console.error('Error creating driver profile:', profileError);
             throw new Error('Erreur lors de la création du profil chauffeur');
           }
+          driverProfileCreated = true;
+          console.log('Driver profile created');
         }
       }
+
+      const message = roleAdded 
+        ? 'Compte mis à jour avec nouveau rôle. Connectez-vous avec votre nouveau mot de passe.'
+        : 'Mot de passe mis à jour. Vous pouvez maintenant vous connecter.';
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Nouveau rôle ajouté à votre compte existant'
+          message,
+          updated: true
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
