@@ -154,7 +154,7 @@ const Home = () => {
   );
   const displayedCourses = [...activeCourses, ...pendingCourses];
 
-  // Load Google Maps script from backend secret and track readiness
+  // Load Google Maps script from backend secret or build-time env var and track readiness
   const [mapsReady, setMapsReady] = useState<boolean>(!!(window as any).google);
   useEffect(() => {
     const load = async () => {
@@ -162,6 +162,19 @@ const Home = () => {
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]') as HTMLScriptElement | null;
       if (existingScript) {
         existingScript.addEventListener('load', () => setMapsReady(true));
+        return;
+      }
+
+      // Prefer build-time env var if provided (Vite uses VITE_ prefix)
+      const buildKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+      if (buildKey) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${buildKey}&libraries=places&loading=async`;
+        script.async = true;
+        script.defer = true;
+        script.addEventListener('load', () => setMapsReady(true));
+        script.addEventListener('error', (e) => console.error('Maps script error:', e));
+        document.head.appendChild(script);
         return;
       }
 

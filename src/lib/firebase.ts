@@ -1,16 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 
+// Allow build-time override from Vite env vars for CI or local builds.
+// If not provided, fall back to the existing hard-coded values so the
+// app keeps working in development without changing files.
 const firebaseConfig = {
-  apiKey: "AIzaSyDINevIQHW3nmiz1Z1nYlkbOeH3XYSsTyc",
-  authDomain: "vtc-dispatch-admin.firebaseapp.com",
-  projectId: "vtc-dispatch-admin",
-  storageBucket: "vtc-dispatch-admin.firebasestorage.app",
-  messagingSenderId: "900889515127",
-  appId: "1:900889515127:web:39d7d7a40db3f728242272"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "AIzaSyDINevIQHW3nmiz1Z1nYlkbOeH3XYSsTyc",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "vtc-dispatch-admin.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "vtc-dispatch-admin",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? "vtc-dispatch-admin.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "900889515127",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "1:900889515127:web:39d7d7a40db3f728242272"
 };
 
-const vapidKey = "BOlQMOQTwrvYPlwk5JPHdvx7bxugKve857bclQthPvfQrJwleK9gpstfDmXKhL59C-k5JNV00U9wHdtrT0kMJLk";
+const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY ?? "BOlQMOQTwrvYPlwk5JPHdvx7bxugKve857bclQthPvfQrJwleK9gpstfDmXKhL59C-k5JNV00U9wHdtrT0kMJLk";
 
 export const app = initializeApp(firebaseConfig);
 
