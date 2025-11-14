@@ -133,6 +133,38 @@ const config: CapacitorConfig = {
 6. Placez-le dans `android/app/google-services.json`
 7. Rebuild l'application
 
+### Notifications et CI (GitHub Actions)
+
+Le repo contient un workflow CI prêt à builder et produire un APK/AAB. Pour que les notifications (Firebase) et la signature fonctionnent en CI, ajoutez ces secrets GitHub dans votre repo :
+
+- `GOOGLE_SERVICES_JSON` : le contenu du fichier `google-services.json`, encodé en base64.
+- `KEYSTORE_BASE64` : le fichier `upload-keystore.jks` encodé en base64 (optionnel, si vous voulez un build signé en CI).
+- `KEYSTORE_PASSWORD` : mot de passe du keystore.
+- `KEY_ALIAS` : alias de la clé (ex: `upload`).
+- `KEY_PASSWORD` : mot de passe de la clé.
+- `GOOGLE_MAPS_API_KEY` : (optionnel) clé Google Maps si vous préférez injecter au build.
+- `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`, `FIREBASE_VAPID_KEY` : (optionnels) variables pour surcharger la configuration Firebase au moment du build.
+
+Comment encoder `google-services.json` et le keystore en base64 :
+
+```bash
+# depuis la racine du projet
+cat android/app/google-services.json | base64 | tr -d '\n' | pbcopy # mac
+cat android/app/google-services.json | base64 | tr -d '\n'    # linux - copiez la sortie
+
+base64 android/app/upload-keystore.jks | tr -d '\n'           # keystore
+```
+
+Le workflow se trouve dans `.github/workflows/android-build.yml`. Il :
+- installe JDK 17 et Android SDK (platform-tools, build-tools, platform 33)
+- injecte les variables Vite (`VITE_GOOGLE_MAPS_API_KEY`, `VITE_FIREBASE_*`) au moment du `npm run build`
+- décode `google-services.json` et le keystore dans `android/` depuis les secrets
+- lance `npx cap sync android` puis `./gradlew assembleRelease`
+- publie les APK/AAB en tant qu'artefacts du run
+
+Si vous préférez ne pas signer en CI, ne fournissez pas `KEYSTORE_BASE64` : le workflow produira les artefacts (non-signés ou signés suivant la config).
+
+
 ## 📝 Checklist avant Publication
 
 - [ ] Version et versionCode incrémentés dans `android/app/build.gradle`

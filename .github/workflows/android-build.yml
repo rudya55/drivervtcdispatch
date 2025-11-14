@@ -1,3 +1,195 @@
+name: Android Build (APK / AAB)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build release APK / AAB
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Android commandline tools and SDK components
+        run: |
+          set -e
+          SDK_ROOT="$ANDROID_SDK_ROOT"
+          mkdir -p "$SDK_ROOT"
+          cd "$SDK_ROOT"
+          curl -sSLO https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip -d cmdline-tools
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
+          export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Decode Google services JSON (if provided)
+        if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+        run: |
+          echo 'Decoding google-services.json from secret'
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      - name: Decode Keystore (if provided)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo 'Decoding keystore from secret'
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          echo "storeFile=upload-keystore.jks" > android/key.properties
+          echo "storePassword=$KEYSTORE_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Install dependencies and build web bundle
+        run: |
+          npm ci
+        working-directory: .
+
+      - name: Build web assets (Vite)
+        run: |
+          # Inject map + firebase keys at build-time from secrets
+          VITE_GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
+          VITE_FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}" \
+          VITE_FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}" \
+          VITE_FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}" \
+          VITE_FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}" \
+          VITE_FIREBASE_MESSAGING_SENDER_ID="${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" \
+          VITE_FIREBASE_APP_ID="${{ secrets.FIREBASE_APP_ID }}" \
+          VITE_FIREBASE_VAPID_KEY="${{ secrets.FIREBASE_VAPID_KEY }}" \
+          npm run build
+
+      - name: Sync Capacitor Android
+        run: |
+          npx cap sync android
+
+      - name: Build Android release
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease -x lint --no-daemon
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apks
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+name: Android Release Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-release:
+    name: Build Release APK/AAB
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096
+      VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web (Vite)
+        run: npm run build
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: r0adkll/setup-android@v2
+        with:
+          api-level: 33
+          build-tools: '33.0.2'
+          cmake: 'false'
+
+      - name: Copy web assets to Android (Capacitor)
+        run: npx cap sync android
+
+      - name: Configure Android local properties
+        run: |
+          echo "sdk.dir=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}" > android/local.properties
+
+      - name: Restore keystore (if provided)
+        if: secrets.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          echo "storeFile=app/upload-keystore.jks" > android/key.properties
+          echo "storePassword=$KEYSTORE_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Add google-services.json (optional)
+        if: secrets.GOOGLE_SERVICES_JSON_BASE64 != ''
+        run: |
+          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+
+      - name: Build Android release (assembleRelease)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -x lint --no-daemon
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: |
+            android/app/build/outputs/apk/**
+            android/app/build/outputs/bundle/**
 name: Build Android APK
 
 on:
