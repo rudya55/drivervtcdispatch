@@ -52,7 +52,7 @@ export const useAuth = () => {
               const phone = (user.user_metadata?.phone as string) || null;
               const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
                 .select('*')
                 .maybeSingle();
 
@@ -113,7 +113,7 @@ export const useAuth = () => {
               const phone = (user.user_metadata?.phone as string) || null;
               const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
                 .select('*')
                 .maybeSingle();
 
