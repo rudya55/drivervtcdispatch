@@ -36,7 +36,10 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           first_name: 'Jean',
-          last_name: 'Démo'
+          last_name: 'Démo',
+          name: 'Jean Démo',
+          phone: '+33612345678',
+          role: 'driver'
         }
       });
 
@@ -66,7 +69,8 @@ Deno.serve(async (req) => {
           license_number: 'DEMO123456',
           vehicle_model: 'Mercedes Classe E',
           vehicle_plate: 'AB-123-CD',
-          status: 'available'
+          status: 'available',
+          type: 'vtc'
         })
         .select()
         .single();

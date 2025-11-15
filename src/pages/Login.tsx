@@ -84,14 +84,21 @@ const Login = () => {
 
       if (error) {
         console.error('Auth error:', error);
-        
+        console.error('Auth error details:', {
+          message: error.message,
+          status: error.status,
+          code: error.code
+        });
+
         // Handle specific auth errors
-        if (error.message.includes('Invalid login credentials')) {
-          toast.error('Email ou mot de passe incorrect');
+        if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
+          toast.error('Email ou mot de passe incorrect. Vérifiez vos identifiants.');
         } else if (error.message.includes('Email not confirmed')) {
           toast.error('Veuillez confirmer votre email avant de vous connecter');
         } else if (error.message.includes('Email link is invalid or has expired')) {
           toast.error('Le lien de confirmation a expiré. Demandez un nouveau lien.');
+        } else if (error.message.includes('User not found')) {
+          toast.error('Aucun compte trouvé avec cet email');
         } else {
           toast.error('Erreur de connexion: ' + error.message);
         }
