@@ -52,28 +52,38 @@ Deno.serve(async (req) => {
       .eq('user_id', userId)
       .maybeSingle();
 
+    let driverId: string;
+
     if (!existingDriver) {
       // Create driver profile
-      const { error: driverError } = await supabase.from('drivers').insert({
-        user_id: userId,
-        name: 'Jean Démo',
-        phone: '+33612345678',
-        email: demoEmail,
-        license_number: 'DEMO123456',
-        vehicle_model: 'Mercedes Classe E',
-        vehicle_plate: 'AB-123-CD',
-        status: 'available'
-      });
+      const { data: newDriver, error: driverError } = await supabase
+        .from('drivers')
+        .insert({
+          user_id: userId,
+          name: 'Jean Démo',
+          phone: '+33612345678',
+          email: demoEmail,
+          license_number: 'DEMO123456',
+          vehicle_model: 'Mercedes Classe E',
+          vehicle_plate: 'AB-123-CD',
+          status: 'available'
+        })
+        .select()
+        .single();
 
-      if (driverError) throw driverError;
-      console.log('Created driver profile');
+      if (driverError || !newDriver) throw driverError;
+      driverId = newDriver.id;
+      console.log('Created driver profile:', driverId);
+    } else {
+      driverId = existingDriver.id;
+      console.log('Driver profile exists:', driverId);
     }
 
     // Delete existing demo courses
     await supabase
       .from('courses')
       .delete()
-      .eq('driver_id', userId);
+      .eq('driver_id', driverId);
 
     // Create demo courses
     const now = new Date();
@@ -81,47 +91,40 @@ Deno.serve(async (req) => {
 
     const demoCourses = [
       {
-        driver_id: userId,
+        driver_id: driverId,
         company_name: 'VTC Premium',
         client_name: 'Marie Dupont',
         client_phone: '+33698765432',
-        departure_address: '15 Avenue des Champs-Élysées, 75008 Paris',
-        destination_address: 'Aéroport Charles de Gaulle, Terminal 2E, 95700 Roissy-en-France',
-        departure_lat: 48.8698,
-        departure_lng: 2.3078,
-        destination_lat: 49.0097,
-        destination_lng: 2.5479,
+        departure_location: '15 Avenue des Champs-Élysées, 75008 Paris',
+        destination_location: 'Aéroport Charles de Gaulle, Terminal 2E, 95700 Roissy-en-France',
         pickup_date: pickupTime.toISOString(),
         vehicle_type: 'Berline',
-        passenger_count: 2,
+        passengers_count: 2,
         luggage_count: 3,
         client_price: 85.00,
-        commission_rate: 20,
-        driver_net: 68.00,
-        payment_method: 'Carte bancaire',
+        commission: 17.00,
+        net_driver: 68.00,
         status: 'dispatched',
+        dispatch_mode: 'auto',
+        flight_number: 'AF1234',
         notes: 'Vol Air France AF1234 - Arrivée prévue 14h30'
       },
       {
-        driver_id: userId,
+        driver_id: driverId,
         company_name: 'TransportPro',
         client_name: 'Pierre Martin',
         client_phone: '+33687654321',
-        departure_address: 'Gare de Lyon, Place Louis Armand, 75012 Paris',
-        destination_address: '1 Rue de la Paix, 75002 Paris',
-        departure_lat: 48.8447,
-        departure_lng: 2.3737,
-        destination_lat: 48.8689,
-        destination_lng: 2.3308,
+        departure_location: 'Gare de Lyon, Place Louis Armand, 75012 Paris',
+        destination_location: '1 Rue de la Paix, 75002 Paris',
         pickup_date: new Date(now.getTime() - 120 * 60000).toISOString(), // -2 hours (unlocked)
         vehicle_type: 'Van',
-        passenger_count: 4,
+        passengers_count: 4,
         luggage_count: 5,
         client_price: 45.00,
-        commission_rate: 15,
-        driver_net: 38.25,
-        payment_method: 'Espèces',
+        commission: 6.75,
+        net_driver: 38.25,
         status: 'dispatched',
+        dispatch_mode: 'manual',
         notes: 'Client avec bagages volumineux'
       }
     ];
@@ -132,39 +135,46 @@ Deno.serve(async (req) => {
       .select();
 
     if (coursesError) throw coursesError;
-
-    console.log(`Created ${insertedCourses.length} demo courses`);
+    console.log('Created demo courses:', insertedCourses?.length);
 
     // Create notifications for each course
-    for (const course of insertedCourses) {
-      await supabase.from('driver_notifications').insert({
-        driver_id: userId,
+    if (insertedCourses && insertedCourses.length > 0) {
+      const notifications = insertedCourses.map((course: any) => ({
+        driver_id: driverId,
+        course_id: course.id,
         type: 'new_course',
         title: 'Nouvelle course disponible',
-        message: `Course ${course.company_name} - ${course.departure_address} → ${course.destination_address}`,
+        message: `Course vers ${course.destination_location}`,
+        read: false,
         data: {
           course_id: course.id,
-          company: course.company_name,
-          departure: course.departure_address,
-          destination: course.destination_address
+          client_name: course.client_name,
+          destination: course.destination_location
         }
-      });
+      }));
+
+      const { error: notificationsError } = await supabase
+        .from('driver_notifications')
+        .insert(notifications);
+
+      if (notificationsError) throw notificationsError;
+      console.log('Created notifications for demo courses');
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Compte de démonstration créé avec succès',
+        message: 'Compte démo créé avec succès',
         credentials: {
           email: demoEmail,
           password: demoPassword
         },
-        driver_id: userId,
-        courses_created: insertedCourses.length
+        driver_id: driverId,
+        courses_created: insertedCourses?.length || 0
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
+        status: 200
       }
     );
 
