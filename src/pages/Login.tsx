@@ -140,18 +140,34 @@ const Login = () => {
         throw new Error('Erreur lors de la création du compte');
       }
 
-      // Auto-login after signup
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: signupEmail,
-        password: signupPassword
-      });
+      // Check if email confirmation is required
+      const emailConfirmationRequired = !signUpData.session;
 
-      if (loginError) {
-        toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
+      if (emailConfirmationRequired) {
+        // Email confirmation is enabled in Supabase
+        toast.success(
+          'Compte créé avec succès ! Veuillez vérifier votre email pour confirmer votre compte avant de vous connecter.',
+          { duration: 6000 }
+        );
         setView('login');
+        
+        // Pre-fill login email
+        setLoginEmail(signupEmail);
       } else {
-        toast.success('Compte créé et connecté avec succès !');
-        navigate('/');
+        // No email confirmation required, auto-login
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: signupEmail,
+          password: signupPassword
+        });
+
+        if (loginError) {
+          toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
+          setView('login');
+          setLoginEmail(signupEmail);
+        } else {
+          toast.success('Compte créé et connecté avec succès !');
+          navigate('/');
+        }
       }
       
       // Reset form
