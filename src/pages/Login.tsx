@@ -8,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Car, Loader2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { FunctionsHttpError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 // Validation schemas
@@ -73,82 +72,40 @@ const Login = () => {
     setLoading(true);
     
     try {
-      console.debug('Calling driver-login edge function');
+      console.debug('Client-side login with Supabase Auth');
       
       // Normalize email to lowercase
       const normalizedEmail = loginEmail.trim().toLowerCase();
       
-      const { data, error } = await supabase.functions.invoke('driver-login', {
-        body: { email: normalizedEmail, password: loginPassword }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: loginPassword
       });
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('Auth error:', error);
         
-        // Handle FunctionsHttpError specifically to avoid overlay
-        if (error instanceof FunctionsHttpError) {
-          const errorData = await error.context.json().catch(() => ({}));
-          console.debug('Error data:', errorData);
-          
-          // Handle 401 errors with user-friendly messages
-          if (error.context.status === 401) {
-            const errorMessage = errorData?.error || '';
-            if (errorMessage.includes('Invalid login') || errorMessage.includes('Identifiants incorrects')) {
-              toast.error('Email ou mot de passe incorrect');
-              setLoading(false);
-              return;
-            }
-            if (errorMessage.includes('Email not confirmed')) {
-              toast.error('Veuillez confirmer votre email');
-              setLoading(false);
-              return;
-            }
-          }
-          
-          toast.error(errorData?.error || 'Erreur de connexion au serveur');
-          setLoading(false);
-          return;
+        // Handle specific auth errors
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('Email ou mot de passe incorrect');
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('Veuillez confirmer votre email avant de vous connecter');
+        } else if (error.message.includes('Email link is invalid or has expired')) {
+          toast.error('Le lien de confirmation a expiré. Demandez un nouveau lien.');
+        } else {
+          toast.error('Erreur de connexion: ' + error.message);
         }
-        
-        toast.error('Erreur de connexion au serveur');
-        setLoading(false);
-        return;
-      }
-
-      if (data?.error) {
-        console.error('Login error from server:', data.error);
-        toast.error(data.error);
         setLoading(false);
         return;
       }
 
       if (!data?.session) {
-        toast.error('Aucune session reçue du serveur');
+        toast.error('Session invalide');
         setLoading(false);
         return;
       }
 
-      console.debug('Login successful, setting session');
-      
-      // Set the session on the client
-      try {
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-        const { data: sessData } = await supabase.auth.getSession();
-        if (!sessData?.session) {
-          toast.error('Configuration incohérente: le client et les fonctions n’utilisent pas le même projet. Contactez le support.');
-          setLoading(false);
-          return;
-        }
-      } catch (e) {
-        console.error('setSession failed:', e);
-        toast.error("Impossible d'établir la session. Vérifiez la configuration du projet.");
-        setLoading(false);
-        return;
-      }
-
+      console.debug('Login successful');
       toast.success('Connexion réussie');
       navigate('/');
     } catch (error: any) {
@@ -180,51 +137,50 @@ const Login = () => {
     setLoading(true);
     
     try {
-      console.debug('Calling create-user-account edge function');
+      console.debug('Client-side signup with Supabase Auth');
       
       // Normalize email to lowercase
       const normalizedEmail = signupEmail.trim().toLowerCase();
       
-      // Create user account via edge function (email will be auto-confirmed)
-      const { data: createData, error: createError } = await supabase.functions.invoke('create-user-account', {
-        body: {
-          email: normalizedEmail,
-          password: signupPassword,
-          role: 'driver',
-          name: signupName,
-          phone: signupPhone
+      // Create user account with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password: signupPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            name: signupName,
+            phone: signupPhone,
+            role: 'driver'
+          }
         }
       });
 
-      if (createError) {
-        console.error('Edge function error:', createError);
-        throw new Error('Erreur de création du compte');
+      if (error) {
+        console.error('Signup error:', error);
+        
+        // Handle specific signup errors
+        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+          toast.error('Cet email est déjà enregistré');
+        } else if (error.message.includes('Invalid email')) {
+          toast.error('Email invalide');
+        } else if (error.message.includes('Password should be')) {
+          toast.error('Le mot de passe ne respecte pas les critères de sécurité');
+        } else {
+          toast.error('Erreur lors de la création du compte: ' + error.message);
+        }
+        setLoading(false);
+        return;
       }
 
-      if (createData?.error) {
-        console.error('Create account error from server:', createData.error);
-        throw new Error(createData.error);
-      }
-
-      console.debug('Account created successfully, logging in');
-
-      // Auto-login via driver-login edge function
-      const { data: loginData, error: loginError } = await supabase.functions.invoke('driver-login', {
-        body: { email: normalizedEmail, password: signupPassword }
-      });
-
-      if (loginError || loginData?.error) {
-        // Account created but login failed, redirect to login page
-        toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
+      // Check if email confirmation is required
+      if (data?.user && !data.session) {
+        // Email confirmation is required
+        toast.success('Compte créé ! Vérifiez votre email pour confirmer votre adresse.');
         setView('login');
         setLoginEmail(normalizedEmail);
-      } else if (loginData?.session) {
-        // Set the session on the client
-        await supabase.auth.setSession({
-          access_token: loginData.session.access_token,
-          refresh_token: loginData.session.refresh_token
-        });
-
+      } else if (data?.session) {
+        // Auto-login successful (email confirmation disabled)
         toast.success('Compte créé et connecté avec succès !');
         navigate('/');
       }
@@ -238,20 +194,7 @@ const Login = () => {
 
     } catch (error: any) {
       console.error('Signup error:', error);
-      
-      let errorMessage = 'Erreur lors de la création du compte';
-      
-      if (error.message) {
-        if (error.message.includes('already registered') || error.message.includes('User with this email already exists')) {
-          errorMessage = 'Cet email est déjà enregistré';
-        } else if (error.message.includes('Invalid email')) {
-          errorMessage = 'Email invalide';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      toast.error(errorMessage);
+      toast.error('Erreur lors de la création du compte');
     } finally {
       setLoading(false);
     }
