@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Car, Loader2, Eye, EyeOff } from 'lucide-react';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 // Validation schemas
@@ -74,22 +75,57 @@ const Login = () => {
     try {
       console.debug('Calling driver-login edge function');
       
+      // Normalize email to lowercase
+      const normalizedEmail = loginEmail.trim().toLowerCase();
+      
       const { data, error } = await supabase.functions.invoke('driver-login', {
-        body: { email: loginEmail, password: loginPassword }
+        body: { email: normalizedEmail, password: loginPassword }
       });
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error('Erreur de connexion au serveur');
+        
+        // Handle FunctionsHttpError specifically to avoid overlay
+        if (error instanceof FunctionsHttpError) {
+          const errorData = await error.context.json().catch(() => ({}));
+          console.debug('Error data:', errorData);
+          
+          // Handle 401 errors with user-friendly messages
+          if (error.context.status === 401) {
+            const errorMessage = errorData?.error || '';
+            if (errorMessage.includes('Invalid login') || errorMessage.includes('Identifiants incorrects')) {
+              toast.error('Email ou mot de passe incorrect');
+              setLoading(false);
+              return;
+            }
+            if (errorMessage.includes('Email not confirmed')) {
+              toast.error('Veuillez confirmer votre email');
+              setLoading(false);
+              return;
+            }
+          }
+          
+          toast.error(errorData?.error || 'Erreur de connexion au serveur');
+          setLoading(false);
+          return;
+        }
+        
+        toast.error('Erreur de connexion au serveur');
+        setLoading(false);
+        return;
       }
 
       if (data?.error) {
         console.error('Login error from server:', data.error);
-        throw new Error(data.error);
+        toast.error(data.error);
+        setLoading(false);
+        return;
       }
 
       if (!data?.session) {
-        throw new Error('Aucune session reçue du serveur');
+        toast.error('Aucune session reçue du serveur');
+        setLoading(false);
+        return;
       }
 
       console.debug('Login successful, setting session');
@@ -104,24 +140,7 @@ const Login = () => {
       navigate('/');
     } catch (error: any) {
       console.error('Login error:', error);
-      
-      let errorMessage = 'Erreur de connexion';
-      
-      if (error.message) {
-        if (error.message.includes("n'est pas un compte chauffeur")) {
-          errorMessage = "Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application admin.";
-        } else if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Email ou mot de passe incorrect';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Veuillez confirmer votre email';
-        } else if (error.message.includes('Échec de l\'authentification')) {
-          errorMessage = 'Email ou mot de passe incorrect';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      toast.error(errorMessage);
+      toast.error('Erreur de connexion');
     } finally {
       setLoading(false);
     }
@@ -150,10 +169,13 @@ const Login = () => {
     try {
       console.debug('Calling create-user-account edge function');
       
+      // Normalize email to lowercase
+      const normalizedEmail = signupEmail.trim().toLowerCase();
+      
       // Create user account via edge function (email will be auto-confirmed)
       const { data: createData, error: createError } = await supabase.functions.invoke('create-user-account', {
         body: {
-          email: signupEmail,
+          email: normalizedEmail,
           password: signupPassword,
           role: 'driver',
           name: signupName,
@@ -175,14 +197,14 @@ const Login = () => {
 
       // Auto-login via driver-login edge function
       const { data: loginData, error: loginError } = await supabase.functions.invoke('driver-login', {
-        body: { email: signupEmail, password: signupPassword }
+        body: { email: normalizedEmail, password: signupPassword }
       });
 
       if (loginError || loginData?.error) {
         // Account created but login failed, redirect to login page
         toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
         setView('login');
-        setLoginEmail(signupEmail);
+        setLoginEmail(normalizedEmail);
       } else if (loginData?.session) {
         // Set the session on the client
         await supabase.auth.setSession({
