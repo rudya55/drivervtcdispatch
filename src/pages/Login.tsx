@@ -119,45 +119,58 @@ const Login = () => {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('create-user-account', {
-        body: {
-          email: signupEmail,
-          password: signupPassword,
-          role: 'driver',
-          name: signupName,
-          phone: signupPhone
+      // Sign up with Supabase Auth
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            name: signupName,
+            phone: signupPhone
+          }
         }
       });
 
-      if (error) {
-        throw error;
+      if (signUpError) {
+        throw signUpError;
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if (!signUpData.user) {
+        throw new Error('Erreur lors de la création du compte');
       }
 
-      toast.success(data?.message || 'Compte créé avec succès ! Connectez-vous pour continuer.');
+      // Auto-login after signup
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: signupEmail,
+        password: signupPassword
+      });
+
+      if (loginError) {
+        toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
+        setView('login');
+      } else {
+        toast.success('Compte créé et connecté avec succès !');
+        navigate('/');
+      }
       
-      // Reset form and switch to login
+      // Reset form
       setSignupName('');
       setSignupPhone('');
       setSignupEmail('');
       setSignupPassword('');
       setSignupConfirmPassword('');
-      setView('login');
 
     } catch (error: any) {
-      console.error('Signup error:', error);
       let errorMessage = 'Erreur lors de la création du compte';
       
       if (error.message) {
-        if (error.message.includes('déjà') || error.message.includes('already')) {
+        if (error.message.includes('User already registered')) {
           errorMessage = 'Cet email est déjà utilisé. Essayez de vous connecter.';
         } else if (error.message.includes('Invalid email')) {
           errorMessage = 'Email invalide';
-        } else if (error.message.includes('Password')) {
-          errorMessage = 'Le mot de passe doit contenir au moins 8 caractères';
+        } else if (error.message.includes('Password should be at least')) {
+          errorMessage = 'Le mot de passe doit contenir au moins 6 caractères';
         } else {
           errorMessage = error.message;
         }
