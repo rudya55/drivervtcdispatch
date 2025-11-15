@@ -131,10 +131,23 @@ const Login = () => {
       console.debug('Login successful, setting session');
       
       // Set the session on the client
-      await supabase.auth.setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token
-      });
+      try {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        const { data: sessData } = await supabase.auth.getSession();
+        if (!sessData?.session) {
+          toast.error('Configuration incohérente: le client et les fonctions n’utilisent pas le même projet. Contactez le support.');
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.error('setSession failed:', e);
+        toast.error("Impossible d'établir la session. Vérifiez la configuration du projet.");
+        setLoading(false);
+        return;
+      }
 
       toast.success('Connexion réussie');
       navigate('/');
