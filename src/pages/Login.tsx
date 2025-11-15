@@ -72,7 +72,34 @@ const Login = () => {
     setLoading(true);
     
     try {
-      await login(loginEmail, loginPassword);
+      console.debug('Calling driver-login edge function');
+      
+      const { data, error } = await supabase.functions.invoke('driver-login', {
+        body: { email: loginEmail, password: loginPassword }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error('Erreur de connexion au serveur');
+      }
+
+      if (data?.error) {
+        console.error('Login error from server:', data.error);
+        throw new Error(data.error);
+      }
+
+      if (!data?.session) {
+        throw new Error('Aucune session reçue du serveur');
+      }
+
+      console.debug('Login successful, setting session');
+      
+      // Set the session on the client
+      await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      });
+
       toast.success('Connexion réussie');
       navigate('/');
     } catch (error: any) {
@@ -87,6 +114,8 @@ const Login = () => {
           errorMessage = 'Email ou mot de passe incorrect';
         } else if (error.message.includes('Email not confirmed')) {
           errorMessage = 'Veuillez confirmer votre email';
+        } else if (error.message.includes('Échec de l\'authentification')) {
+          errorMessage = 'Email ou mot de passe incorrect';
         } else {
           errorMessage = error.message;
         }
@@ -119,55 +148,50 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Sign up with Supabase Auth
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            name: signupName,
-            phone: signupPhone
-          }
+      console.debug('Calling create-user-account edge function');
+      
+      // Create user account via edge function (email will be auto-confirmed)
+      const { data: createData, error: createError } = await supabase.functions.invoke('create-user-account', {
+        body: {
+          email: signupEmail,
+          password: signupPassword,
+          role: 'driver',
+          name: signupName,
+          phone: signupPhone
         }
       });
 
-      if (signUpError) {
-        throw signUpError;
+      if (createError) {
+        console.error('Edge function error:', createError);
+        throw new Error('Erreur de création du compte');
       }
 
-      if (!signUpData.user) {
-        throw new Error('Erreur lors de la création du compte');
+      if (createData?.error) {
+        console.error('Create account error from server:', createData.error);
+        throw new Error(createData.error);
       }
 
-      // Check if email confirmation is required
-      const emailConfirmationRequired = !signUpData.session;
+      console.debug('Account created successfully, logging in');
 
-      if (emailConfirmationRequired) {
-        // Email confirmation is enabled in Supabase
-        toast.success(
-          'Compte créé avec succès ! Veuillez vérifier votre email pour confirmer votre compte avant de vous connecter.',
-          { duration: 6000 }
-        );
+      // Auto-login via driver-login edge function
+      const { data: loginData, error: loginError } = await supabase.functions.invoke('driver-login', {
+        body: { email: signupEmail, password: signupPassword }
+      });
+
+      if (loginError || loginData?.error) {
+        // Account created but login failed, redirect to login page
+        toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
         setView('login');
-        
-        // Pre-fill login email
         setLoginEmail(signupEmail);
-      } else {
-        // No email confirmation required, auto-login
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: signupEmail,
-          password: signupPassword
+      } else if (loginData?.session) {
+        // Set the session on the client
+        await supabase.auth.setSession({
+          access_token: loginData.session.access_token,
+          refresh_token: loginData.session.refresh_token
         });
 
-        if (loginError) {
-          toast.success('Compte créé avec succès ! Connectez-vous pour continuer.');
-          setView('login');
-          setLoginEmail(signupEmail);
-        } else {
-          toast.success('Compte créé et connecté avec succès !');
-          navigate('/');
-        }
+        toast.success('Compte créé et connecté avec succès !');
+        navigate('/');
       }
       
       // Reset form
@@ -178,15 +202,15 @@ const Login = () => {
       setSignupConfirmPassword('');
 
     } catch (error: any) {
+      console.error('Signup error:', error);
+      
       let errorMessage = 'Erreur lors de la création du compte';
       
       if (error.message) {
-        if (error.message.includes('User already registered')) {
-          errorMessage = 'Cet email est déjà utilisé. Essayez de vous connecter.';
+        if (error.message.includes('already registered') || error.message.includes('User with this email already exists')) {
+          errorMessage = 'Cet email est déjà enregistré';
         } else if (error.message.includes('Invalid email')) {
           errorMessage = 'Email invalide';
-        } else if (error.message.includes('Password should be at least')) {
-          errorMessage = 'Le mot de passe doit contenir au moins 6 caractères';
         } else {
           errorMessage = error.message;
         }
