@@ -13,7 +13,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 
 
 const Profile = () => {
-  const { driver } = useAuth();
+  const { driver, session } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -32,19 +32,19 @@ const Profile = () => {
 
   // Synchroniser formData avec les données du driver
   useEffect(() => {
-    if (driver) {
+    if (driver || session?.user) {
       setFormData({
-        name: driver.name || '',
-        email: driver.email || '',
-        phone: driver.phone || '',
-        company_name: driver.company_name || '',
-        company_address: driver.company_address || '',
-        siret: driver.siret || '',
+        name: driver?.name || '',
+        email: driver?.email || session?.user?.email || '',
+        phone: driver?.phone || '',
+        company_name: driver?.company_name || '',
+        company_address: driver?.company_address || '',
+        siret: driver?.siret || '',
       });
-      setPhotoPreview(driver.profile_photo_url || null);
-      setLogoPreview(driver.company_logo_url || null);
+      setPhotoPreview(driver?.profile_photo_url || null);
+      setLogoPreview(driver?.company_logo_url || null);
     }
-  }, [driver]);
+  }, [driver, session?.user?.email]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,6 +105,7 @@ const Profile = () => {
         driverId: driver.id,
         updates: {
           name: formData.name,
+          email: formData.email || (session?.user?.email ?? null),
           phone: formData.phone,
           company_name: formData.company_name,
           company_address: formData.company_address,

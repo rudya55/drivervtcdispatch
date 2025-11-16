@@ -32,10 +32,20 @@ export const useAuth = () => {
             return;
           }
           
-          // Fetch or create driver profile (deferred to avoid deadlocks)
+          // Fetch or create driver profile via backend (service role) to avoid RLS issues
           setTimeout(async () => {
             const user = currentSession.user;
-            let { data, error } = await supabase
+            try {
+              const token = currentSession.access_token;
+              await supabase.functions.invoke('driver-update-status', {
+                body: { status: 'inactive' },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              });
+            } catch (e) {
+              console.warn('ensure-driver-profile failed:', e);
+            }
+
+            const { data, error } = await supabase
               .from('drivers')
               .select('*')
               .eq('user_id', user.id)
@@ -43,25 +53,6 @@ export const useAuth = () => {
 
             if (error) {
               console.error('Error fetching driver profile:', error);
-            }
-
-            if (!data) {
-              console.log('No driver profile found, creating one for user:', user.id);
-              const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
-              const email = user.email as string | null;
-              const phone = (user.user_metadata?.phone as string) || null;
-              const { data: created, error: createError } = await supabase
-                .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
-                .select('*')
-                .maybeSingle();
-
-              if (createError) {
-                console.error('Error creating driver profile:', createError);
-              } else if (created) {
-                console.log('Driver profile created successfully:', created.id);
-                data = created;
-              }
             }
 
             if (data) {
@@ -95,40 +86,32 @@ export const useAuth = () => {
           setLoading(false);
           return;
         }
-        
-        supabase
-          .from('drivers')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle()
-          .then(async ({ data, error }) => {
-            if (error) {
-              console.error('Error fetching driver profile at init:', error);
-            }
+        // Ensure driver profile exists via backend function (service role)
+        (async () => {
+          try {
+            const token = currentSession.access_token;
+            await supabase.functions.invoke('driver-update-status', {
+              body: { status: 'inactive' },
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+          } catch (e) {
+            console.warn('ensure-driver-profile at init failed:', e);
+          }
 
-            if (!data) {
-              console.log('No driver profile found at init, creating one for user:', user.id);
-              const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
-              const email = user.email as string | null;
-              const phone = (user.user_metadata?.phone as string) || null;
-              const { data: created, error: createError } = await supabase
-                .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
-                .select('*')
-                .maybeSingle();
-
-              if (createError) {
-                console.error('Error creating driver profile at init:', createError);
-              } else if (created) {
-                console.log('Driver profile created successfully at init:', created.id);
-                data = created;
+          supabase
+            .from('drivers')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle()
+            .then(({ data, error }) => {
+              if (error) {
+                console.error('Error fetching driver profile at init:', error);
               }
-            }
-
-            if (data) setDriver(data);
-            else console.warn('No driver profile available at init for user:', user.id);
-            setLoading(false);
-          });
+              if (data) setDriver(data);
+              else console.warn('No driver profile available at init for user:', user.id);
+              setLoading(false);
+            });
+        })();
       } else {
         setLoading(false);
       }
