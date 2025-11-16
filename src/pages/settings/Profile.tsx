@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -18,17 +18,34 @@ const Profile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: driver?.name || '',
-    email: driver?.email || '',
-    phone: driver?.phone || '',
-    company_name: driver?.company_name || '',
-    company_address: driver?.company_address || '',
-    siret: driver?.siret || '',
+    name: '',
+    email: '',
+    phone: '',
+    company_name: '',
+    company_address: '',
+    siret: '',
   });
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [companyLogo, setCompanyLogo] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(driver?.profile_photo_url || null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(driver?.company_logo_url || null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // IMPORTANT: Mettre à jour formData quand driver change
+  useEffect(() => {
+    if (driver) {
+      console.log('📊 Loading driver data into form:', driver);
+      setFormData({
+        name: driver.name || '',
+        email: driver.email || '',
+        phone: driver.phone || '',
+        company_name: driver.company_name || '',
+        company_address: driver.company_address || '',
+        siret: driver.siret || '',
+      });
+      setPhotoPreview(driver.profile_photo_url || null);
+      setLogoPreview(driver.company_logo_url || null);
+    }
+  }, [driver]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
