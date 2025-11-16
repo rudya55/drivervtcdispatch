@@ -49,13 +49,66 @@ Deno.serve(async (req) => {
     }
 
     if (!existing) {
-      const { error: insertError } = await supabaseAdmin
+      console.log('No driver row, creating minimal profile for user:', user.id);
+
+      // Try minimal insert first
+      const minimalPayload: any = {
+        user_id: user.id,
+        status: 'inactive',
+      };
+
+      const { data: minimalData, error: minimalError } = await supabaseAdmin
         .from('drivers')
-        .insert({ user_id: user.id, status: 'inactive' });
-      if (insertError) {
-        console.error('Insert driver error:', insertError);
-        throw new Error(`Erreur création profil: ${insertError.message}`);
+        .insert(minimalPayload)
+        .select('id')
+        .maybeSingle();
+
+      if (minimalError) {
+        console.warn('Minimal insert failed, trying with optional fields', minimalError);
+
+        // Try with more data
+        const basePayload: any = {
+          user_id: user.id,
+          status: 'inactive',
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
+          phone: user.user_metadata?.phone || null,
+          email: user.email || null,
+        };
+
+        const attempts: Array<Record<string, any>> = [
+          { ...basePayload },
+          { ...basePayload, type: 'vtc' },
+        ];
+
+        let created = false;
+        let lastInsertError: any = null;
+
+        for (const payload of attempts) {
+          const { data: insertData, error: insertError } = await supabaseAdmin
+            .from('drivers')
+            .insert(payload)
+            .select('id')
+            .maybeSingle();
+
+          if (!insertError && insertData) {
+            created = true;
+            break;
+          }
+          lastInsertError = insertError;
+
+          const msg = (insertError?.message || '').toLowerCase();
+          if (msg.includes('column') && msg.includes('type') && msg.includes('does not exist')) {
+            break;
+          }
+        }
+
+        if (!created) {
+          const reason = lastInsertError?.message || 'Insertion failed';
+          throw new Error(`Erreur création profil: ${reason}`);
+        }
       }
+
+      console.log('Driver profile created successfully');
     }
 
     // Update driver profile using service role to bypass RLS
@@ -93,9 +146,28 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Error in driver-update-profile:', error);
+    console.error('=====================================');
+    console.error('CRITICAL ERROR IN driver-update-profile');
+    console.error('Error object:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error details:', {
+      hint: error?.hint,
+      code: error?.code,
+      details: error?.details,
+    });
+    console.error('=====================================');
+    
+    let errorMessage = 'Erreur inconnue';
+    if (error?.message) {
+      errorMessage = error.message;
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message || 'Erreur inconnue' }),
+      JSON.stringify({ 
+        error: errorMessage,
+        hint: error?.hint || null,
+        code: error?.code || null,
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400 
