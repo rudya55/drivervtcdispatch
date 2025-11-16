@@ -15,13 +15,13 @@ export const useAuth = () => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          // Vérifier si c'est un compte non-driver (seulement si le rôle est explicitement défini)
+          // Vérifier que c'est bien un compte chauffeur
           const userRole = currentSession.user.user_metadata?.role;
-          
-          // Bloquer SEULEMENT si le rôle est explicitement défini ET différent de 'driver'
-          // Si role est undefined/null, on laisse passer (nouveau compte sans rôle)
-          if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
-            console.warn('❌ Rôle non-driver détecté:', userRole);
+
+          // Bloquer si le rôle n'est pas explicitement 'driver'
+          // Cela force l'assignation du rôle lors de la création de compte
+          if (userRole !== 'driver') {
+            console.warn('❌ Rôle invalide ou manquant:', userRole);
             // Déconnecter et arrêter
             setTimeout(async () => {
               await supabase.auth.signOut();
@@ -40,21 +40,34 @@ export const useAuth = () => {
               .select('*')
               .eq('user_id', user.id)
               .maybeSingle();
-            
+
+            if (error) {
+              console.error('Error fetching driver profile:', error);
+            }
+
             if (!data) {
+              console.log('No driver profile found, creating one for user:', user.id);
               const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
               const email = user.email as string | null;
               const phone = (user.user_metadata?.phone as string) || null;
               const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
                 .select('*')
                 .maybeSingle();
-              if (!createError && created) data = created;
+
+              if (createError) {
+                console.error('Error creating driver profile:', createError);
+              } else if (created) {
+                console.log('Driver profile created successfully:', created.id);
+                data = created;
+              }
             }
-            
+
             if (data) {
               setDriver(data);
+            } else {
+              console.warn('No driver profile available for user:', user.id);
             }
             setLoading(false);
           }, 0);
@@ -72,10 +85,10 @@ export const useAuth = () => {
       if (currentSession?.user) {
         const user = currentSession.user;
         const userRole = user.user_metadata?.role;
-        
-        // Bloquer SEULEMENT si le rôle est explicitement défini ET différent de 'driver'
-        if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
-          console.warn('❌ Rôle non-driver détecté à l\'init:', userRole);
+
+        // Bloquer si le rôle n'est pas explicitement 'driver'
+        if (userRole !== 'driver') {
+          console.warn('❌ Rôle invalide ou manquant à l\'init:', userRole);
           supabase.auth.signOut();
           setDriver(null);
           setSession(null);
@@ -88,19 +101,32 @@ export const useAuth = () => {
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle()
-          .then(async ({ data }) => {
+          .then(async ({ data, error }) => {
+            if (error) {
+              console.error('Error fetching driver profile at init:', error);
+            }
+
             if (!data) {
+              console.log('No driver profile found at init, creating one for user:', user.id);
               const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
               const email = user.email as string | null;
               const phone = (user.user_metadata?.phone as string) || null;
-              const { data: created } = await supabase
+              const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
                 .select('*')
                 .maybeSingle();
-              if (created) data = created;
+
+              if (createError) {
+                console.error('Error creating driver profile at init:', createError);
+              } else if (created) {
+                console.log('Driver profile created successfully at init:', created.id);
+                data = created;
+              }
             }
+
             if (data) setDriver(data);
+            else console.warn('No driver profile available at init for user:', user.id);
             setLoading(false);
           });
       } else {
@@ -126,11 +152,11 @@ export const useAuth = () => {
         throw new Error('Connexion échouée - session manquante');
       }
 
-      // Vérifier que c'est bien un compte chauffeur (seulement si role explicite)
+      // Vérifier que c'est bien un compte chauffeur
       const userRole = data.session.user.user_metadata?.role;
-      if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
+      if (userRole !== 'driver') {
         await supabase.auth.signOut();
-        throw new Error("Ce compte n'est pas un compte chauffeur");
+        throw new Error("Ce compte n'est pas un compte chauffeur. Rôle manquant ou invalide.");
       }
 
       setSession(data.session);

@@ -10,7 +10,7 @@ import { supabase, Course } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import GoogleMap from '@/components/GoogleMap';
+import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { toast } from 'sonner';
 import { 
@@ -30,6 +30,13 @@ const Home = () => {
   const { unreadCount } = useNotifications(driver?.id || null);
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
+
+  // Sync isActive with driver status
+  useEffect(() => {
+    if (driver?.status) {
+      setIsActive(driver.status === 'active');
+    }
+  }, [driver?.status]);
 
   // Native geolocation with background tracking
   const locationState = useNativeGeolocation(isActive);
@@ -191,17 +198,17 @@ const Home = () => {
       <Header title="Accueil" unreadCount={unreadCount} />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Driver Status Toggle Button - TEMPORAIREMENT DÉSACTIVÉ 
-            (Erreur 400 driver-update-status - à réactiver après correction edge function) */}
-
-        {/* Map */}
+        {/* Map avec bouton de statut en ligne/hors ligne au centre */}
         <Card className="p-0 overflow-hidden">
-          <div className="h-64">
-            <GoogleMap
+          <div className="h-96">
+            <MapWithStatusButton
               key={mapsReady ? 'ready' : 'loading'}
               center={mapCenter}
               zoom={13}
               markers={mapMarkers}
+              driverStatus={driver?.status || 'inactive'}
+              onStatusChange={(status) => statusMutation.mutate(status)}
+              isUpdating={statusMutation.isPending}
             />
           </div>
         </Card>
