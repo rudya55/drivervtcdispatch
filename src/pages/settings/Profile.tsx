@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -13,7 +13,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 
 
 const Profile = () => {
-  const { driver, session } = useAuth();
+  const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -29,22 +29,6 @@ const Profile = () => {
   const [companyLogo, setCompanyLogo] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(driver?.profile_photo_url || null);
   const [logoPreview, setLogoPreview] = useState<string | null>(driver?.company_logo_url || null);
-
-  // Synchroniser formData avec les données du driver
-  useEffect(() => {
-    if (driver || session?.user) {
-      setFormData({
-        name: driver?.name || '',
-        email: driver?.email || session?.user?.email || '',
-        phone: driver?.phone || '',
-        company_name: driver?.company_name || '',
-        company_address: driver?.company_address || '',
-        siret: driver?.siret || '',
-      });
-      setPhotoPreview(driver?.profile_photo_url || null);
-      setLogoPreview(driver?.company_logo_url || null);
-    }
-  }, [driver, session?.user?.email]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,94 +48,166 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!driver) return;
-
     setLoading(true);
+
     try {
-      let profile_photo_url = driver.profile_photo_url;
-      let company_logo_url = driver.company_logo_url;
+      // Get current session first
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // Upload profile photo
-      if (profilePhoto) {
-        const photoPath = `${driver.id}/profile-photo-${Date.now()}`;
-        const { error: photoError } = await supabase.storage
-          .from('driver-documents')
-          .upload(photoPath, profilePhoto);
-        
-        if (photoError) throw photoError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(photoPath);
-        profile_photo_url = publicUrl;
+      // Use driver ID if available, otherwise session user ID
+      const ownerId = driver?.id || session?.user?.id;
+
+      if (!ownerId) {
+        toast.error('Session invalide, veuillez vous reconnecter');
+        return;
       }
 
-      // Upload company logo
-      if (companyLogo) {
-        const logoPath = `${driver.id}/company-logo-${Date.now()}`;
-        const { error: logoError } = await supabase.storage
-          .from('driver-documents')
-          .upload(logoPath, companyLogo);
-        
-        if (logoError) throw logoError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(logoPath);
-        company_logo_url = publicUrl;
-      }
-
-      console.log('Updating driver profile:', { 
-        driverId: driver.id,
-        updates: {
+      console.log('🔄 Starting profile update...', {
+        ownerId,
+        driverId: driver?.id,
+        userId: session?.user?.id,
+        currentData: driver ? {
+          name: driver.name,
+          phone: driver.phone,
+          email: driver.email
+        } : 'Pas de profil existant',
+        newData: {
           name: formData.name,
-          email: formData.email || (session?.user?.email ?? null),
-          phone: formData.phone,
-          company_name: formData.company_name,
-          company_address: formData.company_address,
-          siret: formData.siret,
-          profile_photo_url,
-          company_logo_url,
+          phone: formData.phone
         }
       });
 
-      // Update via edge function
-      const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
-      const { data, error } = await supabase.functions.invoke('driver-update-profile', {
-        body: {
-          name: formData.name,
-          phone: formData.phone,
-          company_name: formData.company_name,
-          company_address: formData.company_address,
-          siret: formData.siret,
-          profile_photo_url,
-          company_logo_url,
-        },
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      let profile_photo_url = driver?.profile_photo_url;
+      let company_logo_url = driver?.company_logo_url;
+
+      // Upload profile photo (continue even if it fails)
+      if (profilePhoto) {
+        try {
+          console.log('📸 Uploading profile photo...');
+          const photoPath = `${ownerId}/profile-photo-${Date.now()}`;
+          const { error: photoError } = await supabase.storage
+            .from('driver-documents')
+            .upload(photoPath, profilePhoto);
+
+          if (photoError) {
+            console.error('❌ Photo upload error:', photoError);
+            toast.warning('Erreur lors de l\'upload de la photo, mais les autres données seront sauvegardées');
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('driver-documents')
+              .getPublicUrl(photoPath);
+            profile_photo_url = publicUrl;
+            console.log('✅ Photo uploaded:', publicUrl);
+          }
+        } catch (photoErr) {
+          console.error('Photo upload failed:', photoErr);
+        }
+      }
+
+      // Upload company logo (continue even if it fails)
+      if (companyLogo) {
+        try {
+          console.log('🏢 Uploading company logo...');
+          const logoPath = `${ownerId}/company-logo-${Date.now()}`;
+          const { error: logoError } = await supabase.storage
+            .from('driver-documents')
+            .upload(logoPath, companyLogo);
+
+          if (logoError) {
+            console.error('❌ Logo upload error:', logoError);
+            toast.warning('Erreur lors de l\'upload du logo, mais les autres données seront sauvegardées');
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('driver-documents')
+              .getPublicUrl(logoPath);
+            company_logo_url = publicUrl;
+            console.log('✅ Logo uploaded:', publicUrl);
+          }
+        } catch (logoErr) {
+          console.error('Logo upload failed:', logoErr);
+        }
+      }
+
+      console.log('🔐 Current session:', {
+        userId: session?.user?.id,
+        driverUserId: driver?.user_id,
+        hasDriver: !!driver
       });
 
+      const updateData = {
+        name: formData.name,
+        phone: formData.phone,
+        company_name: formData.company_name,
+        company_address: formData.company_address,
+        siret: formData.siret,
+        profile_photo_url,
+        company_logo_url,
+      };
+
+      console.log('📝 Updating database with:', updateData);
+
+      const { data, error } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('id', ownerId)
+        .select();
+
       if (error) {
-        const serverMsg = (data as any)?.error || (data as any)?.message;
-        throw new Error(serverMsg || error.message || 'Erreur lors de la mise à jour');
+        console.error('❌ Database error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          ownerId
+        });
+
+        // More specific error messages
+        if (error.code === '42501' || error.message?.includes('permission denied')) {
+          throw new Error('ERREUR RLS: Les politiques de sécurité ne sont pas configurées. Ouvrez setup-rls.html dans votre navigateur.');
+        } else if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+          throw new Error('Session expirée. Veuillez vous déconnecter et vous reconnecter.');
+        } else {
+          throw error;
+        }
       }
 
-      console.log('Profile updated successfully:', data);
-      toast.success('Profil mis à jour avec succès');
-      navigate('/settings');
+      if (!data || data.length === 0) {
+        console.warn('⚠️ Update returned no data');
+        toast.warning('Mise à jour effectuée mais aucune donnée retournée');
+      } else {
+        console.log('✅ Profile updated successfully:', data[0]);
+        toast.success('Profil mis à jour avec succès !');
+      }
+
+      // Small delay to show success message
+      setTimeout(() => {
+        navigate('/settings');
+      }, 1000);
+
     } catch (error: any) {
-      console.error('Update profile error:', error);
-      
-      let errorMessage = 'Erreur lors de la mise à jour';
-      
-      if (error.message?.includes('permission denied') || error.code === '42501') {
-        errorMessage = 'Permissions insuffisantes pour modifier le profil';
-      } else if (error.message?.includes('JWT')) {
-        errorMessage = 'Session expirée, veuillez vous reconnecter';
+      console.error('❌ Update profile error:', error);
+
+      let errorMessage = 'Erreur lors de la mise à jour du profil';
+      let errorDetails = '';
+
+      if (error.message?.includes('ERREUR RLS')) {
+        errorMessage = 'Erreur de permissions';
+        errorDetails = 'Les politiques de sécurité doivent être configurées. Ouvrez setup-rls.html dans votre navigateur.';
+      } else if (error.message?.includes('Session expirée')) {
+        errorMessage = error.message;
+        errorDetails = 'Cliquez sur Déconnexion puis reconnectez-vous.';
+      } else if (error.code === '42501') {
+        errorMessage = 'Permissions refusées';
+        errorDetails = 'RLS non configuré. Utilisez setup-rls.html';
       } else if (error.message) {
         errorMessage = error.message;
+        errorDetails = error.code ? `Code: ${error.code}` : '';
       }
-      
-      toast.error(errorMessage);
+
+      toast.error(errorMessage, {
+        description: errorDetails,
+        duration: 5000
+      });
     } finally {
       setLoading(false);
     }
@@ -204,12 +260,11 @@ const Profile = () => {
               <Input
                 id="email"
                 type="email"
-                value={session?.user?.email || ''}
-                readOnly
+                value={formData.email}
+                disabled
                 className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">L'email ne peut pas être modifié</p>
-              <p className="text-xs text-muted-foreground hidden">
+              <p className="text-xs text-muted-foreground">
                 L'email ne peut pas être modifié
               </p>
             </div>

@@ -50,13 +50,18 @@ Deno.serve(async (req) => {
 
     if (existingUser) {
       console.log('User already exists, updating password and ensuring role/profile');
-      
-      // Update user password
+
+      // Update user password and user_metadata with role
       const { error: updateError } = await supabase.auth.admin.updateUserById(
         existingUser.id,
         {
           password,
-          email_confirm: true
+          email_confirm: true,
+          user_metadata: {
+            name: name || email.split('@')[0],
+            phone: phone || '',
+            role: role  // IMPORTANT: Mettre à jour le role dans user_metadata
+          }
         }
       );
 
@@ -65,9 +70,9 @@ Deno.serve(async (req) => {
         throw new Error('Erreur lors de la mise à jour du mot de passe');
       }
 
-      console.log('Password updated successfully');
+      console.log('Password and role updated successfully');
 
-      // Check if they already have this role
+      // Check if they already have this role in user_roles table
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('role')
@@ -87,10 +92,11 @@ Deno.serve(async (req) => {
 
         if (roleError) {
           console.error('Error adding role:', roleError);
-          throw new Error('Erreur lors de l\'ajout du rôle');
+          // Ne pas bloquer - le role est dans user_metadata
+        } else {
+          roleAdded = true;
+          console.log('Role added:', role);
         }
-        roleAdded = true;
-        console.log('Role added:', role);
       }
 
       // If driver role, ensure driver profile exists
@@ -110,8 +116,8 @@ Deno.serve(async (req) => {
               name: name || email.split('@')[0],
               email,
               phone: phone || '',
-              status: 'inactive',
-              type: 'vtc'
+              status: 'inactive'
+              // Removed type: 'vtc' - field doesn't exist in database
             });
 
           if (profileError) {
@@ -123,7 +129,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      const message = roleAdded 
+      const message = roleAdded
         ? 'Compte mis à jour avec nouveau rôle. Connectez-vous avec votre nouveau mot de passe.'
         : 'Mot de passe mis à jour. Vous pouvez maintenant vous connecter.';
 
@@ -147,7 +153,8 @@ Deno.serve(async (req) => {
       email_confirm: true,
       user_metadata: {
         name: name || email.split('@')[0],
-        phone: phone || ''
+        phone: phone || '',
+        role: role  // IMPORTANT: Ajouter le role dans user_metadata pour useAuth
       }
     });
 
@@ -173,7 +180,7 @@ Deno.serve(async (req) => {
 
     if (roleError) {
       console.error('Error inserting role:', roleError);
-      throw new Error('Erreur lors de l\'attribution du rôle');
+      // Ne pas bloquer si la table n'existe pas - le role est dans user_metadata
     }
 
     // If driver role, create driver profile
@@ -185,8 +192,8 @@ Deno.serve(async (req) => {
           name: name || email.split('@')[0],
           email,
           phone: phone || '',
-          status: 'inactive',
-          type: 'vtc'
+          status: 'inactive'
+          // Removed type: 'vtc' - field doesn't exist in database
         });
 
       if (profileError) {
