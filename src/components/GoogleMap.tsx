@@ -44,20 +44,26 @@ const GoogleMap = ({
     setIsLoading(false);
     setMapError(false);
 
-    try {
-      if (!mapInstanceRef.current) {
-        mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-          center,
-          zoom,
-          styles: [
-            {
-              featureType: 'poi',
-              elementType: 'labels',
-              stylers: [{ visibility: 'off' }],
-            },
-          ],
-        });
-      }
+      try {
+        if (!mapInstanceRef.current) {
+          // Guard: ensure Maps constructor is available
+          if (!google?.maps?.Map) {
+            console.warn('Google Maps API not fully ready yet.');
+            setMapError(true);
+            return;
+          }
+          mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+            center,
+            zoom,
+            styles: [
+              {
+                featureType: 'poi',
+                elementType: 'labels',
+                stylers: [{ visibility: 'off' }],
+              },
+            ],
+          });
+        }
 
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
