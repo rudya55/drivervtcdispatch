@@ -109,11 +109,40 @@ const Home = () => {
         body: { status },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
+      
+      // Fallback to direct fetch if invoke fails (iOS Safari compatibility)
+      if (error && (error.message?.includes('Failed to send a request to the Edge Function') || error.message?.includes('TypeError: fetch failed'))) {
+        console.warn('driver-update-status invoke failed, trying direct fetch:', error);
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/driver-update-status`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'apikey': SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error || errorData.message || 'Erreur inconnue';
+          const hint = errorData.hint || '';
+          const code = errorData.code || '';
+          throw new Error(`${errorMsg}${hint ? ` (${hint})` : ''}${code ? ` [${code}]` : ''}`);
+        }
+        return;
+      }
+      
       if (error) {
         const ctx: any = (error as any)?.context;
         const serverMsg = (data as any)?.error || (data as any)?.message || ctx?.error || ctx?.message;
+        const hint = (data as any)?.hint || ctx?.hint || '';
+        const code = (data as any)?.code || ctx?.code || '';
         console.error('driver-update-status invoke error:', { error, data, context: ctx });
-        throw new Error(serverMsg || error.message || 'Erreur inconnue');
+        throw new Error(`${serverMsg || error.message || 'Erreur inconnue'}${hint ? ` (${hint})` : ''}${code ? ` [${code}]` : ''}`);
       }
     },
     onSuccess: (_, status) => {
@@ -123,11 +152,7 @@ const Home = () => {
     },
     onError: (e: any) => {
       console.error('Status update failed:', e);
-      const ctx: any = e?.context;
-      const details = ctx?.details || ctx?.code || ctx?.hint;
-      toast.error(e?.message || 'Erreur lors de la mise à jour du statut', {
-        description: details ? String(details) : undefined,
-      });
+      toast.error(e?.message || 'Erreur lors de la mise à jour du statut');
     },
   });
 
@@ -209,12 +234,18 @@ const Home = () => {
       <Header title="Accueil" unreadCount={unreadCount} />
 
       {/* Bouton En ligne/Hors ligne - Sticky en haut au centre */}
-      <div className="sticky top-16 z-20 flex justify-center px-4 py-3 bg-background/80 backdrop-blur-sm">
+      <div className="sticky top-16 z-20 flex flex-col items-center px-4 py-3 bg-background/80 backdrop-blur-sm">
         <StatusToggle
           isOnline={isActive}
           onToggle={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
           isUpdating={statusMutation.isPending}
+          disabled={!driver}
         />
+        {!driver && (
+          <p className="text-sm text-muted-foreground mt-2 text-center">
+            Complétez votre profil avant d'activer le statut
+          </p>
+        )}
       </div>
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
