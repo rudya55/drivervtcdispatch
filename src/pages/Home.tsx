@@ -13,14 +13,15 @@ import { Badge } from '@/components/ui/badge';
 import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { toast } from 'sonner';
-import { 
-  MapPin, 
-  Clock, 
-  Users, 
-  Briefcase, 
+import {
+  MapPin,
+  Clock,
+  Users,
+  Briefcase,
   Euro,
   CheckCircle,
-  XCircle
+  XCircle,
+  Power
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -173,7 +174,10 @@ const Home = () => {
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke('get-google-maps-key');
+        const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+        const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         if (error || !data?.key) {
           console.error('Maps key error:', error);
           return;
@@ -197,8 +201,29 @@ const Home = () => {
     <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Accueil" unreadCount={unreadCount} />
 
+      {/* Bouton En ligne/Hors ligne - Sticky en haut au centre */}
+      <div className="sticky top-16 z-20 flex justify-center px-4 py-3 bg-background/80 backdrop-blur-sm">
+        <Button
+          onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
+          disabled={statusMutation.isPending}
+          className={`
+            h-14 w-14 rounded-full shadow-xl border-2 border-white transition-all duration-300 transform hover:scale-110
+            flex flex-col items-center justify-center gap-0.5 font-bold text-white p-2
+            ${isActive
+              ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
+              : 'bg-red-500 hover:bg-red-600 active:bg-red-700'}
+            ${statusMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}
+          `}
+        >
+          <Power className={`w-5 h-5 transition-transform ${isActive ? 'animate-pulse' : ''}`} />
+          <span className="text-[8px] font-extrabold uppercase leading-tight">
+            {statusMutation.isPending ? "..." : isActive ? "EN LIGNE" : "HORS LIGNE"}
+          </span>
+        </Button>
+      </div>
+
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Map avec bouton de statut en ligne/hors ligne au centre */}
+        {/* Map avec indicateur de statut */}
         <Card className="p-0 overflow-hidden">
           <div className="h-96">
             <MapWithStatusButton

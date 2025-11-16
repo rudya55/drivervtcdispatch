@@ -22,7 +22,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.get-google-maps-key]
-verify_jwt = false
+verify_jwt = true
 
 [functions.driver-update-course-status]
 verify_jwt = true

@@ -48,77 +48,90 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!driver) {
-      toast.error('Profil chauffeur non chargé');
-      return;
-    }
-
     setLoading(true);
 
-    console.log('🔄 Starting profile update...', {
-      driverId: driver.id,
-      userId: driver.user_id,
-      currentData: {
-        name: driver.name,
-        phone: driver.phone,
-        email: driver.email
-      },
-      newData: {
-        name: formData.name,
-        phone: formData.phone
-      }
-    });
-
     try {
-      let profile_photo_url = driver.profile_photo_url;
-      let company_logo_url = driver.company_logo_url;
-
-      // Upload profile photo
-      if (profilePhoto) {
-        console.log('📸 Uploading profile photo...');
-        const photoPath = `${driver.id}/profile-photo-${Date.now()}`;
-        const { error: photoError } = await supabase.storage
-          .from('driver-documents')
-          .upload(photoPath, profilePhoto);
-
-        if (photoError) {
-          console.error('❌ Photo upload error:', photoError);
-          throw photoError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(photoPath);
-        profile_photo_url = publicUrl;
-        console.log('✅ Photo uploaded:', publicUrl);
-      }
-
-      // Upload company logo
-      if (companyLogo) {
-        console.log('🏢 Uploading company logo...');
-        const logoPath = `${driver.id}/company-logo-${Date.now()}`;
-        const { error: logoError } = await supabase.storage
-          .from('driver-documents')
-          .upload(logoPath, companyLogo);
-
-        if (logoError) {
-          console.error('❌ Logo upload error:', logoError);
-          throw logoError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(logoPath);
-        company_logo_url = publicUrl;
-        console.log('✅ Logo uploaded:', publicUrl);
-      }
-
-      // Get current session to verify auth
+      // Get current session first
       const { data: { session } } = await supabase.auth.getSession();
+
+      // Use driver ID if available, otherwise session user ID
+      const ownerId = driver?.id || session?.user?.id;
+
+      if (!ownerId) {
+        toast.error('Session invalide, veuillez vous reconnecter');
+        return;
+      }
+
+      console.log('🔄 Starting profile update...', {
+        ownerId,
+        driverId: driver?.id,
+        userId: session?.user?.id,
+        currentData: driver ? {
+          name: driver.name,
+          phone: driver.phone,
+          email: driver.email
+        } : 'Pas de profil existant',
+        newData: {
+          name: formData.name,
+          phone: formData.phone
+        }
+      });
+
+      let profile_photo_url = driver?.profile_photo_url;
+      let company_logo_url = driver?.company_logo_url;
+
+      // Upload profile photo (continue even if it fails)
+      if (profilePhoto) {
+        try {
+          console.log('📸 Uploading profile photo...');
+          const photoPath = `${ownerId}/profile-photo-${Date.now()}`;
+          const { error: photoError } = await supabase.storage
+            .from('driver-documents')
+            .upload(photoPath, profilePhoto);
+
+          if (photoError) {
+            console.error('❌ Photo upload error:', photoError);
+            toast.warning('Erreur lors de l\'upload de la photo, mais les autres données seront sauvegardées');
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('driver-documents')
+              .getPublicUrl(photoPath);
+            profile_photo_url = publicUrl;
+            console.log('✅ Photo uploaded:', publicUrl);
+          }
+        } catch (photoErr) {
+          console.error('Photo upload failed:', photoErr);
+        }
+      }
+
+      // Upload company logo (continue even if it fails)
+      if (companyLogo) {
+        try {
+          console.log('🏢 Uploading company logo...');
+          const logoPath = `${ownerId}/company-logo-${Date.now()}`;
+          const { error: logoError } = await supabase.storage
+            .from('driver-documents')
+            .upload(logoPath, companyLogo);
+
+          if (logoError) {
+            console.error('❌ Logo upload error:', logoError);
+            toast.warning('Erreur lors de l\'upload du logo, mais les autres données seront sauvegardées');
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('driver-documents')
+              .getPublicUrl(logoPath);
+            company_logo_url = publicUrl;
+            console.log('✅ Logo uploaded:', publicUrl);
+          }
+        } catch (logoErr) {
+          console.error('Logo upload failed:', logoErr);
+        }
+      }
+
       console.log('🔐 Current session:', {
         userId: session?.user?.id,
-        driverUserId: driver.user_id,
-        match: session?.user?.id === driver.user_id
+        driverUserId: driver?.user_id,
+        hasDriver: !!driver
       });
 
       const updateData = {
@@ -136,7 +149,7 @@ const Profile = () => {
       const { data, error } = await supabase
         .from('drivers')
         .update(updateData)
-        .eq('id', driver.id)
+        .eq('id', ownerId)
         .select();
 
       if (error) {
@@ -145,12 +158,12 @@ const Profile = () => {
           details: error.details,
           hint: error.hint,
           code: error.code,
-          driverId: driver.id
+          ownerId
         });
 
         // More specific error messages
         if (error.code === '42501' || error.message?.includes('permission denied')) {
-          throw new Error('ERREUR RLS: Les politiques de sécurité ne sont pas configurées. Contactez le support.');
+          throw new Error('ERREUR RLS: Les politiques de sécurité ne sont pas configurées. Ouvrez setup-rls.html dans votre navigateur.');
         } else if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
           throw new Error('Session expirée. Veuillez vous déconnecter et vous reconnecter.');
         } else {

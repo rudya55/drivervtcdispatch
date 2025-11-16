@@ -37,30 +37,6 @@ export const MapWithStatusButton = ({
         markers={markers}
       />
 
-      {/* Floating Status Button - Center of Map */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-        <Button
-          onClick={handleToggle}
-          disabled={isUpdating}
-          className={cn(
-            "h-14 w-14 rounded-full shadow-xl border-2 border-white transition-all duration-300 transform hover:scale-110",
-            "flex flex-col items-center justify-center gap-0.5 font-bold text-white p-2",
-            isOnline
-              ? "bg-green-500 hover:bg-green-600 active:bg-green-700"
-              : "bg-red-500 hover:bg-red-600 active:bg-red-700",
-            isUpdating && "opacity-70 cursor-not-allowed"
-          )}
-        >
-          <Power className={cn(
-            "w-5 h-5 transition-transform",
-            isOnline && "animate-pulse"
-          )} />
-          <span className="text-[8px] font-extrabold uppercase leading-tight">
-            {isUpdating ? "..." : isOnline ? "EN LIGNE" : "HORS LIGNE"}
-          </span>
-        </Button>
-      </div>
-
       {/* Status Indicator - Top Right Corner */}
       <div className="absolute top-4 right-4 z-10">
         <div className={cn(
