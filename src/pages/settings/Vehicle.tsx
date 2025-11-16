@@ -41,8 +41,12 @@ const Vehicle = () => {
     if (!driver) return;
 
     setLoading(true);
+    console.log(`[${new Date().toISOString()}] Starting vehicle update`);
+
     try {
-      const { error } = await supabase
+      // === ATTEMPT 1: Direct update ===
+      console.log(`[${new Date().toISOString()}] Attempt 1: Direct update via Supabase client`);
+      const { error: updateError } = await supabase
         .from('drivers')
         .update({
           vehicle_brand: formData.vehicle_brand,
@@ -53,15 +57,50 @@ const Vehicle = () => {
         })
         .eq('id', driver.id);
 
-      if (error) throw error;
+      if (updateError) {
+        console.log(`[${new Date().toISOString()}] Direct update failed:`, updateError);
+        
+        // === ATTEMPT 2: Get session and retry ===
+        console.log(`[${new Date().toISOString()}] Attempt 2: Retry with fresh session`);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          throw new Error('Session non trouvée');
+        }
 
+        // === ATTEMPT 3: Client-side with explicit auth ===
+        console.log(`[${new Date().toISOString()}] Attempt 3: Update with explicit auth context`);
+        const { error: retryError } = await supabase
+          .from('drivers')
+          .update({
+            vehicle_brand: formData.vehicle_brand,
+            vehicle_model: formData.vehicle_model,
+            vehicle_year: formData.vehicle_year,
+            vehicle_plate: formData.vehicle_plate,
+            license_number: formData.license_number,
+          })
+          .eq('user_id', session.user.id);
+
+        if (retryError) {
+          console.error(`[${new Date().toISOString()}] All update attempts failed:`, retryError);
+          throw retryError;
+        }
+      }
+
+      console.log(`[${new Date().toISOString()}] Vehicle updated successfully`);
       toast.success('Informations véhicule mises à jour');
       navigate('/settings');
     } catch (error: any) {
-      console.error('Update vehicle error:', error);
-      toast.error('Erreur lors de la mise à jour');
+      console.error(`[${new Date().toISOString()}] Update vehicle error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors de la mise à jour');
     } finally {
       setLoading(false);
+      console.log(`[${new Date().toISOString()}] Vehicle update finished`);
     }
   };
 
@@ -80,6 +119,13 @@ const Vehicle = () => {
           Retour
         </Button>
         <Card className="p-6">
+          {!driver && (
+            <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                ⚠️ Complétez d'abord votre Profil pour créer votre compte chauffeur.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="brand">Marque</Label>
@@ -131,7 +177,7 @@ const Vehicle = () => {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !driver}>
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Sauvegarder
             </Button>
