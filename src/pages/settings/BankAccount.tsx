@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
+import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, CreditCard } from 'lucide-react';
 
@@ -32,27 +33,81 @@ const BankAccount = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!driver) return;
-
     setLoading(true);
+    console.log(`[${new Date().toISOString()}] Starting bank account update`);
+
     try {
-      const { error } = await supabase
+      const updateData = {
+        iban: formData.iban,
+        bic: formData.bic,
+      };
+
+      // === ATTEMPT 1: Direct update with driver.id ===
+      if (driver?.id) {
+        console.log(`[${new Date().toISOString()}] Attempt 1: Direct update with driver.id`);
+        const { error: updateError } = await supabase
+          .from('drivers')
+          .update(updateData)
+          .eq('id', driver.id);
+
+        if (!updateError) {
+          console.log(`[${new Date().toISOString()}] ✅ Bank account updated successfully (Attempt 1)`);
+          toast.success('Coordonnées bancaires mises à jour');
+          setTimeout(() => navigate('/settings'), 300);
+          return;
+        }
+        console.log(`[${new Date().toISOString()}] Attempt 1 failed:`, updateError);
+      }
+
+      // === ATTEMPT 2: Update by user_id ===
+      console.log(`[${new Date().toISOString()}] Attempt 2: Update by user_id`);
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Session non trouvée - veuillez vous reconnecter');
+      }
+
+      const { error: retryError } = await supabase
         .from('drivers')
-        .update({
-          iban: formData.iban,
-          bic: formData.bic,
-        })
-        .eq('id', driver.id);
+        .update(updateData)
+        .eq('user_id', session.user.id);
 
-      if (error) throw error;
+      if (!retryError) {
+        console.log(`[${new Date().toISOString()}] ✅ Bank account updated successfully (Attempt 2)`);
+        toast.success('Coordonnées bancaires mises à jour');
+        setTimeout(() => navigate('/settings'), 300);
+        return;
+      }
+      console.log(`[${new Date().toISOString()}] Attempt 2 failed:`, retryError);
 
+      // === ATTEMPT 3: Ensure driver exists and update ===
+      console.log(`[${new Date().toISOString()}] Attempt 3: Ensure driver exists and retry`);
+      const { driverId } = await ensureDriverExists();
+      
+      const { error: finalError } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('id', driverId);
+
+      if (finalError) {
+        throw finalError;
+      }
+
+      console.log(`[${new Date().toISOString()}] ✅ Bank account updated successfully (Attempt 3)`);
       toast.success('Coordonnées bancaires mises à jour');
-      navigate('/settings');
+      setTimeout(() => navigate('/settings'), 300);
+
     } catch (error: any) {
-      console.error('Update bank account error:', error);
-      toast.error('Erreur lors de la mise à jour');
+      console.error(`[${new Date().toISOString()}] Update bank account error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors de la mise à jour');
     } finally {
       setLoading(false);
+      console.log(`[${new Date().toISOString()}] Bank account update finished`);
     }
   };
 

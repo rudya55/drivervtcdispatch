@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
+import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload } from 'lucide-react';
 
@@ -37,32 +38,43 @@ const Documents = () => {
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
 
   useEffect(() => {
-    if (driver) {
-      fetchDocuments();
-    }
+    fetchDocuments();
   }, [driver]);
 
   const fetchDocuments = async () => {
-    if (!driver) return;
-
     setLoading(true);
+    console.log(`[${new Date().toISOString()}] Fetching documents`);
+
     try {
+      // Ensure driver profile exists before fetching
+      const { driverId } = await ensureDriverExists();
+      console.log(`[${new Date().toISOString()}] Using driver ID:`, driverId);
+
       const { data, error } = await supabase.storage
         .from('driver-documents')
-        .list(driver.id);
+        .list(driverId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Fetch documents error:', error);
+        // Don't throw if bucket doesn't exist yet
+        if (error.message?.includes('not found')) {
+          console.log('Documents bucket/folder not found yet, will be created on first upload');
+          setDocuments([]);
+          return;
+        }
+        throw error;
+      }
 
       const docsWithUrls = data.map((file: any) => {
         const { data: { publicUrl } } = supabase.storage
           .from('driver-documents')
-          .getPublicUrl(`${driver.id}/${file.name}`);
+          .getPublicUrl(`${driverId}/${file.name}`);
         
         const category = file.name.split('_')[0];
         
         return {
           name: file.name,
-          path: `${driver.id}/${file.name}`,
+          path: `${driverId}/${file.name}`,
           url: publicUrl,
           created_at: file.created_at,
           category,
@@ -70,9 +82,15 @@ const Documents = () => {
       });
 
       setDocuments(docsWithUrls);
+      console.log(`[${new Date().toISOString()}] Fetched ${docsWithUrls.length} documents`);
     } catch (error: any) {
-      console.error('Fetch documents error:', error);
-      toast.error('Erreur lors du chargement des documents');
+      console.error(`[${new Date().toISOString()}] Fetch documents error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors du chargement des documents');
     } finally {
       setLoading(false);
     }
@@ -80,13 +98,19 @@ const Documents = () => {
 
   const handleUpload = async (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !driver) return;
+    if (!file) return;
 
     setUploading(category);
+    console.log(`[${new Date().toISOString()}] Uploading document for category:`, category);
+
     try {
+      // Ensure driver profile exists before uploading
+      const { driverId } = await ensureDriverExists();
+      console.log(`[${new Date().toISOString()}] Using driver ID:`, driverId);
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${category}_${Date.now()}.${fileExt}`;
-      const filePath = `${driver.id}/${fileName}`;
+      const filePath = `${driverId}/${fileName}`;
       
       const { error } = await supabase.storage
         .from('driver-documents')
@@ -94,31 +118,46 @@ const Documents = () => {
 
       if (error) throw error;
 
+      console.log(`[${new Date().toISOString()}] ✅ Document uploaded successfully`);
       toast.success('Document téléchargé avec succès');
       fetchDocuments();
     } catch (error: any) {
-      console.error('Upload error:', error);
-      toast.error('Erreur lors du téléchargement');
+      console.error(`[${new Date().toISOString()}] Upload error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors du téléchargement');
     } finally {
       setUploading(null);
     }
   };
 
   const handleDelete = async (path: string) => {
-    if (!driver) return;
+    console.log(`[${new Date().toISOString()}] Deleting document:`, path);
 
     try {
+      // Ensure driver exists before deleting
+      await ensureDriverExists();
+
       const { error } = await supabase.storage
         .from('driver-documents')
         .remove([path]);
 
       if (error) throw error;
 
+      console.log(`[${new Date().toISOString()}] ✅ Document deleted successfully`);
       toast.success('Document supprimé');
       fetchDocuments();
     } catch (error: any) {
-      console.error('Delete error:', error);
-      toast.error('Erreur lors de la suppression');
+      console.error(`[${new Date().toISOString()}] Delete error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors de la suppression');
     }
   };
 

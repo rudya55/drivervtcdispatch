@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
+import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft } from 'lucide-react';
 
@@ -38,58 +39,73 @@ const Vehicle = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!driver) return;
-
     setLoading(true);
     console.log(`[${new Date().toISOString()}] Starting vehicle update`);
 
     try {
-      // === ATTEMPT 1: Direct update ===
-      console.log(`[${new Date().toISOString()}] Attempt 1: Direct update via Supabase client`);
-      const { error: updateError } = await supabase
-        .from('drivers')
-        .update({
-          vehicle_brand: formData.vehicle_brand,
-          vehicle_model: formData.vehicle_model,
-          vehicle_year: formData.vehicle_year,
-          vehicle_plate: formData.vehicle_plate,
-          license_number: formData.license_number,
-        })
-        .eq('id', driver.id);
+      const updateData = {
+        vehicle_brand: formData.vehicle_brand,
+        vehicle_model: formData.vehicle_model,
+        vehicle_year: formData.vehicle_year,
+        vehicle_plate: formData.vehicle_plate,
+        license_number: formData.license_number,
+      };
 
-      if (updateError) {
-        console.log(`[${new Date().toISOString()}] Direct update failed:`, updateError);
-        
-        // === ATTEMPT 2: Get session and retry ===
-        console.log(`[${new Date().toISOString()}] Attempt 2: Retry with fresh session`);
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError || !session) {
-          throw new Error('Session non trouvée');
-        }
-
-        // === ATTEMPT 3: Client-side with explicit auth ===
-        console.log(`[${new Date().toISOString()}] Attempt 3: Update with explicit auth context`);
-        const { error: retryError } = await supabase
+      // === ATTEMPT 1: Direct update with driver.id ===
+      if (driver?.id) {
+        console.log(`[${new Date().toISOString()}] Attempt 1: Direct update with driver.id`);
+        const { error: updateError } = await supabase
           .from('drivers')
-          .update({
-            vehicle_brand: formData.vehicle_brand,
-            vehicle_model: formData.vehicle_model,
-            vehicle_year: formData.vehicle_year,
-            vehicle_plate: formData.vehicle_plate,
-            license_number: formData.license_number,
-          })
-          .eq('user_id', session.user.id);
+          .update(updateData)
+          .eq('id', driver.id);
 
-        if (retryError) {
-          console.error(`[${new Date().toISOString()}] All update attempts failed:`, retryError);
-          throw retryError;
+        if (!updateError) {
+          console.log(`[${new Date().toISOString()}] ✅ Vehicle updated successfully (Attempt 1)`);
+          toast.success('Informations véhicule mises à jour');
+          setTimeout(() => navigate('/settings'), 300);
+          return;
         }
+        console.log(`[${new Date().toISOString()}] Attempt 1 failed:`, updateError);
       }
 
-      console.log(`[${new Date().toISOString()}] Vehicle updated successfully`);
+      // === ATTEMPT 2: Update by user_id ===
+      console.log(`[${new Date().toISOString()}] Attempt 2: Update by user_id`);
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Session non trouvée - veuillez vous reconnecter');
+      }
+
+      const { error: retryError } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('user_id', session.user.id);
+
+      if (!retryError) {
+        console.log(`[${new Date().toISOString()}] ✅ Vehicle updated successfully (Attempt 2)`);
+        toast.success('Informations véhicule mises à jour');
+        setTimeout(() => navigate('/settings'), 300);
+        return;
+      }
+      console.log(`[${new Date().toISOString()}] Attempt 2 failed:`, retryError);
+
+      // === ATTEMPT 3: Ensure driver exists and update ===
+      console.log(`[${new Date().toISOString()}] Attempt 3: Ensure driver exists and retry`);
+      const { driverId } = await ensureDriverExists();
+      
+      const { error: finalError } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('id', driverId);
+
+      if (finalError) {
+        throw finalError;
+      }
+
+      console.log(`[${new Date().toISOString()}] ✅ Vehicle updated successfully (Attempt 3)`);
       toast.success('Informations véhicule mises à jour');
-      navigate('/settings');
+      setTimeout(() => navigate('/settings'), 300);
+
     } catch (error: any) {
       console.error(`[${new Date().toISOString()}] Update vehicle error:`, error);
       const errorMessage = [
