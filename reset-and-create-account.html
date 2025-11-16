@@ -164,6 +164,10 @@
             <strong>📧 Vos identifiants de connexion :</strong>
             <p><strong>Email :</strong> ${data.credentials.email}</p>
             <p><strong>Mot de passe :</strong> ${data.credentials.password}</p>
+            ${data.profile ? `
+              <p><strong>Nom :</strong> ${data.profile.name}</p>
+              <p><strong>Téléphone :</strong> ${data.profile.phone}</p>
+            ` : ''}
           </div>
           <p><strong>User ID :</strong> ${data.user_id}</p>
           <p><strong>Driver ID :</strong> ${data.driver_id}</p>
