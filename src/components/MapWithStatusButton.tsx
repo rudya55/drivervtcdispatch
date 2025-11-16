@@ -43,8 +43,8 @@ export const MapWithStatusButton = ({
           onClick={handleToggle}
           disabled={isUpdating}
           className={cn(
-            "h-24 w-24 rounded-full shadow-2xl border-4 border-white transition-all duration-300 transform hover:scale-110",
-            "flex flex-col items-center justify-center gap-1 font-bold text-white",
+            "h-14 w-14 rounded-full shadow-xl border-2 border-white transition-all duration-300 transform hover:scale-110",
+            "flex flex-col items-center justify-center gap-0.5 font-bold text-white p-2",
             isOnline
               ? "bg-green-500 hover:bg-green-600 active:bg-green-700"
               : "bg-red-500 hover:bg-red-600 active:bg-red-700",
@@ -52,10 +52,10 @@ export const MapWithStatusButton = ({
           )}
         >
           <Power className={cn(
-            "w-8 h-8 transition-transform",
+            "w-5 h-5 transition-transform",
             isOnline && "animate-pulse"
           )} />
-          <span className="text-sm font-extrabold uppercase tracking-wide">
+          <span className="text-[8px] font-extrabold uppercase leading-tight">
             {isUpdating ? "..." : isOnline ? "EN LIGNE" : "HORS LIGNE"}
           </span>
         </Button>

@@ -89,12 +89,20 @@ Deno.serve(async (req) => {
     console.log('🆕 Creating new account...');
 
     // 8. Create new user with provided credentials
+    const fullName = name || 'Jean Démo';
+    const firstName = fullName.split(' ')[0] || 'Jean';
+    const lastName = fullName.split(' ').slice(1).join(' ') || 'Démo';
+    const phone = '+33612345678';
+
     const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: {
-        name: name || email.split('@')[0],
+        name: fullName,
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone,
         role: 'driver'
       }
     });
@@ -103,15 +111,30 @@ Deno.serve(async (req) => {
 
     console.log('✅ Created user:', newUser.user.id);
 
-    // 9. Create driver profile
+    // 9. Create driver profile with complete information
     const { data: newDriver, error: driverError } = await supabase
       .from('drivers')
       .insert({
         user_id: newUser.user.id,
-        name: name || email.split('@')[0],
+        name: fullName,
         email: email,
-        phone: '',
-        status: 'active'
+        phone: phone,
+        status: 'active',
+        notifications_enabled: true,
+        rating: 0,
+        company_name: null,
+        company_address: null,
+        siret: null,
+        vehicle_brand: null,
+        vehicle_model: null,
+        vehicle_year: null,
+        vehicle_plate: null,
+        license_number: null,
+        iban: null,
+        bic: null,
+        profile_photo_url: null,
+        company_logo_url: null,
+        notification_sound: null
       })
       .select()
       .single();
@@ -129,6 +152,11 @@ Deno.serve(async (req) => {
         credentials: {
           email,
           password
+        },
+        profile: {
+          name: fullName,
+          phone: phone,
+          status: 'active'
         }
       }),
       {
