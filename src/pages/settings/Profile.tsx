@@ -115,9 +115,10 @@ const Profile = () => {
         }
       });
 
-      const { data, error } = await supabase
-        .from('drivers')
-        .update({
+      // Update via edge function
+      const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+      const { data, error } = await supabase.functions.invoke('driver-update-profile', {
+        body: {
           name: formData.name,
           phone: formData.phone,
           company_name: formData.company_name,
@@ -125,18 +126,13 @@ const Profile = () => {
           siret: formData.siret,
           profile_photo_url,
           company_logo_url,
-        })
-        .eq('id', driver.id)
-        .select();
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
       if (error) {
-        console.error('Database error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+        const serverMsg = (data as any)?.error || (data as any)?.message;
+        throw new Error(serverMsg || error.message || 'Erreur lors de la mise à jour');
       }
 
       console.log('Profile updated successfully:', data);
@@ -208,11 +204,12 @@ const Profile = () => {
               <Input
                 id="email"
                 type="email"
-                value={formData.email}
-                disabled
+                value={session?.user?.email || ''}
+                readOnly
                 className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">L'email ne peut pas être modifié</p>
+              <p className="text-xs text-muted-foreground hidden">
                 L'email ne peut pas être modifié
               </p>
             </div>

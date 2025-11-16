@@ -12,18 +12,17 @@ export const StatusToggle = ({ isOnline, onToggle, isUpdating = false }: StatusT
     <div 
       className={cn(
         "flex items-center justify-between px-6 py-4 rounded-full shadow-lg border-2 transition-all duration-300",
-        "max-w-xs mx-auto cursor-pointer",
+        "max-w-xs mx-auto",
         isOnline 
           ? "bg-white border-green-500" 
           : "bg-white border-red-500"
       )}
-      onClick={!isUpdating ? onToggle : undefined}
     >
       <span className={cn(
         "text-xl font-bold",
         isOnline ? "text-foreground" : "text-foreground"
       )}>
-        {isUpdating ? "Mise à jour..." : "En ligne"}
+        {isUpdating ? "Mise à jour..." : (isOnline ? "En ligne" : "Hors ligne")}
       </span>
       
       <div className="relative">

@@ -174,7 +174,10 @@ const Home = () => {
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke('get-google-maps-key');
+        const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+        const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         if (error || !data?.key) {
           console.error('Maps key error:', error);
           return;
