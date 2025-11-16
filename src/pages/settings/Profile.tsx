@@ -161,38 +161,31 @@ const Profile = () => {
         company_logo_url,
       };
 
-      console.log('📝 Updating database with:', updateData);
+      console.log('📝 Updating profile via Edge Function with:', updateData);
 
-      const { data, error } = await supabase
-        .from('drivers')
-        .update(updateData)
-        .eq('id', ownerId)
-        .select();
+      // Use Edge Function instead of direct DB update (bypasses RLS, creates profile if missing)
+      const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+      const { data, error } = await supabase.functions.invoke('driver-update-profile', {
+        body: updateData,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
       if (error) {
-        console.error('❌ Database error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          ownerId
-        });
-
-        // More specific error messages
-        if (error.code === '42501' || error.message?.includes('permission denied')) {
-          throw new Error('ERREUR RLS: Les politiques de sécurité ne sont pas configurées. Ouvrez setup-rls.html dans votre navigateur.');
-        } else if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
-          throw new Error('Session expirée. Veuillez vous déconnecter et vous reconnecter.');
-        } else {
-          throw error;
-        }
+        console.error('❌ Update error:', error);
+        throw new Error(error.message || 'Erreur lors de la mise à jour');
       }
 
-      if (!data || data.length === 0) {
-        console.warn('⚠️ Update returned no data');
+      // Check if response contains an error field
+      if (data?.error) {
+        console.error('❌ Server error:', data);
+        throw new Error(data.error);
+      }
+
+      if (!data?.driver) {
+        console.warn('⚠️ Update returned no driver data');
         toast.warning('Mise à jour effectuée mais aucune donnée retournée');
       } else {
-        console.log('✅ Profile updated successfully:', data[0]);
+        console.log('✅ Profile updated successfully:', data.driver);
         toast.success('Profil mis à jour avec succès !');
       }
 
