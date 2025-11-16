@@ -71,107 +71,82 @@ Deno.serve(async (req) => {
     }
 
     if (!existingDriver) {
-      console.log('==========================================');
-      console.log('NO DRIVER PROFILE - Creating new driver');
-      console.log('User ID:', user.id);
-      console.log('User email:', user.email);
-      console.log('User metadata:', JSON.stringify(user.user_metadata));
-      console.log('==========================================');
+      console.log('No driver row, creating minimal profile for user:', user.id);
 
-      // Attempt inserting with progressive fallbacks for legacy schemas
-      const basePayload: any = {
+      // Try minimal insert first (most compatible across schemas)
+      const minimalPayload: any = {
         user_id: user.id,
-        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
-        email: user.email,
-        phone: user.user_metadata?.phone || null,
-        status: status,
+        status,
       };
 
-      console.log('Base payload for insert:', JSON.stringify(basePayload));
+      const { data: minimalData, error: minimalError } = await supabaseAdmin
+        .from('drivers')
+        .insert(minimalPayload)
+        .select('id')
+        .maybeSingle();
 
-      // Always include type field to avoid constraint errors
-      const tryInserts: Array<Record<string, any>> = [
+      if (!minimalError && minimalData) {
+        console.log('Minimal driver profile created');
+        return new Response(
+          JSON.stringify({ success: true, status, created: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      console.warn('Minimal insert failed, trying with optional fields', minimalError);
+
+      // If minimal insert fails due to NOT NULL constraints on other fields, try with more data
+      const basePayload: any = {
+        user_id: user.id,
+        status,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
+        phone: user.user_metadata?.phone || null,
+        email: user.email || null,
+      };
+
+      // Try without "type" first (avoid unknown column errors)
+      let created = false;
+      let lastInsertError: any = null;
+
+      const attempts: Array<Record<string, any>> = [
+        { ...basePayload },
         { ...basePayload, type: 'vtc' },
         { ...basePayload, type: 'driver' },
         { ...basePayload, type: 'chauffeur' },
       ];
 
-      let created = false;
-      let lastInsertError: any = null;
-
-      for (const payload of tryInserts) {
-        console.log('Attempting insert with payload:', JSON.stringify(payload));
+      for (const payload of attempts) {
         const { data: insertData, error: insertError } = await supabaseAdmin
           .from('drivers')
           .insert(payload)
-          .select();
-        
-        console.log('Insert result:', {
-          success: !insertError,
-          data: insertData,
-          error: insertError ? {
-            message: insertError.message,
-            details: insertError.details,
-            hint: insertError.hint,
-            code: insertError.code
-          } : null
-        });
-        
-        if (!insertError) { 
-          created = true; 
-          console.log('✅ Driver profile created successfully!');
-          break; 
-        }
-        
+          .select('id')
+          .maybeSingle();
+
+        if (!insertError && insertData) { created = true; break; }
         lastInsertError = insertError;
-        // If error is not related to "type" constraint, no point trying more
+
+        // If column doesn't exist for 'type', skip attempts with type
         const msg = (insertError?.message || '').toLowerCase();
-        if (!msg.includes('type') && !msg.includes('check constraint') && !msg.includes('not-null')) {
-          console.log('Error not related to type constraint, stopping insert attempts');
+        if (msg.includes('column') && msg.includes('type') && msg.includes('does not exist')) {
           break;
         }
       }
 
       if (!created) {
         const reason = lastInsertError?.message || 'Insertion failed for unknown reason';
-        console.error('Insert error before migration attempt:', reason);
-
-        // Attempt one-off migration to remove legacy "type" constraints
-        try {
-          const { data: migData, error: migError } = await supabaseAdmin.functions.invoke('setup-database');
-          if (migError) {
-            console.error('Migration invoke error:', migError);
-          } else {
-            console.log('Migration response:', migData);
-            // Retry minimal insert after migration
-            const { error: retryError } = await supabaseAdmin
-              .from('drivers')
-              .insert(basePayload);
-            if (!retryError) {
-              console.log('Driver profile created after migration with status:', status);
-              return new Response(
-                JSON.stringify({ success: true, status, created: true, migrated: true }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-              );
-            }
-            console.error('Retry insert after migration failed:', retryError);
-          }
-        } catch (e) {
-          console.error('Migration attempt threw:', e);
-        }
-
-        throw new Error(`Erreur création profil: ${reason}`);
+        return new Response(
+          JSON.stringify({ error: `Erreur création profil: ${reason}`, details: lastInsertError }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
       }
 
       console.log('Driver profile created with status:', status);
       return new Response(
         JSON.stringify({ success: true, status, created: true }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
+
 
     // Update driver status (using admin client)
     const { error: updateError } = await supabaseAdmin
