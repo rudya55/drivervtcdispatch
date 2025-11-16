@@ -191,10 +191,67 @@ const Profile = () => {
       });
 
       // Use Edge Function instead of direct DB update (bypasses RLS, creates profile if missing)
-      const { data, error } = await supabase.functions.invoke('driver-update-profile', {
-        body: updateData,
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      let result;
+      let error;
+      
+      try {
+        const response = await supabase.functions.invoke('driver-update-profile', {
+          body: updateData,
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        
+        result = response.data;
+        error = response.error;
+        
+        // If invoke fails on iOS Safari, fallback to direct fetch
+        if (error && (
+          error.message?.includes('Failed to send a request to the Edge Function') ||
+          error.message?.includes('TypeError: fetch failed')
+        )) {
+          console.log('⚠️ Supabase invoke failed, trying direct fetch...');
+          
+          const { supabaseUrl, supabaseKey } = await (async () => {
+            const url = (supabase as any).supabaseUrl || 
+                       import.meta.env.VITE_SUPABASE_URL ||
+                       'https://qroqygbculbfqkbinqmp.supabase.co';
+            const key = (supabase as any).supabaseKey ||
+                       import.meta.env.VITE_SUPABASE_ANON_KEY ||
+                       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyb3F5Z2JjdWxiZnFrYmlucW1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NDUzNzYsImV4cCI6MjA3NTUyMTM3Nn0.C7fui8NfcJhY77ZTjtbxkCWsUimWFdD4MWEoIkXU7Zg';
+            return { supabaseUrl: url, supabaseKey: key };
+          })();
+          
+          const fetchResponse = await fetch(
+            `${supabaseUrl}/functions/v1/driver-update-profile`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': supabaseKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(updateData),
+            }
+          );
+          
+          if (!fetchResponse.ok) {
+            const errorData = await fetchResponse.json();
+            console.error('❌ Direct fetch error:', errorData);
+            const errorMsg = [
+              errorData.error,
+              errorData.hint,
+              errorData.code
+            ].filter(Boolean).join(' - ');
+            throw new Error(errorMsg || 'Impossible de mettre à jour le profil');
+          }
+          
+          result = await fetchResponse.json();
+          error = null;
+          console.log('✅ Direct fetch succeeded');
+        }
+      } catch (err: any) {
+        console.error('❌ Profile update exception:', err);
+        throw err;
+      }
 
       if (error) {
         console.error('❌ Edge Function invoke error:', {
@@ -202,24 +259,26 @@ const Profile = () => {
           name: error.name,
           stack: error.stack
         });
-        throw new Error(error.message || 'Erreur lors de la mise à jour');
+        const errorMsg = [error.message, error.hint, error.code].filter(Boolean).join(' - ');
+        throw new Error(errorMsg || 'Erreur lors de la mise à jour');
       }
 
       // Check if response contains an error field
-      if (data?.error) {
+      if (result?.error) {
         console.error('❌ Server returned error:', {
-          error: data.error,
-          hint: data.hint,
-          code: data.code
+          error: result.error,
+          hint: result.hint,
+          code: result.code
         });
-        throw new Error(data.error);
+        const errorMsg = [result.error, result.hint, result.code].filter(Boolean).join(' - ');
+        throw new Error(errorMsg);
       }
 
-      if (!data?.driver) {
+      if (!result?.driver) {
         console.warn('⚠️ Update returned no driver data');
         toast.warning('Mise à jour effectuée mais aucune donnée retournée');
       } else {
-        console.log('✅ Profile updated successfully:', data.driver);
+        console.log('✅ Profile updated successfully:', result.driver);
         toast.success('Profil mis à jour avec succès !');
       }
 
