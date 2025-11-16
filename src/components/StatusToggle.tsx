@@ -5,9 +5,10 @@ interface StatusToggleProps {
   isOnline: boolean;
   onToggle: () => void;
   isUpdating?: boolean;
+  disabled?: boolean;
 }
 
-export const StatusToggle = ({ isOnline, onToggle, isUpdating = false }: StatusToggleProps) => {
+export const StatusToggle = ({ isOnline, onToggle, isUpdating = false, disabled = false }: StatusToggleProps) => {
   return (
     <div 
       className={cn(
@@ -27,7 +28,7 @@ export const StatusToggle = ({ isOnline, onToggle, isUpdating = false }: StatusT
       <Switch
         checked={isOnline}
         onCheckedChange={onToggle}
-        disabled={isUpdating}
+        disabled={isUpdating || disabled}
         className={cn(
           "data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500",
           "scale-125"

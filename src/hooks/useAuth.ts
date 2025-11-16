@@ -32,18 +32,9 @@ export const useAuth = () => {
             return;
           }
           
-          // Fetch or create driver profile via backend (service role) to avoid RLS issues
+          // Fetch driver profile
           setTimeout(async () => {
             const user = currentSession.user;
-            try {
-              const token = currentSession.access_token;
-              await supabase.functions.invoke('driver-update-status', {
-                body: { status: 'inactive' },
-                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-              });
-            } catch (e) {
-              console.warn('ensure-driver-profile failed:', e);
-            }
 
             const { data, error } = await supabase
               .from('drivers')
@@ -86,18 +77,8 @@ export const useAuth = () => {
           setLoading(false);
           return;
         }
-        // Ensure driver profile exists via backend function (service role)
+        // Fetch driver profile
         (async () => {
-          try {
-            const token = currentSession.access_token;
-            await supabase.functions.invoke('driver-update-status', {
-              body: { status: 'inactive' },
-              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-            });
-          } catch (e) {
-            console.warn('ensure-driver-profile at init failed:', e);
-          }
-
           supabase
             .from('drivers')
             .select('*')
