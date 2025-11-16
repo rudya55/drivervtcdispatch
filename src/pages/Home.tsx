@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
+import { StatusToggle } from '@/components/StatusToggle';
 import { toast } from 'sonner';
 import {
   MapPin,
@@ -209,23 +210,11 @@ const Home = () => {
 
       {/* Bouton En ligne/Hors ligne - Sticky en haut au centre */}
       <div className="sticky top-16 z-20 flex justify-center px-4 py-3 bg-background/80 backdrop-blur-sm">
-        <Button
-          onClick={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
-          disabled={statusMutation.isPending}
-          className={`
-            h-14 w-14 rounded-full shadow-xl border-2 border-white transition-all duration-300 transform hover:scale-110
-            flex flex-col items-center justify-center gap-0.5 font-bold text-white p-2
-            ${isActive
-              ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-              : 'bg-red-500 hover:bg-red-600 active:bg-red-700'}
-            ${statusMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}
-          `}
-        >
-          <Power className={`w-5 h-5 transition-transform ${isActive ? 'animate-pulse' : ''}`} />
-          <span className="text-[8px] font-extrabold uppercase leading-tight">
-            {statusMutation.isPending ? "..." : isActive ? "EN LIGNE" : "HORS LIGNE"}
-          </span>
-        </Button>
+        <StatusToggle
+          isOnline={isActive}
+          onToggle={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
+          isUpdating={statusMutation.isPending}
+        />
       </div>
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
