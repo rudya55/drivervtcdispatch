@@ -32,3 +32,6 @@ verify_jwt = true
 
 [functions.driver-update-location]
 verify_jwt = true
+
+[functions.driver-update-profile]
+verify_jwt = true
