@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/lib/supabase';
+import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
-import { ArrowLeft, Volume2 } from 'lucide-react';
+import { ArrowLeft, Volume2, Loader2 } from 'lucide-react';
 
 const notificationSounds = [
   { id: 'default', name: 'Par défaut', url: '/sounds/default.mp3' },
@@ -47,27 +48,81 @@ const Notifications = () => {
   };
 
   const handleSave = async () => {
-    if (!driver) return;
-
     setLoading(true);
+    console.log(`[${new Date().toISOString()}] Starting notifications settings update`);
+
     try {
-      const { error } = await supabase
+      const updateData = {
+        notifications_enabled: notificationsEnabled,
+        notification_sound: selectedSound,
+      };
+
+      // === ATTEMPT 1: Direct update with driver.id ===
+      if (driver?.id) {
+        console.log(`[${new Date().toISOString()}] Attempt 1: Direct update with driver.id`);
+        const { error: updateError } = await supabase
+          .from('drivers')
+          .update(updateData)
+          .eq('id', driver.id);
+
+        if (!updateError) {
+          console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 1)`);
+          toast.success('Préférences enregistrées');
+          setTimeout(() => navigate('/settings'), 300);
+          return;
+        }
+        console.log(`[${new Date().toISOString()}] Attempt 1 failed:`, updateError);
+      }
+
+      // === ATTEMPT 2: Update by user_id ===
+      console.log(`[${new Date().toISOString()}] Attempt 2: Update by user_id`);
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Session non trouvée - veuillez vous reconnecter');
+      }
+
+      const { error: retryError } = await supabase
         .from('drivers')
-        .update({
-          notifications_enabled: notificationsEnabled,
-          notification_sound: selectedSound,
-        })
-        .eq('id', driver.id);
+        .update(updateData)
+        .eq('user_id', session.user.id);
 
-      if (error) throw error;
+      if (!retryError) {
+        console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 2)`);
+        toast.success('Préférences enregistrées');
+        setTimeout(() => navigate('/settings'), 300);
+        return;
+      }
+      console.log(`[${new Date().toISOString()}] Attempt 2 failed:`, retryError);
 
+      // === ATTEMPT 3: Ensure driver exists and update ===
+      console.log(`[${new Date().toISOString()}] Attempt 3: Ensure driver exists and retry`);
+      const { driverId } = await ensureDriverExists();
+      
+      const { error: finalError } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('id', driverId);
+
+      if (finalError) {
+        throw finalError;
+      }
+
+      console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 3)`);
       toast.success('Préférences enregistrées');
-      navigate('/settings');
+      setTimeout(() => navigate('/settings'), 300);
+
     } catch (error: any) {
-      console.error('Update notifications error:', error);
-      toast.error('Erreur lors de la mise à jour');
+      console.error(`[${new Date().toISOString()}] Update notifications error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors de la mise à jour');
     } finally {
       setLoading(false);
+      console.log(`[${new Date().toISOString()}] Notifications update finished`);
     }
   };
 
@@ -142,6 +197,7 @@ const Notifications = () => {
           )}
 
           <Button onClick={handleSave} className="w-full" disabled={loading}>
+            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Sauvegarder
           </Button>
         </div>
