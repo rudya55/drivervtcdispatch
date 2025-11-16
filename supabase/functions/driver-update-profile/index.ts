@@ -50,66 +50,29 @@ Deno.serve(async (req) => {
     }
 
     if (!existing) {
-      console.log('No driver row, creating minimal profile for user:', user.id);
+      console.log('No driver row, creating simple profile for user:', user.id);
 
-      // Try minimal insert first
-      const minimalPayload: any = {
+      // Single attempt with fixed payload
+      const createPayload = {
         user_id: user.id,
         status: 'inactive',
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
+        phone: user.user_metadata?.phone || '',
+        email: user.email || '',
       };
 
-      const { data: minimalData, error: minimalError } = await supabaseAdmin
+      const { error: createError } = await supabaseAdmin
         .from('drivers')
-        .insert(minimalPayload)
+        .insert(createPayload)
         .select('id')
-        .maybeSingle();
+        .single();
 
-      if (minimalError) {
-        console.warn('Minimal insert failed, trying with optional fields', minimalError);
-
-        // Try with more data
-        const basePayload: any = {
-          user_id: user.id,
-          status: 'inactive',
-          name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
-          phone: user.user_metadata?.phone || null,
-          email: user.email || null,
-        };
-
-        const attempts: Array<Record<string, any>> = [
-          { ...basePayload },
-          { ...basePayload, type: 'vtc' },
-        ];
-
-        let created = false;
-        let lastInsertError: any = null;
-
-        for (const payload of attempts) {
-          const { data: insertData, error: insertError } = await supabaseAdmin
-            .from('drivers')
-            .insert(payload)
-            .select('id')
-            .maybeSingle();
-
-          if (!insertError && insertData) {
-            created = true;
-            break;
-          }
-          lastInsertError = insertError;
-
-          const msg = (insertError?.message || '').toLowerCase();
-          if (msg.includes('column') && msg.includes('type') && msg.includes('does not exist')) {
-            break;
-          }
-        }
-
-        if (!created) {
-          const reason = lastInsertError?.message || 'Insertion failed';
-          throw new Error(`Erreur création profil: ${reason}`);
-        }
+      if (createError) {
+        console.error('❌ Driver creation failed:', createError);
+        throw new Error(`Impossible de créer le profil: ${createError.message}`);
       }
 
-      console.log('Driver profile created successfully');
+      console.log('✅ Driver profile created successfully');
     }
 
     // Update driver profile using service role to bypass RLS
