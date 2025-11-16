@@ -71,81 +71,82 @@ Deno.serve(async (req) => {
     }
 
     if (!existingDriver) {
-      console.error('No driver profile found for user:', user.id);
+      console.log('No driver row, creating minimal profile for user:', user.id);
 
-      // Attempt inserting with progressive fallbacks for legacy schemas
-      const basePayload: any = {
+      // Try minimal insert first (most compatible across schemas)
+      const minimalPayload: any = {
         user_id: user.id,
-        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
-        email: user.email,
-        phone: user.user_metadata?.phone || null,
-        status: status,
+        status,
       };
 
-      // Always include type field to avoid constraint errors
-      const tryInserts: Array<Record<string, any>> = [
+      const { data: minimalData, error: minimalError } = await supabaseAdmin
+        .from('drivers')
+        .insert(minimalPayload)
+        .select('id')
+        .maybeSingle();
+
+      if (!minimalError && minimalData) {
+        console.log('Minimal driver profile created');
+        return new Response(
+          JSON.stringify({ success: true, status, created: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      console.warn('Minimal insert failed, trying with optional fields', minimalError);
+
+      // If minimal insert fails due to NOT NULL constraints on other fields, try with more data
+      const basePayload: any = {
+        user_id: user.id,
+        status,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
+        phone: user.user_metadata?.phone || null,
+        email: user.email || null,
+      };
+
+      // Try without "type" first (avoid unknown column errors)
+      let created = false;
+      let lastInsertError: any = null;
+
+      const attempts: Array<Record<string, any>> = [
+        { ...basePayload },
         { ...basePayload, type: 'vtc' },
         { ...basePayload, type: 'driver' },
         { ...basePayload, type: 'chauffeur' },
       ];
 
-      let created = false;
-      let lastInsertError: any = null;
-
-      for (const payload of tryInserts) {
-        const { error: insertError } = await supabaseAdmin
+      for (const payload of attempts) {
+        const { data: insertData, error: insertError } = await supabaseAdmin
           .from('drivers')
-          .insert(payload);
-        if (!insertError) { created = true; break; }
+          .insert(payload)
+          .select('id')
+          .maybeSingle();
+
+        if (!insertError && insertData) { created = true; break; }
         lastInsertError = insertError;
-        console.log('Insert attempt failed with payload keys:', Object.keys(payload), 'error:', insertError?.message);
-        // If error is not related to "type" constraint, no point trying more
+
+        // If column doesn't exist for 'type', skip attempts with type
         const msg = (insertError?.message || '').toLowerCase();
-        if (!msg.includes('type') && !msg.includes('check constraint') && !msg.includes('not-null')) {
+        if (msg.includes('column') && msg.includes('type') && msg.includes('does not exist')) {
           break;
         }
       }
 
       if (!created) {
         const reason = lastInsertError?.message || 'Insertion failed for unknown reason';
-        console.error('Insert error before migration attempt:', reason);
-
-        // Attempt one-off migration to remove legacy "type" constraints
-        try {
-          const { data: migData, error: migError } = await supabaseAdmin.functions.invoke('setup-database');
-          if (migError) {
-            console.error('Migration invoke error:', migError);
-          } else {
-            console.log('Migration response:', migData);
-            // Retry minimal insert after migration
-            const { error: retryError } = await supabaseAdmin
-              .from('drivers')
-              .insert(basePayload);
-            if (!retryError) {
-              console.log('Driver profile created after migration with status:', status);
-              return new Response(
-                JSON.stringify({ success: true, status, created: true, migrated: true }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-              );
-            }
-            console.error('Retry insert after migration failed:', retryError);
-          }
-        } catch (e) {
-          console.error('Migration attempt threw:', e);
-        }
-
-        throw new Error(`Erreur création profil: ${reason}`);
+        return new Response(
+          JSON.stringify({ error: `Erreur création profil: ${reason}`, details: lastInsertError }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
       }
 
       console.log('Driver profile created with status:', status);
       return new Response(
         JSON.stringify({ success: true, status, created: true }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
+
 
     // Update driver status (using admin client)
     const { error: updateError } = await supabaseAdmin
@@ -168,22 +169,45 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Update status error - Full details:', {
-      error,
-      message: error?.message,
-      stack: error?.stack,
+    console.error('=====================================');
+    console.error('CRITICAL ERROR IN driver-update-status');
+    console.error('Error type:', typeof error);
+    console.error('Error object:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error stack:', error?.stack);
+    console.error('Error details:', {
       hint: error?.hint,
       code: error?.code,
       details: error?.details,
+      name: error?.name,
     });
+    console.error('=====================================');
     
-    const errorMessage = error?.message || error?.toString?.() || String(error) || 'Erreur inconnue';
-    const payload: Record<string, any> = {
+    let errorMessage = 'Erreur inconnue';
+    try {
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.toString) {
+        errorMessage = error.toString();
+      } else {
+        errorMessage = JSON.stringify(error);
+      }
+    } catch (e) {
+      errorMessage = 'Erreur lors de la conversion du message d\'erreur';
+      console.error('Error stringifying error:', e);
+    }
+    
+    const payload = {
       error: errorMessage,
-      hint: error?.hint,
-      code: error?.code,
-      details: error?.details,
+      hint: error?.hint || null,
+      code: error?.code || null,
+      details: error?.details || null,
+      timestamp: new Date().toISOString(),
     };
+    
+    console.error('Returning error payload:', payload);
     
     return new Response(
       JSON.stringify(payload),
