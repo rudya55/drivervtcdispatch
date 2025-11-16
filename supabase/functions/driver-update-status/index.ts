@@ -71,7 +71,12 @@ Deno.serve(async (req) => {
     }
 
     if (!existingDriver) {
-      console.error('No driver profile found for user:', user.id);
+      console.log('==========================================');
+      console.log('NO DRIVER PROFILE - Creating new driver');
+      console.log('User ID:', user.id);
+      console.log('User email:', user.email);
+      console.log('User metadata:', JSON.stringify(user.user_metadata));
+      console.log('==========================================');
 
       // Attempt inserting with progressive fallbacks for legacy schemas
       const basePayload: any = {
@@ -81,6 +86,8 @@ Deno.serve(async (req) => {
         phone: user.user_metadata?.phone || null,
         status: status,
       };
+
+      console.log('Base payload for insert:', JSON.stringify(basePayload));
 
       // Always include type field to avoid constraint errors
       const tryInserts: Array<Record<string, any>> = [
@@ -93,15 +100,34 @@ Deno.serve(async (req) => {
       let lastInsertError: any = null;
 
       for (const payload of tryInserts) {
-        const { error: insertError } = await supabaseAdmin
+        console.log('Attempting insert with payload:', JSON.stringify(payload));
+        const { data: insertData, error: insertError } = await supabaseAdmin
           .from('drivers')
-          .insert(payload);
-        if (!insertError) { created = true; break; }
+          .insert(payload)
+          .select();
+        
+        console.log('Insert result:', {
+          success: !insertError,
+          data: insertData,
+          error: insertError ? {
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            code: insertError.code
+          } : null
+        });
+        
+        if (!insertError) { 
+          created = true; 
+          console.log('✅ Driver profile created successfully!');
+          break; 
+        }
+        
         lastInsertError = insertError;
-        console.log('Insert attempt failed with payload keys:', Object.keys(payload), 'error:', insertError?.message);
         // If error is not related to "type" constraint, no point trying more
         const msg = (insertError?.message || '').toLowerCase();
         if (!msg.includes('type') && !msg.includes('check constraint') && !msg.includes('not-null')) {
+          console.log('Error not related to type constraint, stopping insert attempts');
           break;
         }
       }
@@ -168,22 +194,45 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Update status error - Full details:', {
-      error,
-      message: error?.message,
-      stack: error?.stack,
+    console.error('=====================================');
+    console.error('CRITICAL ERROR IN driver-update-status');
+    console.error('Error type:', typeof error);
+    console.error('Error object:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error stack:', error?.stack);
+    console.error('Error details:', {
       hint: error?.hint,
       code: error?.code,
       details: error?.details,
+      name: error?.name,
     });
+    console.error('=====================================');
     
-    const errorMessage = error?.message || error?.toString?.() || String(error) || 'Erreur inconnue';
-    const payload: Record<string, any> = {
+    let errorMessage = 'Erreur inconnue';
+    try {
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.toString) {
+        errorMessage = error.toString();
+      } else {
+        errorMessage = JSON.stringify(error);
+      }
+    } catch (e) {
+      errorMessage = 'Erreur lors de la conversion du message d\'erreur';
+      console.error('Error stringifying error:', e);
+    }
+    
+    const payload = {
       error: errorMessage,
-      hint: error?.hint,
-      code: error?.code,
-      details: error?.details,
+      hint: error?.hint || null,
+      code: error?.code || null,
+      details: error?.details || null,
+      timestamp: new Date().toISOString(),
     };
+    
+    console.error('Returning error payload:', payload);
     
     return new Response(
       JSON.stringify(payload),
