@@ -36,7 +36,27 @@ Deno.serve(async (req) => {
       company_logo_url 
     } = body;
 
-    console.log('Updating profile for user:', user.id, body);
+    // Ensure driver row exists
+    const { data: existing, error: selectError } = await supabaseAdmin
+      .from('drivers')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (selectError) {
+      console.error('Select driver error:', selectError);
+      throw new Error(`Erreur de lecture: ${selectError.message}`);
+    }
+
+    if (!existing) {
+      const { error: insertError } = await supabaseAdmin
+        .from('drivers')
+        .insert({ user_id: user.id, status: 'inactive' });
+      if (insertError) {
+        console.error('Insert driver error:', insertError);
+        throw new Error(`Erreur création profil: ${insertError.message}`);
+      }
+    }
 
     // Update driver profile using service role to bypass RLS
     const { data: updatedDriver, error: updateError } = await supabaseAdmin
@@ -52,11 +72,15 @@ Deno.serve(async (req) => {
       })
       .eq('user_id', user.id)
       .select('*')
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error('Update error:', updateError);
       throw new Error(`Erreur de mise à jour: ${updateError.message}`);
+    }
+
+    if (!updatedDriver) {
+      throw new Error('Profil non trouvé après mise à jour');
     }
 
     console.log('Profile updated successfully:', updatedDriver);
