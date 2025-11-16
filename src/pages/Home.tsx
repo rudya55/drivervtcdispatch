@@ -109,7 +109,9 @@ const Home = () => {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (error) {
-        const serverMsg = (data as any)?.error || (data as any)?.message;
+        const ctx: any = (error as any)?.context;
+        const serverMsg = (data as any)?.error || (data as any)?.message || ctx?.error || ctx?.message;
+        console.error('driver-update-status invoke error:', { error, data, context: ctx });
         throw new Error(serverMsg || error.message || 'Erreur inconnue');
       }
     },
@@ -120,7 +122,11 @@ const Home = () => {
     },
     onError: (e: any) => {
       console.error('Status update failed:', e);
-      toast.error(e?.message || 'Erreur lors de la mise à jour du statut');
+      const ctx: any = e?.context;
+      const details = ctx?.details || ctx?.code || ctx?.hint;
+      toast.error(e?.message || 'Erreur lors de la mise à jour du statut', {
+        description: details ? String(details) : undefined,
+      });
     },
   });
 
