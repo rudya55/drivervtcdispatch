@@ -10,8 +10,9 @@ import { supabase, Course } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapWithStatusButton } from '@/components/MapWithStatusButton';
+import GoogleMap from '@/components/GoogleMap';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
+import { StatusToggle } from '@/components/StatusToggle';
 import { toast } from 'sonner';
 import { 
   MapPin, 
@@ -198,17 +199,20 @@ const Home = () => {
       <Header title="Accueil" unreadCount={unreadCount} />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Map avec bouton de statut en ligne/hors ligne au centre */}
+        {/* Bouton de statut En ligne / Hors ligne */}
+        <StatusToggle
+          isOnline={isActive}
+          onToggle={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
+          isUpdating={statusMutation.isPending}
+        />
+        {/* Map de localisation */}
         <Card className="p-0 overflow-hidden">
           <div className="h-96">
-            <MapWithStatusButton
+            <GoogleMap
               key={mapsReady ? 'ready' : 'loading'}
               center={mapCenter}
               zoom={13}
               markers={mapMarkers}
-              driverStatus={driver?.status || 'inactive'}
-              onStatusChange={(status) => statusMutation.mutate(status)}
-              isUpdating={statusMutation.isPending}
             />
           </div>
         </Card>
