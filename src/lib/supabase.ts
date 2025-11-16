@@ -18,6 +18,7 @@ export type Driver = {
   phone: string;
   company_id: string | null;
   status: 'active' | 'inactive';
+  approved: boolean;
   fcm_token: string | null;
   created_at: string;
   vehicle_brand?: string | null;

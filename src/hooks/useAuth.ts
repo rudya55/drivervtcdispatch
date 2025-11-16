@@ -47,6 +47,15 @@ export const useAuth = () => {
             }
 
             if (data) {
+              // Check if driver is approved
+              if (!data.approved) {
+                console.warn('❌ Driver not approved:', user.id);
+                await supabase.auth.signOut();
+                setDriver(null);
+                setSession(null);
+                setLoading(false);
+                return;
+              }
               setDriver(data);
             } else {
               console.warn('No driver profile available for user:', user.id);
@@ -88,8 +97,20 @@ export const useAuth = () => {
               if (error) {
                 console.error('Error fetching driver profile at init:', error);
               }
-              if (data) setDriver(data);
-              else console.warn('No driver profile available at init for user:', user.id);
+              if (data) {
+                // Check if driver is approved
+                if (!data.approved) {
+                  console.warn('❌ Driver not approved at init:', user.id);
+                  supabase.auth.signOut();
+                  setDriver(null);
+                  setSession(null);
+                  setLoading(false);
+                  return;
+                }
+                setDriver(data);
+              } else {
+                console.warn('No driver profile available at init for user:', user.id);
+              }
               setLoading(false);
             });
         })();
@@ -121,6 +142,23 @@ export const useAuth = () => {
       if (userRole !== 'driver') {
         await supabase.auth.signOut();
         throw new Error("Ce compte n'est pas un compte chauffeur. Rôle manquant ou invalide.");
+      }
+
+      // Vérifier si le driver est approuvé
+      const { data: driverData, error: driverError } = await supabase
+        .from('drivers')
+        .select('approved')
+        .eq('user_id', data.session.user.id)
+        .single();
+
+      if (driverError || !driverData) {
+        await supabase.auth.signOut();
+        throw new Error("Profil chauffeur introuvable");
+      }
+
+      if (!driverData.approved) {
+        await supabase.auth.signOut();
+        throw new Error("PENDING_APPROVAL");
       }
 
       setSession(data.session);

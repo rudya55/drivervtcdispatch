@@ -77,47 +77,31 @@ const Login = () => {
       // Normalize email to lowercase
       const normalizedEmail = loginEmail.trim().toLowerCase();
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: loginPassword
-      });
-
-      if (error) {
-        console.error('Auth error:', error);
-        console.error('Auth error details:', {
-          message: error.message,
-          status: error.status,
-          code: error.code
-        });
-
-        // Handle specific auth errors
-        if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
-          toast.error('Email ou mot de passe incorrect. Vérifiez vos identifiants.');
-        } else if (error.message.includes('Email not confirmed')) {
-          toast.error('Veuillez confirmer votre email avant de vous connecter');
-        } else if (error.message.includes('Email link is invalid or has expired')) {
-          toast.error('Le lien de confirmation a expiré. Demandez un nouveau lien.');
-        } else if (error.message.includes('User not found')) {
-          toast.error('Aucun compte trouvé avec cet email');
-        } else {
-          toast.error('Erreur de connexion: ' + error.message);
-        }
-        setLoading(false);
-        return;
-      }
-
-      if (!data?.session) {
-        toast.error('Session invalide');
-        setLoading(false);
-        return;
-      }
-
-      console.debug('Login successful');
+      await login(normalizedEmail, loginPassword);
       toast.success('Connexion réussie');
       navigate('/');
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error('Erreur de connexion');
+      
+      // Handle pending approval status
+      if (error.message === 'PENDING_APPROVAL') {
+        toast.info('Compte en attente de validation', {
+          description: "Votre inscription a été reçue. Un administrateur doit approuver votre compte avant que vous puissiez vous connecter. Vous recevrez une notification une fois approuvé.",
+          duration: 8000
+        });
+      } else if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
+        toast.error('Email ou mot de passe incorrect. Vérifiez vos identifiants.');
+      } else if (error.message?.includes('Email not confirmed')) {
+        toast.error('Veuillez confirmer votre email avant de vous connecter');
+      } else if (error.message?.includes('Email link is invalid or has expired')) {
+        toast.error('Le lien de confirmation a expiré. Demandez un nouveau lien.');
+      } else if (error.message?.includes('User not found')) {
+        toast.error('Aucun compte trouvé avec cet email');
+      } else {
+        toast.error('Erreur de connexion', {
+          description: error.message
+        });
+      }
     } finally {
       setLoading(false);
     }

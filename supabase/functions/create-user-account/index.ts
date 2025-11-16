@@ -116,7 +116,8 @@ Deno.serve(async (req) => {
               name: name || email.split('@')[0],
               email,
               phone: phone || '',
-              status: 'inactive'
+              status: 'inactive',
+              approved: false
               // Removed type: 'vtc' - field doesn't exist in database
             });
 
@@ -192,7 +193,8 @@ Deno.serve(async (req) => {
           name: name || email.split('@')[0],
           email,
           phone: phone || '',
-          status: 'inactive'
+          status: 'inactive',
+          approved: false
           // Removed type: 'vtc' - field doesn't exist in database
         });
 
