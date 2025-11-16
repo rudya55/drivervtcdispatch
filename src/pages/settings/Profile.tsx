@@ -17,6 +17,8 @@ const Profile = () => {
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [retryData, setRetryData] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -77,13 +79,52 @@ const Profile = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const callEdgeFunctionWithTimeout = async (updateData: any, session: any, timeoutMs = 15000) => {
+    const startTime = Date.now();
+    console.log(`⏱️ [${new Date().toISOString()}] Starting Edge Function call`);
+
+    return Promise.race([
+      (async () => {
+        try {
+          const response = await supabase.functions.invoke('driver-update-profile', {
+            body: updateData,
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          
+          const duration = Date.now() - startTime;
+          console.log(`✅ [${new Date().toISOString()}] Edge Function completed in ${duration}ms`);
+          
+          return response;
+        } catch (err: any) {
+          const duration = Date.now() - startTime;
+          console.error(`❌ [${new Date().toISOString()}] Edge Function failed after ${duration}ms:`, err);
+          throw err;
+        }
+      })(),
+      new Promise((_, reject) => 
+        setTimeout(() => {
+          console.error(`⏱️ [${new Date().toISOString()}] Edge Function timeout after ${timeoutMs}ms`);
+          reject(new Error('TIMEOUT'));
+        }, timeoutMs)
+      )
+    ]);
+  };
+
+  const handleSubmit = async (e?: React.FormEvent, retryPayload?: any) => {
+    if (e) e.preventDefault();
     setLoading(true);
+    setProgressMessage('Vérification de la session...');
+    setRetryData(null);
 
     try {
+      const sessionStart = Date.now();
+      console.log(`⏱️ [${new Date().toISOString()}] Getting session...`);
+      
       // Get current session with better error handling
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      const sessionDuration = Date.now() - sessionStart;
+      console.log(`✅ [${new Date().toISOString()}] Session retrieved in ${sessionDuration}ms`);
 
       if (sessionError || !session) {
         toast.error('Session expirée', {
@@ -116,27 +157,31 @@ const Profile = () => {
         }
       });
 
-      let profile_photo_url = driver?.profile_photo_url;
-      let company_logo_url = driver?.company_logo_url;
+      let profile_photo_url = retryPayload?.profile_photo_url || driver?.profile_photo_url;
+      let company_logo_url = retryPayload?.company_logo_url || driver?.company_logo_url;
 
       // Upload profile photo (continue even if it fails)
-      if (profilePhoto) {
+      if (profilePhoto && !retryPayload) {
+        setProgressMessage('Upload de la photo de profil...');
+        const photoStart = Date.now();
         try {
-          console.log('📸 Uploading profile photo...');
+          console.log(`⏱️ [${new Date().toISOString()}] Uploading profile photo...`);
           const photoPath = `${ownerId}/profile-photo-${Date.now()}`;
           const { error: photoError } = await supabase.storage
             .from('driver-documents')
             .upload(photoPath, profilePhoto);
 
+          const photoDuration = Date.now() - photoStart;
+          
           if (photoError) {
-            console.error('❌ Photo upload error:', photoError);
+            console.error(`❌ [${new Date().toISOString()}] Photo upload error after ${photoDuration}ms:`, photoError);
             toast.warning('Erreur lors de l\'upload de la photo, mais les autres données seront sauvegardées');
           } else {
             const { data: { publicUrl } } = supabase.storage
               .from('driver-documents')
               .getPublicUrl(photoPath);
             profile_photo_url = publicUrl;
-            console.log('✅ Photo uploaded:', publicUrl);
+            console.log(`✅ [${new Date().toISOString()}] Photo uploaded in ${photoDuration}ms:`, publicUrl);
           }
         } catch (photoErr) {
           console.error('Photo upload failed:', photoErr);
@@ -144,23 +189,27 @@ const Profile = () => {
       }
 
       // Upload company logo (continue even if it fails)
-      if (companyLogo) {
+      if (companyLogo && !retryPayload) {
+        setProgressMessage('Upload du logo d\'entreprise...');
+        const logoStart = Date.now();
         try {
-          console.log('🏢 Uploading company logo...');
+          console.log(`⏱️ [${new Date().toISOString()}] Uploading company logo...`);
           const logoPath = `${ownerId}/company-logo-${Date.now()}`;
           const { error: logoError } = await supabase.storage
             .from('driver-documents')
             .upload(logoPath, companyLogo);
 
+          const logoDuration = Date.now() - logoStart;
+          
           if (logoError) {
-            console.error('❌ Logo upload error:', logoError);
+            console.error(`❌ [${new Date().toISOString()}] Logo upload error after ${logoDuration}ms:`, logoError);
             toast.warning('Erreur lors de l\'upload du logo, mais les autres données seront sauvegardées');
           } else {
             const { data: { publicUrl } } = supabase.storage
               .from('driver-documents')
               .getPublicUrl(logoPath);
             company_logo_url = publicUrl;
-            console.log('✅ Logo uploaded:', publicUrl);
+            console.log(`✅ [${new Date().toISOString()}] Logo uploaded in ${logoDuration}ms:`, publicUrl);
           }
         } catch (logoErr) {
           console.error('Logo upload failed:', logoErr);
@@ -183,73 +232,37 @@ const Profile = () => {
         company_logo_url,
       };
 
-      console.log('📝 Calling driver-update-profile with:', {
+      console.log(`📝 [${new Date().toISOString()}] Calling driver-update-profile with:`, {
         hasToken: !!session.access_token,
         updateData,
         userId: session.user.id,
         ownerId
       });
 
-      // Use Edge Function instead of direct DB update (bypasses RLS, creates profile if missing)
+      setProgressMessage('Sauvegarde du profil...');
+
+      // Use Edge Function with timeout
       let result;
       let error;
       
       try {
-        const response = await supabase.functions.invoke('driver-update-profile', {
-          body: updateData,
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const response: any = await callEdgeFunctionWithTimeout(updateData, session);
         
         result = response.data;
         error = response.error;
-        
-        // If invoke fails on iOS Safari, fallback to direct fetch
-        if (error && (
-          error.message?.includes('Failed to send a request to the Edge Function') ||
-          error.message?.includes('TypeError: fetch failed')
-        )) {
-          console.log('⚠️ Supabase invoke failed, trying direct fetch...');
-          
-          const { supabaseUrl, supabaseKey } = await (async () => {
-            const url = (supabase as any).supabaseUrl || 
-                       import.meta.env.VITE_SUPABASE_URL ||
-                       'https://qroqygbculbfqkbinqmp.supabase.co';
-            const key = (supabase as any).supabaseKey ||
-                       import.meta.env.VITE_SUPABASE_ANON_KEY ||
-                       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyb3F5Z2JjdWxiZnFrYmlucW1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NDUzNzYsImV4cCI6MjA3NTUyMTM3Nn0.C7fui8NfcJhY77ZTjtbxkCWsUimWFdD4MWEoIkXU7Zg';
-            return { supabaseUrl: url, supabaseKey: key };
-          })();
-          
-          const fetchResponse = await fetch(
-            `${supabaseUrl}/functions/v1/driver-update-profile`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'apikey': supabaseKey,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(updateData),
-            }
-          );
-          
-          if (!fetchResponse.ok) {
-            const errorData = await fetchResponse.json();
-            console.error('❌ Direct fetch error:', errorData);
-            const errorMsg = [
-              errorData.error,
-              errorData.hint,
-              errorData.code
-            ].filter(Boolean).join(' - ');
-            throw new Error(errorMsg || 'Impossible de mettre à jour le profil');
-          }
-          
-          result = await fetchResponse.json();
-          error = null;
-          console.log('✅ Direct fetch succeeded');
-        }
       } catch (err: any) {
-        console.error('❌ Profile update exception:', err);
+        // Handle timeout
+        if (err.message === 'TIMEOUT') {
+          console.error(`❌ [${new Date().toISOString()}] Request timeout after 15s`);
+          setRetryData(updateData);
+          toast.error('La requête prend trop de temps', {
+            description: 'Vérifiez votre connexion et cliquez sur "Réessayer"',
+            duration: 10000,
+          });
+          setProgressMessage('');
+          return;
+        }
+        console.error(`❌ [${new Date().toISOString()}] Profile update exception:`, err);
         throw err;
       }
 
@@ -307,12 +320,17 @@ const Profile = () => {
         errorDetails = error.code ? `Code: ${error.code}` : '';
       }
 
-      toast.error(errorMessage, {
-        description: errorDetails,
-        duration: 5000
-      });
+      if (!retryData) {
+        toast.error(errorMessage, {
+          description: errorDetails,
+          duration: 5000
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!retryData) {
+        setLoading(false);
+        setProgressMessage('');
+      }
     }
   };
 
@@ -433,9 +451,26 @@ const Profile = () => {
               </div>
             </div>
 
+            {retryData && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mb-4"
+                onClick={() => handleSubmit(undefined, retryData)}
+              >
+                Réessayer
+              </Button>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Sauvegarder
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {progressMessage || 'Chargement...'}
+                </>
+              ) : (
+                'Sauvegarder'
+              )}
             </Button>
           </form>
         </Card>
