@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.reset-database]
 verify_jwt = false
 
+[functions.setup-rls]
+verify_jwt = false
+
 [functions.auth-check-email]
 verify_jwt = false
 

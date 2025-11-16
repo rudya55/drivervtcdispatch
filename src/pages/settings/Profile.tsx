@@ -48,97 +48,153 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!driver) return;
+    if (!driver) {
+      toast.error('Profil chauffeur non chargé');
+      return;
+    }
 
     setLoading(true);
+
+    console.log('🔄 Starting profile update...', {
+      driverId: driver.id,
+      userId: driver.user_id,
+      currentData: {
+        name: driver.name,
+        phone: driver.phone,
+        email: driver.email
+      },
+      newData: {
+        name: formData.name,
+        phone: formData.phone
+      }
+    });
+
     try {
       let profile_photo_url = driver.profile_photo_url;
       let company_logo_url = driver.company_logo_url;
 
       // Upload profile photo
       if (profilePhoto) {
+        console.log('📸 Uploading profile photo...');
         const photoPath = `${driver.id}/profile-photo-${Date.now()}`;
         const { error: photoError } = await supabase.storage
           .from('driver-documents')
           .upload(photoPath, profilePhoto);
-        
-        if (photoError) throw photoError;
-        
+
+        if (photoError) {
+          console.error('❌ Photo upload error:', photoError);
+          throw photoError;
+        }
+
         const { data: { publicUrl } } = supabase.storage
           .from('driver-documents')
           .getPublicUrl(photoPath);
         profile_photo_url = publicUrl;
+        console.log('✅ Photo uploaded:', publicUrl);
       }
 
       // Upload company logo
       if (companyLogo) {
+        console.log('🏢 Uploading company logo...');
         const logoPath = `${driver.id}/company-logo-${Date.now()}`;
         const { error: logoError } = await supabase.storage
           .from('driver-documents')
           .upload(logoPath, companyLogo);
-        
-        if (logoError) throw logoError;
-        
+
+        if (logoError) {
+          console.error('❌ Logo upload error:', logoError);
+          throw logoError;
+        }
+
         const { data: { publicUrl } } = supabase.storage
           .from('driver-documents')
           .getPublicUrl(logoPath);
         company_logo_url = publicUrl;
+        console.log('✅ Logo uploaded:', publicUrl);
       }
 
-      console.log('Updating driver profile:', { 
-        driverId: driver.id,
-        updates: {
-          name: formData.name,
-          phone: formData.phone,
-          company_name: formData.company_name,
-          company_address: formData.company_address,
-          siret: formData.siret,
-          profile_photo_url,
-          company_logo_url,
-        }
+      // Get current session to verify auth
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔐 Current session:', {
+        userId: session?.user?.id,
+        driverUserId: driver.user_id,
+        match: session?.user?.id === driver.user_id
       });
+
+      const updateData = {
+        name: formData.name,
+        phone: formData.phone,
+        company_name: formData.company_name,
+        company_address: formData.company_address,
+        siret: formData.siret,
+        profile_photo_url,
+        company_logo_url,
+      };
+
+      console.log('📝 Updating database with:', updateData);
 
       const { data, error } = await supabase
         .from('drivers')
-        .update({
-          name: formData.name,
-          phone: formData.phone,
-          company_name: formData.company_name,
-          company_address: formData.company_address,
-          siret: formData.siret,
-          profile_photo_url,
-          company_logo_url,
-        })
+        .update(updateData)
         .eq('id', driver.id)
         .select();
 
       if (error) {
-        console.error('Database error details:', {
+        console.error('❌ Database error:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
-          code: error.code
+          code: error.code,
+          driverId: driver.id
         });
-        throw error;
+
+        // More specific error messages
+        if (error.code === '42501' || error.message?.includes('permission denied')) {
+          throw new Error('ERREUR RLS: Les politiques de sécurité ne sont pas configurées. Contactez le support.');
+        } else if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+          throw new Error('Session expirée. Veuillez vous déconnecter et vous reconnecter.');
+        } else {
+          throw error;
+        }
       }
 
-      console.log('Profile updated successfully:', data);
-      toast.success('Profil mis à jour avec succès');
-      navigate('/settings');
+      if (!data || data.length === 0) {
+        console.warn('⚠️ Update returned no data');
+        toast.warning('Mise à jour effectuée mais aucune donnée retournée');
+      } else {
+        console.log('✅ Profile updated successfully:', data[0]);
+        toast.success('Profil mis à jour avec succès !');
+      }
+
+      // Small delay to show success message
+      setTimeout(() => {
+        navigate('/settings');
+      }, 1000);
+
     } catch (error: any) {
-      console.error('Update profile error:', error);
-      
-      let errorMessage = 'Erreur lors de la mise à jour';
-      
-      if (error.message?.includes('permission denied') || error.code === '42501') {
-        errorMessage = 'Permissions insuffisantes pour modifier le profil';
-      } else if (error.message?.includes('JWT')) {
-        errorMessage = 'Session expirée, veuillez vous reconnecter';
+      console.error('❌ Update profile error:', error);
+
+      let errorMessage = 'Erreur lors de la mise à jour du profil';
+      let errorDetails = '';
+
+      if (error.message?.includes('ERREUR RLS')) {
+        errorMessage = 'Erreur de permissions';
+        errorDetails = 'Les politiques de sécurité doivent être configurées. Ouvrez setup-rls.html dans votre navigateur.';
+      } else if (error.message?.includes('Session expirée')) {
+        errorMessage = error.message;
+        errorDetails = 'Cliquez sur Déconnexion puis reconnectez-vous.';
+      } else if (error.code === '42501') {
+        errorMessage = 'Permissions refusées';
+        errorDetails = 'RLS non configuré. Utilisez setup-rls.html';
       } else if (error.message) {
         errorMessage = error.message;
+        errorDetails = error.code ? `Code: ${error.code}` : '';
       }
-      
-      toast.error(errorMessage);
+
+      toast.error(errorMessage, {
+        description: errorDetails,
+        duration: 5000
+      });
     } finally {
       setLoading(false);
     }
