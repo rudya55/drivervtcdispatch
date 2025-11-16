@@ -41,6 +41,7 @@ export async function ensureDriverExists(): Promise<{ driverId: string }> {
       email: session.user.email || '',
       phone: session.user.user_metadata?.phone || '',
       type: 'vtc',
+      approved: false,  // New drivers must be approved by admin
     })
     .select('id')
     .single();

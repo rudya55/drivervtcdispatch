@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'Chauffeur',
         phone: user.user_metadata?.phone || '',
         email: user.email || '',
+        approved: false,  // New drivers must be approved by admin
       };
 
       const { error: createError } = await supabaseAdmin
