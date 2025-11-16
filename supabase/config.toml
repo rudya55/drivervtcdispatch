@@ -6,15 +6,6 @@ verify_jwt = false
 [functions.create-user-account]
 verify_jwt = false
 
-[functions.create-demo-account]
-verify_jwt = false
-
-[functions.reset-database]
-verify_jwt = false
-
-[functions.setup-rls]
-verify_jwt = false
-
 [functions.auth-check-email]
 verify_jwt = false
 
