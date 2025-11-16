@@ -32,19 +32,33 @@ const Profile = () => {
 
   // IMPORTANT: Mettre à jour formData quand driver change
   useEffect(() => {
-    if (driver) {
-      console.log('📊 Loading driver data into form:', driver);
-      setFormData({
-        name: driver.name || '',
-        email: driver.email || '',
-        phone: driver.phone || '',
-        company_name: driver.company_name || '',
-        company_address: driver.company_address || '',
-        siret: driver.siret || '',
-      });
-      setPhotoPreview(driver.profile_photo_url || null);
-      setLogoPreview(driver.company_logo_url || null);
-    }
+    const loadProfileData = async () => {
+      // Get session to get email if driver doesn't have it
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (driver) {
+        console.log('📊 Loading driver data into form:', driver);
+        setFormData({
+          name: driver.name || '',
+          email: driver.email || session?.user?.email || '',
+          phone: driver.phone || '',
+          company_name: driver.company_name || '',
+          company_address: driver.company_address || '',
+          siret: driver.siret || '',
+        });
+        setPhotoPreview(driver.profile_photo_url || null);
+        setLogoPreview(driver.company_logo_url || null);
+      } else if (session?.user) {
+        // Si pas de driver mais session existe, pré-remplir au moins l'email
+        console.log('📊 No driver profile, loading session email');
+        setFormData(prev => ({
+          ...prev,
+          email: session.user.email || ''
+        }));
+      }
+    };
+    
+    loadProfileData();
   }, [driver]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,16 +82,24 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      // Get current session first
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get current session with better error handling
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      // Use driver ID if available, otherwise session user ID
-      const ownerId = driver?.id || session?.user?.id;
-
-      if (!ownerId) {
-        toast.error('Session invalide, veuillez vous reconnecter');
+      if (sessionError || !session) {
+        toast.error('Session expirée', {
+          description: 'Veuillez vous reconnecter'
+        });
         return;
       }
+
+      console.log('🔐 Session récupérée:', {
+        userId: session.user.id,
+        email: session.user.email,
+        hasDriver: !!driver
+      });
+
+      // Use driver ID if available, otherwise session user ID
+      const ownerId = driver?.id || session.user.id;
 
       console.log('🔄 Starting profile update...', {
         ownerId,
@@ -161,23 +183,35 @@ const Profile = () => {
         company_logo_url,
       };
 
-      console.log('📝 Updating profile via Edge Function with:', updateData);
+      console.log('📝 Calling driver-update-profile with:', {
+        hasToken: !!session.access_token,
+        updateData,
+        userId: session.user.id,
+        ownerId
+      });
 
       // Use Edge Function instead of direct DB update (bypasses RLS, creates profile if missing)
-      const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
       const { data, error } = await supabase.functions.invoke('driver-update-profile', {
         body: updateData,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (error) {
-        console.error('❌ Update error:', error);
+        console.error('❌ Edge Function invoke error:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
         throw new Error(error.message || 'Erreur lors de la mise à jour');
       }
 
       // Check if response contains an error field
       if (data?.error) {
-        console.error('❌ Server error:', data);
+        console.error('❌ Server returned error:', {
+          error: data.error,
+          hint: data.hint,
+          code: data.code
+        });
         throw new Error(data.error);
       }
 
