@@ -28,6 +28,28 @@ Deno.serve(async (req) => {
     if (existingUser) {
       console.log('Demo user already exists:', existingUser.id);
       userId = existingUser.id;
+
+      // Update existing user to ensure email is confirmed and password is correct
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        userId,
+        {
+          password: demoPassword,
+          email_confirm: true,
+          user_metadata: {
+            first_name: 'Jean',
+            last_name: 'Démo',
+            name: 'Jean Démo',
+            phone: '+33612345678',
+            role: 'driver'
+          }
+        }
+      );
+
+      if (updateError) {
+        console.error('Error updating existing user:', updateError);
+        throw updateError;
+      }
+      console.log('Updated existing demo user');
     } else {
       // Create new user
       const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
@@ -36,7 +58,10 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           first_name: 'Jean',
-          last_name: 'Démo'
+          last_name: 'Démo',
+          name: 'Jean Démo',
+          phone: '+33612345678',
+          role: 'driver'
         }
       });
 
@@ -77,6 +102,26 @@ Deno.serve(async (req) => {
     } else {
       driverId = existingDriver.id;
       console.log('Driver profile exists:', driverId);
+
+      // Update driver profile to ensure it's active and has correct info
+      const { error: updateDriverError } = await supabase
+        .from('drivers')
+        .update({
+          name: 'Jean Démo',
+          phone: '+33612345678',
+          email: demoEmail,
+          license_number: 'DEMO123456',
+          vehicle_model: 'Mercedes Classe E',
+          vehicle_plate: 'AB-123-CD',
+          status: 'available'
+        })
+        .eq('id', driverId);
+
+      if (updateDriverError) {
+        console.error('Error updating driver profile:', updateDriverError);
+      } else {
+        console.log('Updated driver profile');
+      }
     }
 
     // Delete existing demo courses

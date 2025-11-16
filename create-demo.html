@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Créer un compte de démonstration</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+    }
+    button:hover {
+      background: #059669;
+    }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+    .success {
+      background: #d1fae5;
+      border: 1px solid #10b981;
+      color: #065f46;
+    }
+    .error {
+      background: #fee2e2;
+      border: 1px solid #ef4444;
+      color: #991b1b;
+    }
+    .credentials {
+      margin-top: 15px;
+      padding: 15px;
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      border-radius: 6px;
+    }
+    .credentials strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚗 Créer un compte de démonstration</h1>
+    <p>Cliquez sur le bouton ci-dessous pour créer un compte de test avec des courses de démonstration.</p>
+
+    <button id="createBtn" onclick="createDemoAccount()">
+      Créer le compte de démonstration
+    </button>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://qroqygbculbfqkbinqmp.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyb3F5Z2JjdWxiZnFrYmlucW1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NDUzNzYsImV4cCI6MjA3NTUyMTM3Nn0.C7fui8NfcJhY77ZTjtbxkCWsUimWFdD4MWEoIkXU7Zg';
+
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function createDemoAccount() {
+      const btn = document.getElementById('createBtn');
+      const result = document.getElementById('result');
+
+      btn.disabled = true;
+      btn.textContent = 'Création en cours...';
+      result.style.display = 'none';
+
+      try {
+        const { data, error } = await supabaseClient.functions.invoke('create-demo-account');
+
+        if (error) {
+          throw error;
+        }
+
+        result.className = 'result success';
+        result.style.display = 'block';
+        result.innerHTML = `
+          <h3>✅ ${data.message}</h3>
+          <div class="credentials">
+            <strong>📧 Identifiants de connexion :</strong>
+            <p><strong>Email :</strong> ${data.credentials.email}</p>
+            <p><strong>Mot de passe :</strong> ${data.credentials.password}</p>
+          </div>
+          <p><strong>Driver ID :</strong> ${data.driver_id}</p>
+          <p><strong>Courses créées :</strong> ${data.courses_created}</p>
+          <p style="margin-top: 15px;">🎯 Vous pouvez maintenant vous connecter avec ces identifiants !</p>
+        `;
+
+      } catch (error) {
+        result.className = 'result error';
+        result.style.display = 'block';
+        result.innerHTML = `
+          <h3>❌ Erreur</h3>
+          <p>${error.message || 'Une erreur est survenue'}</p>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Créer le compte de démonstration';
+      }
+    }
+  </script>
+</body>
+</html>

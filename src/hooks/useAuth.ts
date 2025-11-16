@@ -40,21 +40,34 @@ export const useAuth = () => {
               .select('*')
               .eq('user_id', user.id)
               .maybeSingle();
-            
+
+            if (error) {
+              console.error('Error fetching driver profile:', error);
+            }
+
             if (!data) {
+              console.log('No driver profile found, creating one for user:', user.id);
               const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
               const email = user.email as string | null;
               const phone = (user.user_metadata?.phone as string) || null;
               const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
                 .select('*')
                 .maybeSingle();
-              if (!createError && created) data = created;
+
+              if (createError) {
+                console.error('Error creating driver profile:', createError);
+              } else if (created) {
+                console.log('Driver profile created successfully:', created.id);
+                data = created;
+              }
             }
-            
+
             if (data) {
               setDriver(data);
+            } else {
+              console.warn('No driver profile available for user:', user.id);
             }
             setLoading(false);
           }, 0);
@@ -88,19 +101,32 @@ export const useAuth = () => {
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle()
-          .then(async ({ data }) => {
+          .then(async ({ data, error }) => {
+            if (error) {
+              console.error('Error fetching driver profile at init:', error);
+            }
+
             if (!data) {
+              console.log('No driver profile found at init, creating one for user:', user.id);
               const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Chauffeur';
               const email = user.email as string | null;
               const phone = (user.user_metadata?.phone as string) || null;
-              const { data: created } = await supabase
+              const { data: created, error: createError } = await supabase
                 .from('drivers')
-                .insert({ user_id: user.id, name, email, phone, status: 'inactive', type: 'vtc' })
+                .insert({ user_id: user.id, name, email, phone, status: 'inactive' })
                 .select('*')
                 .maybeSingle();
-              if (created) data = created;
+
+              if (createError) {
+                console.error('Error creating driver profile at init:', createError);
+              } else if (created) {
+                console.log('Driver profile created successfully at init:', created.id);
+                data = created;
+              }
             }
+
             if (data) setDriver(data);
+            else console.warn('No driver profile available at init for user:', user.id);
             setLoading(false);
           });
       } else {

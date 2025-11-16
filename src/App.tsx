@@ -15,6 +15,7 @@ import Notifications from "./pages/Notifications";
 import Accounting from "./pages/Accounting";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
+import CreateDemo from "./pages/CreateDemo";
 
 import Profile from './pages/settings/Profile';
 import Security from './pages/settings/Security';
@@ -175,6 +176,10 @@ const AppContent = () => {
             <NotificationsSettings />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/create-demo"
+        element={<CreateDemo />}
       />
       <Route path="*" element={<NotFound />} />
     </Routes>
