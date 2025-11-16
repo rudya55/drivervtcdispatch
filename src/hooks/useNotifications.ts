@@ -13,14 +13,14 @@ export const useNotifications = (driverId: string | null) => {
     queryKey: ['notifications', driverId],
     queryFn: async () => {
       if (!driverId) return [];
-      
+
       const { data, error } = await supabase.functions.invoke('driver-get-notifications');
-      
+
       if (error) throw error;
       return (data?.notifications || []) as DriverNotification[];
     },
     enabled: !!driverId,
-    refetchInterval: 10000, // Refetch every 10 seconds
+    // Polling supprimé car les notifications sont mises à jour en temps réel via Supabase Realtime (voir lignes 64-91)
   });
 
   // Count unread notifications

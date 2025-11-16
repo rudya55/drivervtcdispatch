@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
           license_number: 'DEMO123456',
           vehicle_model: 'Mercedes Classe E',
           vehicle_plate: 'AB-123-CD',
-          status: 'available'
+          status: 'active'
         })
         .eq('id', driverId);
 

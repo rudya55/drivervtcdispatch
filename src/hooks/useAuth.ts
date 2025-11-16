@@ -15,13 +15,13 @@ export const useAuth = () => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          // Vérifier si c'est un compte non-driver (seulement si le rôle est explicitement défini)
+          // Vérifier que c'est bien un compte chauffeur
           const userRole = currentSession.user.user_metadata?.role;
-          
-          // Bloquer SEULEMENT si le rôle est explicitement défini ET différent de 'driver'
-          // Si role est undefined/null, on laisse passer (nouveau compte sans rôle)
-          if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
-            console.warn('❌ Rôle non-driver détecté:', userRole);
+
+          // Bloquer si le rôle n'est pas explicitement 'driver'
+          // Cela force l'assignation du rôle lors de la création de compte
+          if (userRole !== 'driver') {
+            console.warn('❌ Rôle invalide ou manquant:', userRole);
             // Déconnecter et arrêter
             setTimeout(async () => {
               await supabase.auth.signOut();
@@ -85,10 +85,10 @@ export const useAuth = () => {
       if (currentSession?.user) {
         const user = currentSession.user;
         const userRole = user.user_metadata?.role;
-        
-        // Bloquer SEULEMENT si le rôle est explicitement défini ET différent de 'driver'
-        if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
-          console.warn('❌ Rôle non-driver détecté à l\'init:', userRole);
+
+        // Bloquer si le rôle n'est pas explicitement 'driver'
+        if (userRole !== 'driver') {
+          console.warn('❌ Rôle invalide ou manquant à l\'init:', userRole);
           supabase.auth.signOut();
           setDriver(null);
           setSession(null);
@@ -152,11 +152,11 @@ export const useAuth = () => {
         throw new Error('Connexion échouée - session manquante');
       }
 
-      // Vérifier que c'est bien un compte chauffeur (seulement si role explicite)
+      // Vérifier que c'est bien un compte chauffeur
       const userRole = data.session.user.user_metadata?.role;
-      if (userRole !== undefined && userRole !== null && userRole !== 'driver') {
+      if (userRole !== 'driver') {
         await supabase.auth.signOut();
-        throw new Error("Ce compte n'est pas un compte chauffeur");
+        throw new Error("Ce compte n'est pas un compte chauffeur. Rôle manquant ou invalide.");
       }
 
       setSession(data.session);
