@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
           name: nameFromMeta,
           email: emailFromUser,
           phone: authData.user.user_metadata?.phone ?? null,
-          status: 'inactive'
+          status: 'inactive',
+          approved: true  // Auto-approve new drivers by default
         })
         .select('*')
         .single();

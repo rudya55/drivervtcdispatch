@@ -21,13 +21,14 @@ const GoogleMap = ({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if Google Maps loaded after 5 seconds
+    // Check if Google Maps loaded after 10 seconds (increased timeout for slow connections)
     const timeout = setTimeout(() => {
       if (!(window as any).google) {
+        console.error('Google Maps failed to load after 10 seconds');
         setMapError(true);
         setIsLoading(false);
       }
-    }, 5000);
+    }, 10000);
 
     return () => clearTimeout(timeout);
   }, []);

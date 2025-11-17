@@ -7,15 +7,27 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ArrowLeft, Eye, EyeOff, Trash2 } from 'lucide-react';
 
 const Security = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showPassword, setShowPassword] = useState({
     current: false,
     new: false,
@@ -58,6 +70,46 @@ const Security = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    console.log('🗑️ Starting account deletion process...');
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        throw new Error('Session expirée - veuillez vous reconnecter');
+      }
+
+      const token = session.access_token;
+
+      // Call delete account edge function
+      const { data, error } = await supabase.functions.invoke('delete-driver-account', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Delete account error:', error);
+        throw new Error(error.message || 'Erreur lors de la suppression du compte');
+      }
+
+      // Show success message
+      toast.success('Votre compte a été supprimé avec succès');
+
+      // Wait a bit then redirect to login
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      toast.error(error.message || 'Erreur lors de la suppression du compte');
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Sécurité" unreadCount={unreadCount} />
@@ -73,6 +125,7 @@ const Security = () => {
           Retour
         </Button>
         <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Modifier le mot de passe</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Mot de passe actuel</Label>
@@ -145,6 +198,49 @@ const Security = () => {
               Modifier le mot de passe
             </Button>
           </form>
+        </Card>
+
+        {/* Delete Account Section */}
+        <Card className="p-6 border-destructive">
+          <h3 className="text-lg font-semibold mb-2 text-destructive">Zone dangereuse</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            La suppression de votre compte est irréversible. Toutes vos données seront définitivement supprimées.
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="w-full" disabled={deleteLoading}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Supprimer mon compte
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action est irréversible. Cela supprimera définitivement votre compte
+                  et toutes vos données associées :
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Profil chauffeur</li>
+                    <li>Historique des courses</li>
+                    <li>Documents téléchargés</li>
+                    <li>Notifications</li>
+                    <li>Positions GPS</li>
+                  </ul>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteLoading}>Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  {deleteLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Oui, supprimer mon compte
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </Card>
       </div>
     </div>

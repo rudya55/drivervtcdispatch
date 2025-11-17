@@ -198,31 +198,56 @@ const Home = () => {
   const [mapsReady, setMapsReady] = useState<boolean>(!!(window as any).google);
   useEffect(() => {
     const load = async () => {
-      if ((window as any).google) { setMapsReady(true); return; }
+      if ((window as any).google?.maps?.Map) {
+        console.log('✅ Google Maps already loaded');
+        setMapsReady(true);
+        return;
+      }
+
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]') as HTMLScriptElement | null;
       if (existingScript) {
-        existingScript.addEventListener('load', () => setMapsReady(true));
+        console.log('📍 Google Maps script found, waiting for load...');
+        existingScript.addEventListener('load', () => {
+          console.log('✅ Google Maps loaded from existing script');
+          setMapsReady(true);
+        });
         return;
       }
 
       try {
+        console.log('🔑 Fetching Google Maps API key...');
         const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
         const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (error || !data?.key) {
-          console.error('Maps key error:', error);
+          console.error('❌ Maps key error:', error);
           return;
         }
+
+        console.log('📍 Loading Google Maps script...');
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places&loading=async`;
         script.async = true;
         script.defer = true;
-        script.addEventListener('load', () => setMapsReady(true));
-        script.addEventListener('error', (e) => console.error('Maps script error:', e));
+        script.addEventListener('load', () => {
+          console.log('✅ Google Maps script loaded successfully');
+          // Wait a bit for API to be fully ready
+          setTimeout(() => {
+            if ((window as any).google?.maps?.Map) {
+              console.log('✅ Google Maps API ready');
+              setMapsReady(true);
+            } else {
+              console.warn('⚠️ Google Maps script loaded but API not ready');
+            }
+          }, 100);
+        });
+        script.addEventListener('error', (e) => {
+          console.error('❌ Maps script load error:', e);
+        });
         document.head.appendChild(script);
       } catch (e) {
-        console.error('Maps loader error:', e);
+        console.error('❌ Maps loader error:', e);
       }
     };
     load();
@@ -253,7 +278,6 @@ const Home = () => {
         <Card className="p-0 overflow-hidden">
           <div className="h-96">
             <MapWithStatusButton
-              key={mapsReady ? 'ready' : 'loading'}
               center={mapCenter}
               zoom={13}
               markers={mapMarkers}
