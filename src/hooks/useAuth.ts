@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, Driver } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import { ensureDriverExists } from '@/lib/ensureDriver';
 
 export const useAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -8,35 +9,17 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          // Vérifier que c'est bien un compte chauffeur
-          const userRole = currentSession.user.user_metadata?.role;
-
-          // Bloquer si le rôle n'est pas explicitement 'driver'
-          // Cela force l'assignation du rôle lors de la création de compte
-          if (userRole !== 'driver') {
-            console.warn('❌ Rôle invalide ou manquant:', userRole);
-            // Déconnecter et arrêter
-            setTimeout(async () => {
-              await supabase.auth.signOut();
-              setDriver(null);
-              setSession(null);
-              setLoading(false);
-            }, 0);
-            return;
-          }
-          
-          // Fetch driver profile
+          // Fetch driver profile - auto-heal if missing
           setTimeout(async () => {
             const user = currentSession.user;
 
-            const { data, error } = await supabase
+            let { data, error } = await supabase
               .from('drivers')
               .select('*')
               .eq('user_id', user.id)
@@ -44,6 +27,23 @@ export const useAuth = () => {
 
             if (error) {
               console.error('Error fetching driver profile:', error);
+            }
+
+            // Auto-create driver profile if missing
+            if (!data) {
+              console.log('🔧 No driver profile found, creating...');
+              try {
+                await ensureDriverExists();
+                // Re-fetch after creation
+                const { data: newData } = await supabase
+                  .from('drivers')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .maybeSingle();
+                data = newData;
+              } catch (err) {
+                console.error('Failed to create driver profile:', err);
+              }
             }
 
             if (data) {
@@ -75,44 +75,51 @@ export const useAuth = () => {
       
       if (currentSession?.user) {
         const user = currentSession.user;
-        const userRole = user.user_metadata?.role;
-
-        // Bloquer si le rôle n'est pas explicitement 'driver'
-        if (userRole !== 'driver') {
-          console.warn('❌ Rôle invalide ou manquant à l\'init:', userRole);
-          supabase.auth.signOut();
-          setDriver(null);
-          setSession(null);
-          setLoading(false);
-          return;
-        }
-        // Fetch driver profile
+        
+        // Fetch driver profile - auto-heal if missing
         (async () => {
-          supabase
+          let { data, error } = await supabase
             .from('drivers')
             .select('*')
             .eq('user_id', user.id)
-            .maybeSingle()
-            .then(({ data, error }) => {
-              if (error) {
-                console.error('Error fetching driver profile at init:', error);
-              }
-              if (data) {
-                // Check if driver is approved
-                if (!data.approved) {
-                  console.warn('❌ Driver not approved at init:', user.id);
-                  supabase.auth.signOut();
-                  setDriver(null);
-                  setSession(null);
-                  setLoading(false);
-                  return;
-                }
-                setDriver(data);
-              } else {
-                console.warn('No driver profile available at init for user:', user.id);
-              }
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error fetching driver profile at init:', error);
+          }
+
+          // Auto-create driver profile if missing
+          if (!data) {
+            console.log('🔧 No driver profile found at init, creating...');
+            try {
+              await ensureDriverExists();
+              // Re-fetch after creation
+              const { data: newData } = await supabase
+                .from('drivers')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              data = newData;
+            } catch (err) {
+              console.error('Failed to create driver profile at init:', err);
+            }
+          }
+
+          if (data) {
+            // Check if driver is approved
+            if (!data.approved) {
+              console.warn('❌ Driver not approved at init:', user.id);
+              supabase.auth.signOut();
+              setDriver(null);
+              setSession(null);
               setLoading(false);
-            });
+              return;
+            }
+            setDriver(data);
+          } else {
+            console.warn('No driver profile available at init for user:', user.id);
+          }
+          setLoading(false);
         })();
       } else {
         setLoading(false);
@@ -137,23 +144,41 @@ export const useAuth = () => {
         throw new Error('Connexion échouée - session manquante');
       }
 
-      // Vérifier que c'est bien un compte chauffeur
-      const userRole = data.session.user.user_metadata?.role;
-      if (userRole !== 'driver') {
+      // Vérifier et auto-créer le profil driver si nécessaire
+      let { data: driverData, error: driverError } = await supabase
+        .from('drivers')
+        .select('id, approved')
+        .eq('user_id', data.session.user.id)
+        .maybeSingle();
+
+      if (driverError) {
+        console.error('Error fetching driver:', driverError);
         await supabase.auth.signOut();
-        throw new Error("Ce compte n'est pas un compte chauffeur. Rôle manquant ou invalide.");
+        throw new Error("Erreur lors de la vérification du profil");
       }
 
-      // Vérifier si le driver est approuvé
-      const { data: driverData, error: driverError } = await supabase
-        .from('drivers')
-        .select('approved')
-        .eq('user_id', data.session.user.id)
-        .single();
+      // Auto-create driver profile if missing
+      if (!driverData) {
+        console.log('🔧 No driver profile found during login, creating...');
+        try {
+          await ensureDriverExists();
+          // Re-fetch after creation
+          const { data: newData } = await supabase
+            .from('drivers')
+            .select('id, approved')
+            .eq('user_id', data.session.user.id)
+            .maybeSingle();
+          driverData = newData;
+        } catch (err) {
+          console.error('Failed to create driver profile:', err);
+          await supabase.auth.signOut();
+          throw new Error("PROFILE_CREATED_PENDING");
+        }
+      }
 
-      if (driverError || !driverData) {
+      if (!driverData) {
         await supabase.auth.signOut();
-        throw new Error("Profil chauffeur introuvable");
+        throw new Error("PROFILE_CREATED_PENDING");
       }
 
       if (!driverData.approved) {

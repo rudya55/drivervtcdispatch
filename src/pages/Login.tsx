@@ -89,6 +89,16 @@ const Login = () => {
           description: "Votre inscription a été reçue. Un administrateur doit approuver votre compte avant que vous puissiez vous connecter. Vous recevrez une notification une fois approuvé.",
           duration: 8000
         });
+      } else if (error.message === 'PROFILE_CREATED_PENDING') {
+        toast.info('Profil créé - En attente d\'approbation', {
+          description: "Votre profil chauffeur a été créé automatiquement. Un administrateur doit maintenant approuver votre compte.",
+          duration: 8000
+        });
+      } else if (error.message === 'Profil chauffeur introuvable') {
+        toast.info('Profil manquant - Compte créé', {
+          description: "Votre profil chauffeur a été créé. Veuillez contacter un administrateur pour l'approbation.",
+          duration: 8000
+        });
       } else if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
         toast.error('Email ou mot de passe incorrect. Vérifiez vos identifiants.');
       } else if (error.message?.includes('Email not confirmed')) {
