@@ -3,6 +3,9 @@ project_id = "qroqygbculbfqkbinqmp"
 [functions.cleanup-driver-accounts]
 verify_jwt = false
 
+[functions.admin-delete-driver-complete]
+verify_jwt = true
+
 [functions.driver-login]
 verify_jwt = false
 
