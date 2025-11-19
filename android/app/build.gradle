@@ -9,11 +9,23 @@ if (!keystorePropertiesFile.exists()) {
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-    logger.info("✅ key.properties loaded successfully from: ${keystorePropertiesFile.absolutePath}")
+    logger.lifecycle("✅ key.properties loaded from: ${keystorePropertiesFile.absolutePath}")
+    
+    // Validate required properties
+    def requiredProps = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+    def missingProps = requiredProps.findAll { !keystoreProperties[it] }
+    
+    if (missingProps.isEmpty()) {
+        logger.lifecycle("✅ All signing properties present: ${requiredProps}")
+        logger.lifecycle("   storeFile: ${keystoreProperties['storeFile']}")
+        logger.lifecycle("   keyAlias: ${keystoreProperties['keyAlias']}")
+    } else {
+        logger.error("❌ Missing required properties in key.properties: ${missingProps}")
+    }
 } else {
     logger.warn("⚠️ key.properties not found - release will not be signed")
-    logger.warn("Searched in: ${rootProject.file("android/key.properties").absolutePath}")
-    logger.warn("Searched in: ${rootProject.file("key.properties").absolutePath}")
+    logger.warn("   Searched in: ${rootProject.file("android/key.properties").absolutePath}")
+    logger.warn("   Searched in: ${rootProject.file("key.properties").absolutePath}")
 }
 
 android {
@@ -23,17 +35,31 @@ android {
     // Configuration de signature pour release
     signingConfigs {
         release {
-            if (keystoreProperties['storeFile']) {
-                storeFile file(keystoreProperties['storeFile'])
+            if (keystoreProperties['storeFile'] && keystoreProperties['storePassword'] && 
+                keystoreProperties['keyAlias'] && keystoreProperties['keyPassword']) {
+                
+                def keystoreFile = file(keystoreProperties['storeFile'])
+                logger.lifecycle("🔑 Configuring release signing:")
+                logger.lifecycle("   Keystore path: ${keystoreFile.absolutePath}")
+                logger.lifecycle("   Keystore exists: ${keystoreFile.exists()}")
+                logger.lifecycle("   Key alias: ${keystoreProperties['keyAlias']}")
+                
+                storeFile keystoreFile
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
+                
+                if (!keystoreFile.exists()) {
+                    logger.error("❌ CRITICAL: Keystore file not found at: ${keystoreFile.absolutePath}")
+                }
             } else if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
-                // Fallback to gradle.properties
+                logger.lifecycle("🔑 Using fallback signing config from gradle.properties")
                 storeFile file(MYAPP_UPLOAD_STORE_FILE)
                 storePassword MYAPP_UPLOAD_STORE_PASSWORD
                 keyAlias MYAPP_UPLOAD_KEY_ALIAS
                 keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            } else {
+                logger.error("❌ No valid signing configuration found!")
             }
         }
     }
