@@ -121,6 +121,16 @@ jobs:
             echo "⚠️ Secrets de signature non configurés"
           fi
 
+      - name: Debug key.properties location
+        run: |
+          echo "=== Recherche de key.properties ==="
+          find . -name "key.properties" -type f -exec echo "Trouvé: {}" \; -exec cat {} \;
+          echo "=== Recherche de upload-keystore.jks ==="
+          find . -name "upload-keystore.jks" -type f -exec echo "Trouvé: {}" \; -exec ls -lh {} \;
+          echo "=== Structure du répertoire android/ ==="
+          ls -la android/
+          ls -la android/app/ || true
+
       - name: Build Android APK (Debug)
         if: github.event.inputs.build_type != 'release'
         working-directory: android
