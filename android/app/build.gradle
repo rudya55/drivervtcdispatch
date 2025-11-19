@@ -1,13 +1,19 @@
 apply plugin: 'com.android.application'
 
 // Load keystore properties from key.properties file
-def keystorePropertiesFile = rootProject.file("key.properties")
+def keystorePropertiesFile = rootProject.file("android/key.properties")
+if (!keystorePropertiesFile.exists()) {
+    keystorePropertiesFile = rootProject.file("key.properties")
+}
+
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-    logger.info("✅ key.properties loaded successfully")
+    logger.info("✅ key.properties loaded successfully from: ${keystorePropertiesFile.absolutePath}")
 } else {
     logger.warn("⚠️ key.properties not found - release will not be signed")
+    logger.warn("Searched in: ${rootProject.file("android/key.properties").absolutePath}")
+    logger.warn("Searched in: ${rootProject.file("key.properties").absolutePath}")
 }
 
 android {
