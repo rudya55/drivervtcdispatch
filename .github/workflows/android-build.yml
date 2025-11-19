@@ -121,6 +121,22 @@ jobs:
             echo "⚠️ Secrets de signature non configurés"
           fi
 
+      - name: Validate Android keystore
+        if: github.event_name != 'pull_request'
+        working-directory: android/app
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -f "upload-keystore.jks" ] && [ ! -z "$KEYSTORE_PASSWORD" ] && [ ! -z "$KEY_ALIAS" ]; then
+            echo "🔍 Validation de la keystore Android..."
+            keytool -list -v -keystore upload-keystore.jks -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" -keypass "${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            echo "✅ Keystore valide et alias trouvé"
+          else
+            echo "⚠️ Keystore ou secrets manquants, validation ignorée"
+          fi
+
       - name: Debug key.properties location
         run: |
           echo "=== Recherche de key.properties ==="
