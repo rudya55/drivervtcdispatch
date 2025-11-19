@@ -189,6 +189,28 @@ const Profile = () => {
 
       console.log('💾 Updating profile with:', updateData);
 
+      // Triple fallback for maximum reliability:
+      // 1. Try Edge Function (bypass RLS, auto-create profile)
+      // 2. Try direct UPDATE
+      // 3. Handle missing columns gracefully
+      
+      console.log('💾 Tentative 1: Edge Function driver-update-profile');
+      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke(
+        'driver-update-profile',
+        { body: updateData }
+      );
+
+      if (!edgeFunctionError && edgeFunctionData?.driver) {
+        console.log('✅ Profil sauvegardé via Edge Function');
+        toast.success('Profil mis à jour avec succès');
+        setTimeout(() => window.location.reload(), 500);
+        return;
+      }
+
+      console.warn('⚠️ Edge Function failed, trying direct update:', edgeFunctionError);
+
+      // Fallback 2: Direct UPDATE
+      console.log('💾 Tentative 2: UPDATE direct');
       const { error: updateError } = await supabase
         .from('drivers')
         .update(updateData)
@@ -196,6 +218,13 @@ const Profile = () => {
 
       if (updateError) {
         console.error('❌ Update error:', updateError);
+        
+        // Check if error is due to missing columns (migration not yet applied)
+        if (updateError.message?.includes('column') && updateError.message?.includes('does not exist')) {
+          console.error('❌ Colonnes manquantes - migration non appliquée');
+          throw new Error('Migration en cours. Veuillez patienter 2-3 minutes puis réessayer.');
+        }
+        
         throw new Error(`Erreur de mise à jour: ${updateError.message}`);
       }
 
