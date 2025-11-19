@@ -104,37 +104,86 @@ jobs:
 
       - name: Create key.properties
         if: github.event_name != 'pull_request'
+        working-directory: android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ ! -z "$KEYSTORE_PASSWORD" ]; then
-            cat > android/key.properties << EOF
-          storePassword=$KEYSTORE_PASSWORD
-          keyPassword=$KEY_PASSWORD
-          keyAlias=$KEY_ALIAS
+            echo "🔐 Création du fichier key.properties dans android/..."
+            cat > key.properties << EOF
           storeFile=upload-keystore.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
           EOF
-            echo "✅ key.properties créé"
+            
+            echo "✅ key.properties créé à: $(pwd)/key.properties"
+            echo "📊 Taille du fichier: $(wc -c < key.properties) bytes"
+            
+            echo ""
+            echo "📄 Contenu de key.properties (masqué):"
+            sed 's/Password=.*/Password=***MASKED***/g' key.properties
+            
+            echo ""
+            echo "🔍 Vérification des chemins de fichiers:"
+            if [ -f "key.properties" ]; then
+              echo "  ✅ android/key.properties: $(realpath key.properties)"
+            else
+              echo "  ❌ android/key.properties: MANQUANT"
+            fi
+            
+            if [ -f "app/upload-keystore.jks" ]; then
+              echo "  ✅ Keystore: $(realpath app/upload-keystore.jks) ($(ls -lh app/upload-keystore.jks | awk '{print $5}'))"
+            else
+              echo "  ❌ Keystore: MANQUANT à android/app/upload-keystore.jks"
+            fi
           else
             echo "⚠️ Secrets de signature non configurés"
           fi
 
       - name: Validate Android keystore
-        if: github.event_name != 'pull_request'
+        if: github.event.inputs.build_type == 'release' && secrets.KEYSTORE_BASE64 != ''
         working-directory: android/app
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -f "upload-keystore.jks" ] && [ ! -z "$KEYSTORE_PASSWORD" ] && [ ! -z "$KEY_ALIAS" ]; then
-            echo "🔍 Validation de la keystore Android..."
-            keytool -list -v -keystore upload-keystore.jks -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" -keypass "${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
-            echo "✅ Keystore valide et alias trouvé"
+          echo "🔍 Validation complète de la keystore Android..."
+          echo ""
+          
+          if [ ! -f "upload-keystore.jks" ]; then
+            echo "❌ ERREUR CRITIQUE: Keystore introuvable à: $(pwd)/upload-keystore.jks"
+            exit 1
+          fi
+          
+          echo "✅ Keystore trouvé: $(realpath upload-keystore.jks)"
+          echo "📊 Taille: $(ls -lh upload-keystore.jks | awk '{print $5}')"
+          echo ""
+          
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "❌ ERREUR CRITIQUE: Secrets manquants"
+            [ -z "$KEYSTORE_PASSWORD" ] && echo "  - KEYSTORE_PASSWORD manquant"
+            [ -z "$KEY_ALIAS" ] && echo "  - KEY_ALIAS manquant"
+            [ -z "$KEY_PASSWORD" ] && echo "  - KEY_PASSWORD manquant"
+            exit 1
+          fi
+          
+          echo "🔐 Tentative de validation avec keytool..."
+          if keytool -list -v -keystore upload-keystore.jks -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" 2>&1; then
+            echo ""
+            echo "✅ Keystore VALIDE - Alias '$KEY_ALIAS' trouvé et mots de passe corrects"
           else
-            echo "⚠️ Keystore ou secrets manquants, validation ignorée"
+            echo ""
+            echo "❌ ERREUR: Validation keystore échouée"
+            echo "Causes possibles:"
+            echo "  1. Mot de passe keystore incorrect (KEYSTORE_PASSWORD)"
+            echo "  2. Mot de passe clé incorrect (KEY_PASSWORD)"
+            echo "  3. Alias '$KEY_ALIAS' introuvable dans la keystore"
+            echo "  4. Keystore corrompue ou format invalide"
+            exit 1
           fi
 
       - name: Debug key.properties location
