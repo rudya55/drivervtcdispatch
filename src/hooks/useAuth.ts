@@ -47,14 +47,23 @@ export const useAuth = () => {
             }
 
             if (data) {
-              // Check if driver is approved
-              if (!data.approved) {
-                console.warn('❌ Driver not approved:', user.id);
-                await supabase.auth.signOut();
-                setDriver(null);
-                setSession(null);
-                setLoading(false);
-                return;
+              // Check if driver is approved (with graceful fallback if column doesn't exist yet)
+              try {
+                if (data.approved === false) {
+                  console.warn('❌ Driver not approved:', user.id);
+                  await supabase.auth.signOut();
+                  setDriver(null);
+                  setSession(null);
+                  setLoading(false);
+                  return;
+                }
+              } catch (err: any) {
+                // If the 'approved' column doesn't exist yet, allow login until migration is applied
+                if (err?.message?.includes('column') || err?.code === 'PGRST116') {
+                  console.warn('⚠️ Column approved not yet created, skipping check');
+                } else {
+                  console.error('Error checking approval status:', err);
+                }
               }
               setDriver(data);
             } else {
@@ -106,14 +115,23 @@ export const useAuth = () => {
           }
 
           if (data) {
-            // Check if driver is approved
-            if (!data.approved) {
-              console.warn('❌ Driver not approved at init:', user.id);
-              supabase.auth.signOut();
-              setDriver(null);
-              setSession(null);
-              setLoading(false);
-              return;
+            // Check if driver is approved (with graceful fallback if column doesn't exist yet)
+            try {
+              if (data.approved === false) {
+                console.warn('❌ Driver not approved at init:', user.id);
+                supabase.auth.signOut();
+                setDriver(null);
+                setSession(null);
+                setLoading(false);
+                return;
+              }
+            } catch (err: any) {
+              // If the 'approved' column doesn't exist yet, allow login until migration is applied
+              if (err?.message?.includes('column') || err?.code === 'PGRST116') {
+                console.warn('⚠️ Column approved not yet created at init, skipping check');
+              } else {
+                console.error('Error checking approval status at init:', err);
+              }
             }
             setDriver(data);
           } else {
