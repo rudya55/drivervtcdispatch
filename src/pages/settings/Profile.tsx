@@ -151,7 +151,32 @@ const Profile = () => {
         }
       }
 
-      // Prepare update data
+      // Ensure driver profile exists
+      const { data: existingDriver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!existingDriver) {
+        console.log('🔧 Creating driver profile');
+        const { error: createError } = await supabase
+          .from('drivers')
+          .insert({
+            user_id: userId,
+            status: 'inactive',
+            name: formData.name.trim() || session.user.email?.split('@')[0] || 'Chauffeur',
+            email: session.user.email || '',
+            phone: formData.phone.trim() || '',
+          });
+
+        if (createError) {
+          console.error('❌ Error creating profile:', createError);
+          throw new Error('Impossible de créer le profil');
+        }
+      }
+
+      // Update driver profile
       const updateData = {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
@@ -162,19 +187,19 @@ const Profile = () => {
         company_logo_url: company_logo_url || null,
       };
 
-      console.log('💾 Calling Edge Function with:', updateData);
+      console.log('💾 Updating profile with:', updateData);
 
-      // Appel de l'Edge Function
-      const { data, error } = await supabase.functions.invoke('driver-update-profile', {
-        body: updateData,
-      });
+      const { error: updateError } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('user_id', userId);
 
-      if (error) {
-        console.error('❌ Error from Edge Function:', error);
-        throw error;
+      if (updateError) {
+        console.error('❌ Update error:', updateError);
+        throw new Error(`Erreur de mise à jour: ${updateError.message}`);
       }
 
-      console.log('✅ Profile updated successfully:', data);
+      console.log('✅ Profile updated successfully');
       toast.success('Profil mis à jour avec succès');
       
       // Recharger la page après 500ms
