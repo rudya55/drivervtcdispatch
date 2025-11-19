@@ -21,18 +21,23 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validToken, setValidToken] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     console.log('🔐 ResetPassword page loaded - APP CHAUFFEUR');
     console.log('🌐 Current URL:', window.location.href);
     
+    let hasReceivedEvent = false;
+
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔔 Auth event:', event);
       console.log('👤 Session user:', session?.user?.id);
       console.log('🎭 User role:', session?.user?.user_metadata?.role);
       
+      hasReceivedEvent = true;
+
       if (event === 'PASSWORD_RECOVERY') {
         // Valid recovery token, user can change password
         console.log('✅ Token de récupération valide');
@@ -44,29 +49,37 @@ const ResetPassword = () => {
           supabase.auth.signOut();
           toast.error("Ce compte n'est pas un compte chauffeur. Veuillez utiliser l'application appropriée.");
           navigate('/login');
+          return;
         }
-      } else if (!session) {
-        // No valid session
-        console.warn('⚠️ Pas de session valide');
-        toast.error('Lien invalide ou expiré');
+        
+        setValidToken(true);
+      } else if (event === 'SIGNED_OUT') {
+        console.warn('⚠️ Utilisateur déconnecté');
+        setValidToken(false);
+        toast.error('Session expirée');
         navigate('/login');
       }
     });
 
-    // Also check current session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔍 Session check:', session?.user?.id);
-      console.log('🎭 Role check:', session?.user?.user_metadata?.role);
-      
-      if (!session) {
-        console.warn('⚠️ Aucune session trouvée au chargement');
-        toast.error('Lien invalide ou expiré');
-        navigate('/login');
+    // Wait a moment for the PASSWORD_RECOVERY event before checking session
+    const timeoutId = setTimeout(() => {
+      if (!hasReceivedEvent) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          console.log('🔍 Session check après timeout:', session?.user?.id);
+          
+          if (!session) {
+            console.warn('⚠️ Aucune session trouvée après timeout');
+            setValidToken(false);
+            toast.error('Lien invalide ou expiré');
+            navigate('/login');
+          }
+        });
       }
-    });
+    }, 1500);
 
     // Cleanup subscription on unmount
     return () => {
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, [navigate]);
