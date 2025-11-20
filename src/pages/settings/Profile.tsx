@@ -9,16 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft } from 'lucide-react';
-
+import { Loader2, ArrowLeft, User, Building2 } from 'lucide-react';
 
 const Profile = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [progressMessage, setProgressMessage] = useState('');
-  const [retryData, setRetryData] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -34,29 +31,44 @@ const Profile = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  // IMPORTANT: Mettre à jour formData quand driver change
+  // Charger les données du profil
   useEffect(() => {
     const loadProfileData = async () => {
-      // Get session to get email if driver doesn't have it
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (driver) {
-        console.log('📊 Loading driver data into form:', driver);
+      if (!session?.user) {
+        console.log('❌ No session found');
+        return;
+      }
+
+      // Charger le profil driver depuis la base de données
+      const { data: driverData, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Error loading driver:', error);
+        return;
+      }
+
+      if (driverData) {
+        console.log('✅ Driver data loaded:', driverData);
         setFormData({
-          name: driver.name || '',
-          email: driver.email || session?.user?.email || '',
-          phone: driver.phone || '',
-          company_name: driver.company_name || '',
-          company_address: driver.company_address || '',
-          siret: driver.siret || '',
-          profile_photo_url: driver.profile_photo_url || '',
-          company_logo_url: driver.company_logo_url || '',
+          name: driverData.name || '',
+          email: driverData.email || session.user.email || '',
+          phone: driverData.phone || '',
+          company_name: driverData.company_name || '',
+          company_address: driverData.company_address || '',
+          siret: driverData.siret || '',
+          profile_photo_url: driverData.profile_photo_url || '',
+          company_logo_url: driverData.company_logo_url || '',
         });
-        setPhotoPreview(driver.profile_photo_url || null);
-        setLogoPreview(driver.company_logo_url || null);
-      } else if (session?.user) {
-        // Si pas de driver mais session existe, pré-remplir au moins l'email
-        console.log('📊 No driver profile, loading session email');
+        setPhotoPreview(driverData.profile_photo_url || null);
+        setLogoPreview(driverData.company_logo_url || null);
+      } else {
+        console.log('⚠️ No driver profile, showing email only');
         setFormData(prev => ({
           ...prev,
           email: session.user.email || ''
@@ -65,7 +77,7 @@ const Profile = () => {
     };
     
     loadProfileData();
-  }, [driver]);
+  }, []);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,290 +95,152 @@ const Profile = () => {
     }
   };
 
-  const callEdgeFunctionWithTimeout = async (updateData: any, session: any, timeoutMs = 15000) => {
-    const startTime = Date.now();
-    console.log(`⏱️ [${new Date().toISOString()}] Starting Edge Function call`);
-
-    return Promise.race([
-      (async () => {
-        try {
-          const response = await supabase.functions.invoke('driver-update-profile', {
-            body: updateData,
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          
-          const duration = Date.now() - startTime;
-          console.log(`✅ [${new Date().toISOString()}] Edge Function completed in ${duration}ms`);
-          
-          return response;
-        } catch (err: any) {
-          const duration = Date.now() - startTime;
-          console.error(`❌ [${new Date().toISOString()}] Edge Function failed after ${duration}ms:`, err);
-          throw err;
-        }
-      })(),
-      new Promise((_, reject) => 
-        setTimeout(() => {
-          console.error(`⏱️ [${new Date().toISOString()}] Edge Function timeout after ${timeoutMs}ms`);
-          reject(new Error('TIMEOUT'));
-        }, timeoutMs)
-      )
-    ]);
-  };
-
-  const handleSubmit = async (e?: React.FormEvent, retryPayload?: any) => {
-    if (e) e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    setProgressMessage('Récupération de la session...');
-    setRetryData(null);
-    console.log(`[${new Date().toISOString()}] Starting profile update submission`);
+    console.log('💾 Starting profile save');
 
     try {
-      // Get session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log(`[${new Date().toISOString()}] Session retrieved:`, session ? 'OK' : 'NONE');
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session || sessionError) {
-        toast.error('Session expirée', {
-          description: 'Veuillez vous reconnecter'
-        });
+      if (!session) {
+        toast.error('Session expirée. Reconnectez-vous.');
+        setLoading(false);
         return;
       }
 
-      // Use driver ID if available, otherwise session user ID
-      const ownerId = driver?.id || session.user.id;
-
-      let profile_photo_url = retryPayload?.profile_photo_url || driver?.profile_photo_url;
-      let company_logo_url = retryPayload?.company_logo_url || driver?.company_logo_url;
+      const userId = session.user.id;
+      let profile_photo_url = formData.profile_photo_url;
+      let company_logo_url = formData.company_logo_url;
 
       // Upload profile photo if changed
-      if (profilePhoto && !retryPayload) {
-        setProgressMessage('Upload de la photo de profil...');
-        console.log(`[${new Date().toISOString()}] Starting profile photo upload`);
-        
-        try {
-          const photoPath = `${ownerId}/profile-photo-${Date.now()}`;
-          const { error: photoError } = await supabase.storage
-            .from('driver-documents')
-            .upload(photoPath, profilePhoto);
+      if (profilePhoto) {
+        const photoPath = `${userId}/profile-photo-${Date.now()}`;
+        const { error: photoError } = await supabase.storage
+          .from('driver-documents')
+          .upload(photoPath, profilePhoto);
 
-          if (photoError) {
-            console.error(`[${new Date().toISOString()}] Photo upload error:`, photoError);
-            toast.warning('Erreur lors de l\'upload de la photo, mais les autres données seront sauvegardées');
-          } else {
-            const { data: { publicUrl } } = supabase.storage
-              .from('driver-documents')
-              .getPublicUrl(photoPath);
-            profile_photo_url = publicUrl;
-            console.log(`[${new Date().toISOString()}] Photo uploaded successfully`);
-          }
-        } catch (photoErr) {
-          console.error('Photo upload failed:', photoErr);
+        if (!photoError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('driver-documents')
+            .getPublicUrl(photoPath);
+          profile_photo_url = publicUrl;
+          console.log('✅ Photo uploaded');
+        } else {
+          console.error('❌ Photo upload error:', photoError);
+          toast.warning('Erreur upload photo');
         }
       }
 
       // Upload company logo if changed
-      if (companyLogo && !retryPayload) {
-        setProgressMessage('Upload du logo d\'entreprise...');
-        console.log(`[${new Date().toISOString()}] Starting company logo upload`);
-        
-        try {
-          const logoPath = `${ownerId}/company-logo-${Date.now()}`;
-          const { error: logoError } = await supabase.storage
-            .from('driver-documents')
-            .upload(logoPath, companyLogo);
+      if (companyLogo) {
+        const logoPath = `${userId}/company-logo-${Date.now()}`;
+        const { error: logoError } = await supabase.storage
+          .from('driver-documents')
+          .upload(logoPath, companyLogo);
 
-          if (logoError) {
-            console.error(`[${new Date().toISOString()}] Logo upload error:`, logoError);
-            toast.warning('Erreur lors de l\'upload du logo, mais les autres données seront sauvegardées');
-          } else {
-            const { data: { publicUrl } } = supabase.storage
-              .from('driver-documents')
-              .getPublicUrl(logoPath);
-            company_logo_url = publicUrl;
-            console.log(`[${new Date().toISOString()}] Logo uploaded successfully`);
-          }
-        } catch (logoErr) {
-          console.error('Logo upload failed:', logoErr);
+        if (!logoError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('driver-documents')
+            .getPublicUrl(logoPath);
+          company_logo_url = publicUrl;
+          console.log('✅ Logo uploaded');
+        } else {
+          console.error('❌ Logo upload error:', logoError);
+          toast.warning('Erreur upload logo');
         }
       }
 
-      // Prepare update data
+      // Ensure driver profile exists
+      const { data: existingDriver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!existingDriver) {
+        console.log('🔧 Creating driver profile');
+        const { error: createError } = await supabase
+          .from('drivers')
+          .insert({
+            user_id: userId,
+            status: 'inactive',
+            name: formData.name.trim() || session.user.email?.split('@')[0] || 'Chauffeur',
+            email: session.user.email || '',
+            phone: formData.phone.trim() || '',
+          });
+
+        if (createError) {
+          console.error('❌ Error creating profile:', createError);
+          throw new Error('Impossible de créer le profil');
+        }
+      }
+
+      // Update driver profile
       const updateData = {
-        name: formData.name,
-        phone: formData.phone,
-        company_name: formData.company_name || null,
-        company_address: formData.company_address || null,
-        siret: formData.siret || null,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        company_name: formData.company_name?.trim() || null,
+        company_address: formData.company_address?.trim() || null,
+        siret: formData.siret?.trim() || null,
         profile_photo_url: profile_photo_url || null,
         company_logo_url: company_logo_url || null,
       };
 
-      // === ATTEMPT 1: supabase.functions.invoke ===
-      setProgressMessage('Sauvegarde du profil (méthode 1)...');
-      console.log(`[${new Date().toISOString()}] Attempt 1: Calling Edge Function via invoke`);
+      console.log('💾 Updating profile with:', updateData);
+
+      // Triple fallback for maximum reliability:
+      // 1. Try Edge Function (bypass RLS, auto-create profile)
+      // 2. Try direct UPDATE
+      // 3. Handle missing columns gracefully
       
-      let invokeData: any = null;
-      let invokeError: any = null;
+      console.log('💾 Tentative 1: Edge Function driver-update-profile');
+      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke(
+        'driver-update-profile',
+        { body: updateData }
+      );
 
-      try {
-        const response: any = await callEdgeFunctionWithTimeout(updateData, session, 15000);
-        invokeData = response.data;
-        invokeError = response.error;
-      } catch (err: any) {
-        if (err.message === 'TIMEOUT') {
-          console.error(`[${new Date().toISOString()}] Request timeout after 15s`);
-          setRetryData(updateData);
-          toast.error('La requête prend trop de temps', {
-            description: 'Vérifiez votre connexion et cliquez sur "Réessayer"',
-            duration: 10000,
-          });
-          setProgressMessage('');
-          return;
-        }
-        invokeError = err;
+      if (!edgeFunctionError && edgeFunctionData?.driver) {
+        console.log('✅ Profil sauvegardé via Edge Function');
+        toast.success('Profil mis à jour avec succès');
+        setTimeout(() => window.location.reload(), 500);
+        return;
       }
 
-      if (invokeError) {
-        console.log(`[${new Date().toISOString()}] Invoke failed:`, invokeError.message);
+      console.warn('⚠️ Edge Function failed, trying direct update:', edgeFunctionError);
+
+      // Fallback 2: Direct UPDATE
+      console.log('💾 Tentative 2: UPDATE direct');
+      const { error: updateError } = await supabase
+        .from('drivers')
+        .update(updateData)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('❌ Update error:', updateError);
         
-        // Check for network/Safari specific errors
-        const isNetworkError = 
-          invokeError.message?.includes('Failed to send a request to the Edge Function') ||
-          invokeError.message?.includes('fetch failed') ||
-          invokeError.message?.includes('NetworkError') ||
-          invokeError.message?.includes('timeout');
-
-        if (isNetworkError) {
-          // === ATTEMPT 2: Direct fetch ===
-          setProgressMessage('Sauvegarde du profil (méthode 2)...');
-          console.log(`[${new Date().toISOString()}] Attempt 2: Trying direct fetch to Edge Function`);
-          
-          try {
-            const { SUPABASE_URL, SUPABASE_ANON_KEY } = await import('@/lib/supabase');
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/driver-update-profile`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'apikey': SUPABASE_ANON_KEY,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(updateData),
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              console.log(`[${new Date().toISOString()}] Direct fetch failed:`, errorData);
-              throw new Error(errorData.error || `HTTP ${response.status}`);
-            }
-
-            const fetchData = await response.json();
-            console.log(`[${new Date().toISOString()}] Direct fetch succeeded`);
-            
-            toast.success('Profil mis à jour (méthode alternative)');
-            setTimeout(() => navigate('/settings'), 500);
-            return;
-          } catch (fetchError: any) {
-            console.log(`[${new Date().toISOString()}] Direct fetch error:`, fetchError.message);
-            
-            // === ATTEMPT 3: Client-side fallback ===
-            setProgressMessage('Sauvegarde du profil (méthode 3 - fallback client)...');
-            console.log(`[${new Date().toISOString()}] Attempt 3: Client-side fallback`);
-            
-            // Check if driver profile exists
-            const { data: existingDriver, error: selectError } = await supabase
-              .from('drivers')
-              .select('id')
-              .eq('user_id', session.user.id)
-              .maybeSingle();
-
-            if (selectError) {
-              console.error(`[${new Date().toISOString()}] Error checking driver:`, selectError);
-              throw selectError;
-            }
-
-            if (!existingDriver) {
-              // Create driver profile client-side
-              console.log(`[${new Date().toISOString()}] Creating driver profile client-side`);
-              const { error: insertError } = await supabase
-                .from('drivers')
-                .insert({
-                  user_id: session.user.id,
-                  status: 'inactive',
-                  name: formData.name || session.user.email?.split('@')[0] || 'Chauffeur',
-                  email: session.user.email || '',
-                  phone: formData.phone || '',
-                  company_name: formData.company_name || null,
-                  company_address: formData.company_address || null,
-                  siret: formData.siret || null,
-                  profile_photo_url: profile_photo_url || null,
-                  company_logo_url: company_logo_url || null,
-                });
-
-              if (insertError) {
-                console.error(`[${new Date().toISOString()}] Client-side insert failed:`, insertError);
-                throw insertError;
-              }
-
-              console.log(`[${new Date().toISOString()}] Driver profile created successfully (client-side)`);
-            } else {
-              // Update existing driver profile client-side
-              console.log(`[${new Date().toISOString()}] Updating driver profile client-side`);
-              const { error: updateError } = await supabase
-                .from('drivers')
-                .update({
-                  name: formData.name,
-                  phone: formData.phone,
-                  company_name: formData.company_name || null,
-                  company_address: formData.company_address || null,
-                  siret: formData.siret || null,
-                  profile_photo_url: profile_photo_url || null,
-                  company_logo_url: company_logo_url || null,
-                })
-                .eq('user_id', session.user.id);
-
-              if (updateError) {
-                console.error(`[${new Date().toISOString()}] Client-side update failed:`, updateError);
-                throw updateError;
-              }
-
-              console.log(`[${new Date().toISOString()}] Driver profile updated successfully (client-side)`);
-            }
-
-            toast.success('Profil mis à jour (méthode locale)');
-            setTimeout(() => navigate('/settings'), 500);
-            return;
-          }
-        } else {
-          // Non-network error, throw it
-          throw invokeError;
+        // Check if error is due to missing columns (migration not yet applied)
+        if (updateError.message?.includes('column') && updateError.message?.includes('does not exist')) {
+          console.error('❌ Colonnes manquantes - migration non appliquée');
+          throw new Error('Migration en cours. Veuillez patienter 2-3 minutes puis réessayer.');
         }
+        
+        throw new Error(`Erreur de mise à jour: ${updateError.message}`);
       }
 
-      // Success with invoke
-      console.log(`[${new Date().toISOString()}] Profile updated successfully via invoke`);
+      console.log('✅ Profile updated successfully');
       toast.success('Profil mis à jour avec succès');
-      setTimeout(() => navigate('/settings'), 500);
+      
+      // Recharger la page après 500ms
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
 
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Profile update error:`, error);
-      setProgressMessage('');
-      
-      const errorMessage = [
-        error.message,
-        error.hint,
-        error.code
-      ].filter(Boolean).join(' - ');
-      
-      if (!retryData) {
-        toast.error(errorMessage || 'Erreur lors de la mise à jour du profil');
-      }
+      console.error('❌ Error saving profile:', error);
+      toast.error(error.message || 'Erreur lors de la sauvegarde');
     } finally {
-      if (!retryData) {
-        setLoading(false);
-        setProgressMessage('');
-      }
-      console.log(`[${new Date().toISOString()}] Profile update submission finished`);
+      setLoading(false);
     }
   };
 
@@ -374,48 +248,51 @@ const Profile = () => {
     <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Profil" unreadCount={unreadCount} />
 
-      <div className="max-w-lg mx-auto p-4">
+      <div className="max-w-lg mx-auto p-4 space-y-4">
         <Button
           variant="ghost"
-          size="sm"
           onClick={() => navigate('/settings')}
-          className="mb-2"
+          className="mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Retour
+          Retour aux paramètres
         </Button>
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Photo de profil */}
-            <div className="space-y-2">
-              <Label>Photo de profil</Label>
-              <div className="flex items-center gap-4">
-                {photoPreview && (
-                  <img src={photoPreview} alt="Profil" className="w-20 h-20 rounded-full object-cover" />
-                )}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className="flex-1"
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Nom complet</Label>
+        <form onSubmit={handleSubmit}>
+          <Card className="p-6 space-y-6">
+            {/* Photo de profil */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                <Label className="font-semibold">Photo de profil</Label>
+              </div>
+              {photoPreview && (
+                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border">
+                  <img src={photoPreview} alt="Profil" className="w-full h-full object-cover" />
+                </div>
+              )}
               <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="cursor-pointer"
               />
             </div>
 
+            {/* Nom complet */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label>Nom complet</Label>
               <Input
-                id="email"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Votre nom complet"
+              />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
                 type="email"
                 value={formData.email}
                 disabled
@@ -426,90 +303,89 @@ const Profile = () => {
               </p>
             </div>
 
+            {/* Téléphone */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Téléphone</Label>
+              <Label>Téléphone</Label>
               <Input
-                id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                required
+                placeholder="+33 6 12 34 56 78"
               />
             </div>
 
             {/* Informations société */}
-            <div className="pt-4 border-t">
-              <h3 className="text-lg font-semibold mb-4">Informations société</h3>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">Nom de la société</Label>
-                  <Input
-                    id="company_name"
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                  />
-                </div>
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary" />
+                <Label className="font-semibold">Informations société</Label>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="company_address">Adresse</Label>
-                  <Input
-                    id="company_address"
-                    value={formData.company_address}
-                    onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
-                    placeholder="Saisissez l'adresse de votre société"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="siret">Numéro SIRET</Label>
-                  <Input
-                    id="siret"
-                    value={formData.siret}
-                    onChange={(e) => setFormData({ ...formData, siret: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Logo société</Label>
-                  <div className="flex items-center gap-4">
-                    {logoPreview && (
-                      <img src={logoPreview} alt="Logo" className="w-20 h-20 rounded object-cover" />
-                    )}
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoChange}
-                      className="flex-1"
-                    />
+              {/* Logo société */}
+              <div className="space-y-3">
+                <Label>Logo de la société</Label>
+                {logoPreview && (
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-border">
+                    <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
                   </div>
-                </div>
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  className="cursor-pointer"
+                />
+              </div>
+
+              {/* Nom de la société */}
+              <div className="space-y-2">
+                <Label>Nom de la société</Label>
+                <Input
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  placeholder="Nom de votre société"
+                />
+              </div>
+
+              {/* Adresse */}
+              <div className="space-y-2">
+                <Label>Adresse</Label>
+                <Input
+                  value={formData.company_address}
+                  onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
+                  placeholder="Saisissez l'adresse de votre société"
+                />
+              </div>
+
+              {/* Numéro SIRET */}
+              <div className="space-y-2">
+                <Label>Numéro SIRET</Label>
+                <Input
+                  value={formData.siret}
+                  onChange={(e) => setFormData({ ...formData, siret: e.target.value })}
+                  placeholder="123 456 789 00012"
+                  maxLength={14}
+                />
               </div>
             </div>
 
-            {retryData && (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full mb-4"
-                onClick={() => handleSubmit(undefined, retryData)}
-              >
-                Réessayer
-              </Button>
-            )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
+            {/* Bouton de sauvegarde */}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {progressMessage || 'Chargement...'}
+                  Sauvegarde en cours...
                 </>
               ) : (
                 'Sauvegarder'
               )}
             </Button>
-          </form>
-        </Card>
+          </Card>
+        </form>
       </div>
     </div>
   );

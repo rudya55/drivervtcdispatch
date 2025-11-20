@@ -89,6 +89,16 @@ const Login = () => {
           description: "Votre inscription a été reçue. Un administrateur doit approuver votre compte avant que vous puissiez vous connecter. Vous recevrez une notification une fois approuvé.",
           duration: 8000
         });
+      } else if (error.message === 'PROFILE_CREATED_PENDING') {
+        toast.info('Profil créé - En attente d\'approbation', {
+          description: "Votre profil chauffeur a été créé automatiquement. Un administrateur doit maintenant approuver votre compte.",
+          duration: 8000
+        });
+      } else if (error.message === 'Profil chauffeur introuvable') {
+        toast.info('Profil manquant - Compte créé', {
+          description: "Votre profil chauffeur a été créé. Veuillez contacter un administrateur pour l'approbation.",
+          duration: 8000
+        });
       } else if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
         toast.error('Email ou mot de passe incorrect. Vérifiez vos identifiants.');
       } else if (error.message?.includes('Email not confirmed')) {
@@ -133,47 +143,45 @@ const Login = () => {
       // Normalize email to lowercase
       const normalizedEmail = signupEmail.trim().toLowerCase();
       
-      // Create user account with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: signupPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            name: signupName,
-            phone: signupPhone,
-            role: 'driver'
-          }
+      // Create user account via Edge Function
+      const { data, error } = await supabase.functions.invoke('create-user-account', {
+        body: {
+          email: normalizedEmail,
+          password: signupPassword,
+          role: 'driver',
+          name: signupName,
+          phone: signupPhone
         }
       });
 
       if (error) {
         console.error('Signup error:', error);
+        toast.error('Erreur lors de la création du compte: ' + error.message);
+        setLoading(false);
+        return;
+      }
+
+      // Check response from Edge Function
+      if (data?.error) {
+        console.error('Account creation error:', data.error);
         
-        // Handle specific signup errors
-        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+        if (data.error.includes('déjà enregistré') || data.error.includes('already registered')) {
           toast.error('Cet email est déjà enregistré');
-        } else if (error.message.includes('Invalid email')) {
-          toast.error('Email invalide');
-        } else if (error.message.includes('Password should be')) {
-          toast.error('Le mot de passe ne respecte pas les critères de sécurité');
         } else {
-          toast.error('Erreur lors de la création du compte: ' + error.message);
+          toast.error('Erreur: ' + data.error);
         }
         setLoading(false);
         return;
       }
 
-      // Check if email confirmation is required
-      if (data?.user && !data.session) {
-        // Email confirmation is required
-        toast.success('Compte créé ! Vérifiez votre email pour confirmer votre adresse.');
+      // Success
+      if (data?.success) {
+        toast.success('Compte créé avec succès !', {
+          description: 'Votre compte est en attente de validation par un administrateur. Vous recevrez une notification une fois approuvé.',
+          duration: 8000
+        });
         setView('login');
         setLoginEmail(normalizedEmail);
-      } else if (data?.session) {
-        // Auto-login successful (email confirmation disabled)
-        toast.success('Compte créé et connecté avec succès !');
-        navigate('/');
       }
       
       // Reset form

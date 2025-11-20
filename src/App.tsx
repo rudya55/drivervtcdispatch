@@ -16,6 +16,7 @@ import Accounting from "./pages/Accounting";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 import CreateDemo from "./pages/CreateDemo";
+import CleanupDrivers from "./pages/CleanupDrivers";
 
 import Profile from './pages/settings/Profile';
 import Security from './pages/settings/Security';
@@ -180,6 +181,10 @@ const AppContent = () => {
       <Route
         path="/create-demo"
         element={<CreateDemo />}
+      />
+      <Route
+        path="/cleanup-drivers"
+        element={<CleanupDrivers />}
       />
       <Route path="*" element={<NotFound />} />
     </Routes>
