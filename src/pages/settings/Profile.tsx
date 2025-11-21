@@ -120,16 +120,18 @@ const Profile = () => {
           .from('driver-documents')
           .upload(photoPath, profilePhoto);
 
-        if (!photoError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('driver-documents')
-            .getPublicUrl(photoPath);
-          profile_photo_url = publicUrl;
-          console.log('✅ Photo uploaded');
-        } else {
-          console.error('❌ Photo upload error:', photoError);
-          toast.warning('Erreur upload photo');
+        if (photoError) {
+          console.error('❌ Photo upload failed:', photoError);
+          toast.error("Impossible d'envoyer la photo de profil. Vérifiez votre connexion et réessayez.");
+          setLoading(false);
+          return;
         }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('driver-documents')
+          .getPublicUrl(photoPath);
+        profile_photo_url = publicUrl;
+        console.log('✅ Photo uploaded successfully:', publicUrl);
       }
 
       // Upload company logo if changed
@@ -139,16 +141,18 @@ const Profile = () => {
           .from('driver-documents')
           .upload(logoPath, companyLogo);
 
-        if (!logoError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('driver-documents')
-            .getPublicUrl(logoPath);
-          company_logo_url = publicUrl;
-          console.log('✅ Logo uploaded');
-        } else {
-          console.error('❌ Logo upload error:', logoError);
-          toast.warning('Erreur upload logo');
+        if (logoError) {
+          console.error('❌ Logo upload failed:', logoError);
+          toast.error("Impossible d'envoyer le logo de la société. Vérifiez votre connexion et réessayez.");
+          setLoading(false);
+          return;
         }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('driver-documents')
+          .getPublicUrl(logoPath);
+        company_logo_url = publicUrl;
+        console.log('✅ Logo uploaded successfully:', publicUrl);
       }
 
       // Ensure driver profile exists

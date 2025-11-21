@@ -25,6 +25,8 @@ const Settings = () => {
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
 
+  console.log('🔍 Settings - driver.profile_photo_url:', driver?.profile_photo_url);
+
   const handleLogout = async () => {
     await logout();
     toast.success('Déconnexion réussie');
@@ -83,7 +85,11 @@ const Settings = () => {
           <div className="flex items-center gap-4">
             <Avatar className="w-16 h-16">
               {driver?.profile_photo_url ? (
-                <AvatarImage src={driver.profile_photo_url} alt={driver.name} />
+                <AvatarImage 
+                  src={driver.profile_photo_url} 
+                  alt={driver.name || "Photo de profil"}
+                  onError={() => console.error('❌ Avatar image failed to load')}
+                />
               ) : null}
               <AvatarFallback className="bg-primary text-primary-foreground">
                 <User className="w-8 h-8" />

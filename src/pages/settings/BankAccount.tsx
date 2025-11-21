@@ -98,13 +98,8 @@ const BankAccount = () => {
       setTimeout(() => navigate('/settings'), 300);
 
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Update bank account error:`, error);
-      const errorMessage = [
-        error.message,
-        error.hint,
-        error.code
-      ].filter(Boolean).join(' - ');
-      toast.error(errorMessage || 'Erreur lors de la mise à jour');
+      console.error(`[${new Date().toISOString()}] ❌ Bank account update error:`, error);
+      toast.error('Impossible de sauvegarder les coordonnées bancaires. Réessayez.');
     } finally {
       setLoading(false);
       console.log(`[${new Date().toISOString()}] Bank account update finished`);
