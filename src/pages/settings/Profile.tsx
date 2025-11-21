@@ -35,7 +35,7 @@ const Profile = () => {
   useEffect(() => {
     const loadProfileData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         console.log('❌ No session found');
         return;
@@ -75,7 +75,7 @@ const Profile = () => {
         }));
       }
     };
-    
+
     loadProfileData();
   }, []);
 
@@ -102,7 +102,7 @@ const Profile = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         toast.error('Session expirée. Reconnectez-vous.');
         setLoading(false);
@@ -193,28 +193,7 @@ const Profile = () => {
 
       console.log('💾 Updating profile with:', updateData);
 
-      // Triple fallback for maximum reliability:
-      // 1. Try Edge Function (bypass RLS, auto-create profile)
-      // 2. Try direct UPDATE
-      // 3. Handle missing columns gracefully
-      
-      console.log('💾 Tentative 1: Edge Function driver-update-profile');
-      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke(
-        'driver-update-profile',
-        { body: updateData }
-      );
-
-      if (!edgeFunctionError && edgeFunctionData?.driver) {
-        console.log('✅ Profil sauvegardé via Edge Function');
-        toast.success('Profil mis à jour avec succès');
-        setTimeout(() => window.location.reload(), 500);
-        return;
-      }
-
-      console.warn('⚠️ Edge Function failed, trying direct update:', edgeFunctionError);
-
-      // Fallback 2: Direct UPDATE
-      console.log('💾 Tentative 2: UPDATE direct');
+      // Direct UPDATE to database (simplified, no Edge Function)
       const { error: updateError } = await supabase
         .from('drivers')
         .update(updateData)
@@ -222,7 +201,7 @@ const Profile = () => {
 
       if (updateError) {
         console.error('❌ Update error:', updateError);
-        
+
         const msg = updateError.message || '';
         const isMissingColumns =
           msg.includes('profile_photo_url') ||
@@ -256,13 +235,17 @@ const Profile = () => {
           console.error('❌ Basic update error:', basicError);
           throw new Error(`Erreur de mise à jour: ${basicError.message}`);
         }
-        
-        throw new Error(`Erreur de mise à jour: ${updateError.message}`);
+
+        if (updateError.message?.includes('permission')) {
+          throw new Error('Permissions insuffisantes. Reconnectez-vous.');
+        }
+
+        throw new Error(`Erreur: ${updateError.message}`);
       }
 
       console.log('✅ Profile updated successfully');
       toast.success('Profil mis à jour avec succès');
-      
+
       // Recharger la page après 500ms
       setTimeout(() => {
         window.location.reload();

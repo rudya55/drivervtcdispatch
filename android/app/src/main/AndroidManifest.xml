@@ -33,6 +33,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Google Maps API Key (Restricted by package name and SHA-1) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyDCCm7q4pFt9F1ZVWp9F89f__2DfRU8ZtQ"/>
     </application>
 
     <!-- Permissions -->
