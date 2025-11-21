@@ -219,10 +219,38 @@ const Profile = () => {
       if (updateError) {
         console.error('❌ Update error:', updateError);
         
-        // Check if error is due to missing columns (migration not yet applied)
-        if (updateError.message?.includes('column') && updateError.message?.includes('does not exist')) {
-          console.error('❌ Colonnes manquantes - migration non appliquée');
-          throw new Error('Migration en cours. Veuillez patienter 2-3 minutes puis réessayer.');
+        const msg = updateError.message || '';
+        const isMissingColumns =
+          msg.includes('profile_photo_url') ||
+          msg.includes('company_logo_url') ||
+          msg.includes('company_name') ||
+          msg.includes('company_address') ||
+          msg.includes('siret') ||
+          msg.includes('schema cache') ||
+          (msg.includes('column') && msg.includes('does not exist'));
+
+        if (isMissingColumns) {
+          console.warn('🛠 Colonnes manquantes, tentative de mise à jour minimale (nom + téléphone).');
+
+          const basicUpdateData = {
+            name: formData.name.trim(),
+            phone: formData.phone.trim(),
+          };
+
+          const { error: basicError } = await supabase
+            .from('drivers')
+            .update(basicUpdateData)
+            .eq('user_id', userId);
+
+          if (!basicError) {
+            console.log('✅ Basic profile updated without advanced columns');
+            toast.success('Profil de base mis à jour (nom + téléphone). Les infos société / photos seront activées plus tard.');
+            setTimeout(() => window.location.reload(), 500);
+            return;
+          }
+
+          console.error('❌ Basic update error:', basicError);
+          throw new Error(`Erreur de mise à jour: ${basicError.message}`);
         }
         
         throw new Error(`Erreur de mise à jour: ${updateError.message}`);
