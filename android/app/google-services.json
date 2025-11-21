@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "900889515127",
+    "project_id": "vtc-dispatch-admin",
+    "storage_bucket": "vtc-dispatch-admin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:900889515127:android:7e5e09683c5a0d41242272",
+        "android_client_info": {
+          "package_name": "com.lovable.drivervtcdispatch"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "900889515127-2p44hjncot93a9crfr1clrair0br7nmj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkY9oiD3_PKmPlDjn8jlohkh9X73GgCfs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "900889515127-2p44hjncot93a9crfr1clrair0br7nmj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
