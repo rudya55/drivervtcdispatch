@@ -1,22 +1,30 @@
 -- ============================================================================
--- MIGRATION CRITIQUE: Ajout des colonnes de profil et système d'approbation
--- Date: 2025-11-19
--- Objectif: Débloquer la sauvegarde du profil ET la connexion
+-- MIGRATION COMPLÈTE: Ajout de toutes les colonnes manquantes
+-- Date: 2025-11-21
+-- Objectif: Activer la sauvegarde complète de tous les paramètres chauffeur
 -- ============================================================================
 -- 
 -- ⚠️ IMPORTANT: Ce fichier doit être exécuté manuellement dans Supabase
 -- Instructions:
--- 1. Aller sur https://supabase.com/dashboard/project/YOUR_PROJECT/sql/new
--- 2. Copier-coller tout le contenu de ce fichier
--- 3. Cliquer sur "Run" pour exécuter
+-- 1. Aller sur https://supabase.com/dashboard (depuis ton téléphone)
+-- 2. Ouvrir ton projet > SQL Editor
+-- 3. Copier-coller tout le contenu de ce fichier
+-- 4. Cliquer sur "Run" pour exécuter
 -- 
--- OU via Lovable Cloud:
--- 1. Aller dans l'onglet Cloud
--- 2. Section Database > SQL Editor
--- 3. Coller et exécuter ce SQL
+-- Cette migration ajoute TOUTES les colonnes nécessaires pour:
+-- ✅ Profil complet (nom, téléphone, société, adresse, SIRET, photos)
+-- ✅ Véhicule (marque, modèle, année, plaque, licence)
+-- ✅ Coordonnées bancaires (IBAN, BIC)
+-- ✅ Préférences notifications (activé/désactivé, son)
+-- ✅ Système d'approbation chauffeur
+-- ✅ Informations courses additionnelles
 -- ============================================================================
 
--- Ajout des colonnes de profil chauffeur (pour Profile.tsx)
+-- ============================================================================
+-- PARTIE 1: TABLE DRIVERS - PROFIL & SOCIÉTÉ
+-- ============================================================================
+
+-- Ajout des colonnes de profil et société (pour /settings/profile)
 ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS company_name text,
   ADD COLUMN IF NOT EXISTS company_address text,
@@ -24,23 +32,186 @@ ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS profile_photo_url text,
   ADD COLUMN IF NOT EXISTS company_logo_url text;
 
--- Ajout de la colonne d'approbation (pour useAuth.ts)
+-- ============================================================================
+-- PARTIE 2: TABLE DRIVERS - VÉHICULE
+-- ============================================================================
+
+-- Ajout des colonnes véhicule (pour /settings/vehicle)
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS vehicle_brand text,
+  ADD COLUMN IF NOT EXISTS vehicle_model text,
+  ADD COLUMN IF NOT EXISTS vehicle_year text,
+  ADD COLUMN IF NOT EXISTS vehicle_plate text,
+  ADD COLUMN IF NOT EXISTS license_number text;
+
+-- ============================================================================
+-- PARTIE 3: TABLE DRIVERS - COORDONNÉES BANCAIRES
+-- ============================================================================
+
+-- Ajout des colonnes bancaires (pour /settings/bank-account)
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS iban text,
+  ADD COLUMN IF NOT EXISTS bic text;
+
+-- ============================================================================
+-- PARTIE 4: TABLE DRIVERS - PRÉFÉRENCES NOTIFICATIONS
+-- ============================================================================
+
+-- Ajout des colonnes notifications (pour /settings/notifications)
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS notifications_enabled boolean DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS notification_sound text;
+
+-- ============================================================================
+-- PARTIE 5: TABLE DRIVERS - SYSTÈME & TECHNIQUE
+-- ============================================================================
+
+-- Ajout des colonnes système
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS fcm_token text,
+  ADD COLUMN IF NOT EXISTS rating numeric;
+
+-- ============================================================================
+-- PARTIE 6: TABLE DRIVERS - SYSTÈME D'APPROBATION
+-- ============================================================================
+
+-- Ajout de la colonne d'approbation chauffeur
 ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS approved boolean DEFAULT FALSE NOT NULL;
 
 -- ⚡ DÉBLOCAGE IMMÉDIAT : Approuver TOUS les chauffeurs existants
--- Cela permet à l'utilisateur de se connecter immédiatement
+-- Cela permet aux chauffeurs actuels de continuer à se connecter
 UPDATE public.drivers 
 SET approved = TRUE 
 WHERE approved IS NULL OR approved = FALSE;
 
--- Créer des index pour améliorer les performances
+-- ============================================================================
+-- PARTIE 7: INDEX POUR PERFORMANCES
+-- ============================================================================
+
+-- Index pour les requêtes d'approbation
 CREATE INDEX IF NOT EXISTS idx_drivers_approved ON public.drivers(approved);
 CREATE INDEX IF NOT EXISTS idx_drivers_approved_created ON public.drivers(approved, created_at);
+
+-- ============================================================================
+-- PARTIE 8: TABLE COURSES - INFORMATIONS ADDITIONNELLES
+-- ============================================================================
+
+-- Ajout des colonnes courses pour le dispatch et les infos vol
+ALTER TABLE public.courses
+  ADD COLUMN IF NOT EXISTS dispatch_mode text,
+  ADD COLUMN IF NOT EXISTS flight_number text,
+  ADD COLUMN IF NOT EXISTS company_name text;
+
+-- ============================================================================
+-- PARTIE 9: STORAGE BUCKET POUR DOCUMENTS & PHOTOS
+-- ============================================================================
+
+-- S'assurer que le bucket driver-documents existe (pour photos et documents)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('driver-documents', 'driver-documents', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- PARTIE 10: POLICIES RLS POUR LE BUCKET (SÉCURITÉ)
+-- ============================================================================
+
+-- Permettre aux chauffeurs authentifiés d'uploader leurs propres documents
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'objects' 
+    AND policyname = 'Drivers can upload their own documents'
+  ) THEN
+    CREATE POLICY "Drivers can upload their own documents"
+      ON storage.objects
+      FOR INSERT
+      TO authenticated
+      WITH CHECK (
+        bucket_id = 'driver-documents' AND
+        auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+END $$;
+
+-- Permettre aux chauffeurs de voir leurs propres documents
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'objects' 
+    AND policyname = 'Drivers can view their own documents'
+  ) THEN
+    CREATE POLICY "Drivers can view their own documents"
+      ON storage.objects
+      FOR SELECT
+      TO authenticated
+      USING (
+        bucket_id = 'driver-documents' AND
+        auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+END $$;
+
+-- Permettre aux chauffeurs de supprimer leurs propres documents
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'objects' 
+    AND policyname = 'Drivers can delete their own documents'
+  ) THEN
+    CREATE POLICY "Drivers can delete their own documents"
+      ON storage.objects
+      FOR DELETE
+      TO authenticated
+      USING (
+        bucket_id = 'driver-documents' AND
+        auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+END $$;
+
+-- Permettre la lecture publique des photos de profil et logos (pour affichage dans l'app admin)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'objects' 
+    AND policyname = 'Public can view profile photos and logos'
+  ) THEN
+    CREATE POLICY "Public can view profile photos and logos"
+      ON storage.objects
+      FOR SELECT
+      TO public
+      USING (
+        bucket_id = 'driver-documents' AND
+        (
+          name LIKE '%/profile_photo%' OR
+          name LIKE '%/company_logo%'
+        )
+      );
+  END IF;
+END $$;
+
+-- ============================================================================
+-- FINALISATION
+-- ============================================================================
 
 -- Message de confirmation
 DO $$
 BEGIN
-  RAISE NOTICE '✅ Migration terminée : colonnes de profil et système d''approbation ajoutés';
+  RAISE NOTICE '✅ Migration terminée avec succès !';
+  RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule, banque, notifications, approbation';
+  RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name';
+  RAISE NOTICE '✅ Bucket driver-documents créé avec policies RLS';
   RAISE NOTICE '✅ Tous les chauffeurs existants ont été approuvés automatiquement';
+  RAISE NOTICE '';
+  RAISE NOTICE '🎯 Prochaines étapes:';
+  RAISE NOTICE '   1. Aller sur /settings/profile';
+  RAISE NOTICE '   2. Upload une photo de profil';
+  RAISE NOTICE '   3. Remplir les infos société (nom, adresse, SIRET)';
+  RAISE NOTICE '   4. Cliquer sur Sauvegarder';
+  RAISE NOTICE '   5. Retourner sur /settings → la photo doit apparaître dans l''avatar ! ✅';
 END $$;
