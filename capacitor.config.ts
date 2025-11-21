@@ -4,10 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.lovable.drivervtcdispatch',
   appName: 'drivervtcdispatch',
   webDir: 'dist',
-  server: {
-    url: 'https://4abdee7f-238d-436b-9d0d-34c8665e5ddf.lovableproject.com?forceHideBadge=true',
-    cleartext: true
-  },
+  // server: {
+  //   url: 'https://4abdee7f-238d-436b-9d0d-34c8665e5ddf.lovableproject.com?forceHideBadge=true',
+  //   cleartext: true
+  // },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
