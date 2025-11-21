@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: --max_old_space_size=4096
+      BUILD_TYPE: ${{ inputs.build_type || 'release' }}
       HAS_SIGNING_SECRETS: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - name: Checkout
@@ -82,11 +83,11 @@ jobs:
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
       - name: Decode keystore
-        if: inputs.build_type == 'release' && env.HAS_SIGNING_SECRETS == 'true'
+        if: env.BUILD_TYPE == 'release' && env.HAS_SIGNING_SECRETS == 'true'
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
 
       - name: Create key.properties
-        if: inputs.build_type == 'release' && env.HAS_SIGNING_SECRETS == 'true'
+        if: env.BUILD_TYPE == 'release' && env.HAS_SIGNING_SECRETS == 'true'
         working-directory: android
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > key.properties
@@ -96,7 +97,7 @@ jobs:
           echo "✅ Keystore configured"
 
       - name: Validate keystore
-        if: inputs.build_type == 'release' && env.HAS_SIGNING_SECRETS == 'true'
+        if: env.BUILD_TYPE == 'release' && env.HAS_SIGNING_SECRETS == 'true'
         working-directory: android/app
         run: |
           if [ ! -f "upload-keystore.jks" ]; then
@@ -117,36 +118,36 @@ jobs:
           fi
 
       - name: Build debug APK
-        if: inputs.build_type == 'debug'
+        if: env.BUILD_TYPE == 'debug'
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Build release APK
-        if: inputs.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Build release AAB
-        if: inputs.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
 
       - name: Upload debug APK
-        if: inputs.build_type == 'debug'
+        if: env.BUILD_TYPE == 'debug'
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload release APK
-        if: inputs.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
 
       - name: Upload release AAB
-        if: inputs.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         uses: actions/upload-artifact@v4
         with:
           name: app-bundle
@@ -156,9 +157,9 @@ jobs:
         if: always()
         run: |
           echo "## Build Complete" >> $GITHUB_STEP_SUMMARY
-          echo "Build type: ${{ inputs.build_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "Build type: ${{ env.BUILD_TYPE }}" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ inputs.build_type }}" == "release" ]; then
+          if [ "${{ env.BUILD_TYPE }}" == "release" ]; then
             echo "✅ APK and AAB available in artifacts" >> $GITHUB_STEP_SUMMARY
           else
             echo "✅ Debug APK available in artifacts" >> $GITHUB_STEP_SUMMARY
