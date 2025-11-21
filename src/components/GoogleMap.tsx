@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MapPin, AlertCircle } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface GoogleMapProps {
   center?: { lat: number; lng: number };
@@ -19,51 +20,96 @@ const GoogleMap = ({
   const markersRef = useRef<any[]>([]);
   const [mapError, setMapError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
 
+  // Load Google Maps API key and script
   useEffect(() => {
-    // Check if Google Maps loaded after 5 seconds
-    const timeout = setTimeout(() => {
-      if (!(window as any).google) {
+    const loadGoogleMaps = async () => {
+      try {
+        console.log('🗺️ Fetching Google Maps API key...');
+        const { data, error } = await supabase.functions.invoke('get-google-maps-key');
+        
+        if (error) {
+          console.warn('⚠️ Failed to fetch Google Maps key:', error.message);
+          setMapError(true);
+          setIsLoading(false);
+          return;
+        }
+
+        if (!data?.key) {
+          console.warn('⚠️ Google Maps key is not configured');
+          setMapError(true);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('✅ Google Maps API key retrieved successfully');
+
+        // Check if script already loaded
+        if ((window as any).google?.maps) {
+          console.log('✅ Google Maps script already loaded');
+          setApiKeyLoaded(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // Load Google Maps script
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        
+        script.onload = () => {
+          console.log('✅ Google Maps script loaded successfully');
+          setApiKeyLoaded(true);
+          setIsLoading(false);
+        };
+
+        script.onerror = () => {
+          console.error('❌ Failed to load Google Maps script');
+          setMapError(true);
+          setIsLoading(false);
+        };
+
+        document.head.appendChild(script);
+
+      } catch (err) {
+        console.error('❌ Error loading Google Maps:', err);
         setMapError(true);
         setIsLoading(false);
       }
-    }, 5000);
+    };
 
-    return () => clearTimeout(timeout);
+    loadGoogleMaps();
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !apiKeyLoaded) return;
 
     // Check if Google Maps is loaded
-    if (!(window as any).google) {
+    if (!(window as any).google?.maps) {
+      console.warn('⚠️ Google Maps API not ready yet');
       return;
     }
 
     const google = (window as any).google;
-    setIsLoading(false);
-    setMapError(false);
 
-      try {
-        if (!mapInstanceRef.current) {
-          // Guard: ensure Maps constructor is available
-          if (!google?.maps?.Map) {
-            console.warn('Google Maps API not fully ready yet.');
-            setMapError(true);
-            return;
-          }
-          mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-            center,
-            zoom,
-            styles: [
-              {
-                featureType: 'poi',
-                elementType: 'labels',
-                stylers: [{ visibility: 'off' }],
-              },
-            ],
-          });
-        }
+    try {
+      if (!mapInstanceRef.current) {
+        console.log('🗺️ Initializing Google Maps...');
+        mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+          center,
+          zoom,
+          styles: [
+            {
+              featureType: 'poi',
+              elementType: 'labels',
+              stylers: [{ visibility: 'off' }],
+            },
+          ],
+        });
+        console.log('✅ Google Maps initialized successfully');
+      }
 
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
@@ -86,10 +132,10 @@ const GoogleMap = ({
         mapInstanceRef.current.setCenter(center);
       }
     } catch (error) {
-      console.error('Google Maps error:', error);
+      console.error('❌ Google Maps error:', error);
       setMapError(true);
     }
-  }, [center, zoom, markers]);
+  }, [center, zoom, markers, apiKeyLoaded]);
 
   // Fallback map display when Google Maps is not available
   if (mapError) {
