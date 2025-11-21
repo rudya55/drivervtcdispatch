@@ -107,13 +107,8 @@ const Vehicle = () => {
       setTimeout(() => navigate('/settings'), 300);
 
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Update vehicle error:`, error);
-      const errorMessage = [
-        error.message,
-        error.hint,
-        error.code
-      ].filter(Boolean).join(' - ');
-      toast.error(errorMessage || 'Erreur lors de la mise à jour');
+      console.error(`[${new Date().toISOString()}] ❌ Vehicle update error:`, error);
+      toast.error('Impossible de sauvegarder les informations du véhicule. Réessayez.');
     } finally {
       setLoading(false);
       console.log(`[${new Date().toISOString()}] Vehicle update finished`);
