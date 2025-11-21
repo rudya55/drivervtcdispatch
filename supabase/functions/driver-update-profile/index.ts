@@ -77,24 +77,61 @@ Deno.serve(async (req) => {
     }
 
     // Update driver profile using service role to bypass RLS
-    const { data: updatedDriver, error: updateError } = await supabaseAdmin
+    const fullUpdate = {
+      name,
+      phone,
+      company_name,
+      company_address,
+      siret,
+      profile_photo_url,
+      company_logo_url,
+    };
+
+    let updatedDriver = null;
+
+    const { data: fullUpdated, error: fullError } = await supabaseAdmin
       .from('drivers')
-      .update({
-        name,
-        phone,
-        company_name,
-        company_address,
-        siret,
-        profile_photo_url,
-        company_logo_url,
-      })
+      .update(fullUpdate)
       .eq('user_id', user.id)
       .select('*')
       .maybeSingle();
 
-    if (updateError) {
-      console.error('Update error:', updateError);
-      throw new Error(`Erreur de mise à jour: ${updateError.message}`);
+    if (!fullError) {
+      updatedDriver = fullUpdated;
+    } else {
+      const msg = fullError.message || '';
+      const isMissingColumns =
+        msg.includes('profile_photo_url') ||
+        msg.includes('company_logo_url') ||
+        msg.includes('company_name') ||
+        msg.includes('company_address') ||
+        msg.includes('siret') ||
+        msg.includes('schema cache') ||
+        (msg.includes('column') && msg.includes('does not exist'));
+
+      if (!isMissingColumns) {
+        console.error('❌ Update error (non lié aux colonnes):', fullError);
+        throw new Error(`Erreur de mise à jour: ${fullError.message}`);
+      }
+
+      console.warn('🛠 Colonnes manquantes, tentative de mise à jour minimale via Edge Function.');
+
+      const { data: basicUpdated, error: basicError } = await supabaseAdmin
+        .from('drivers')
+        .update({
+          name,
+          phone,
+        })
+        .eq('user_id', user.id)
+        .select('*')
+        .maybeSingle();
+
+      if (basicError) {
+        console.error('❌ Basic update via Edge Function failed:', basicError);
+        throw new Error(`Erreur de mise à jour: ${basicError.message}`);
+      }
+
+      updatedDriver = basicUpdated;
     }
 
     if (!updatedDriver) {
