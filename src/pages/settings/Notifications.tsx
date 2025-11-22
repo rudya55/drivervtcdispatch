@@ -28,22 +28,71 @@ const Notifications = () => {
   const [selectedSound, setSelectedSound] = useState(driver?.notification_sound || 'default');
   const [loading, setLoading] = useState(false);
 
-  const playSound = () => {
+  const playSound = (soundId: string) => {
     try {
       const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880; // A5
-      gain.gain.value = 0.0001;
+      
+      // Generate different sounds based on soundId
+      switch (soundId) {
+        case 'bell':
+          osc.type = 'sine';
+          osc.frequency.value = 1046; // C6 (high pitch)
+          gain.gain.value = 0.0001;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+          osc.stop(ctx.currentTime + 0.41);
+          break;
+          
+        case 'chime':
+          osc.type = 'triangle';
+          osc.frequency.value = 659; // E5 (medium)
+          gain.gain.value = 0.0001;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+          osc.stop(ctx.currentTime + 0.61);
+          break;
+          
+        case 'alert':
+          osc.type = 'square';
+          osc.frequency.value = 880; // A5 (alert)
+          gain.gain.value = 0.0001;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+          osc.stop(ctx.currentTime + 0.16);
+          break;
+          
+        case 'gentle':
+          osc.type = 'sine';
+          osc.frequency.value = 440; // A4 (soft)
+          gain.gain.value = 0.0001;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
+          osc.stop(ctx.currentTime + 0.81);
+          break;
+          
+        case 'default':
+        default:
+          osc.type = 'sine';
+          osc.frequency.value = 880; // A5 (standard)
+          gain.gain.value = 0.0001;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+          osc.stop(ctx.currentTime + 0.36);
+          break;
+      }
+      
       osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-      osc.stop(ctx.currentTime + 0.36);
     } catch (e) {
       console.error('Audio preview error', e);
+      toast.error("Impossible de jouer le son. Vérifiez les permissions audio.");
     }
   };
 
@@ -180,7 +229,7 @@ const Notifications = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        playSound();
+                        playSound(sound.id);
                       }}
                     >
                       <Volume2 className="w-4 h-4" />
