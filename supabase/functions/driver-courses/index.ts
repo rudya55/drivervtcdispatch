@@ -40,6 +40,9 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
+    console.log('🚗 Driver ID:', driver?.id);
+    console.log('🚗 Driver vehicle_types_accepted:', driver?.vehicle_types_accepted);
+
     if (driverError || !driver) {
       return new Response(JSON.stringify({ error: 'Chauffeur non trouvé' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -65,6 +68,9 @@ Deno.serve(async (req) => {
     // Build the OR filter with vehicle type filtering
     const driverId = driver.id;
     const acceptedTypes = driver.vehicle_types_accepted || [];
+    
+    console.log('🔍 Accepted types:', acceptedTypes);
+    console.log('🔍 Building filter query...');
     
     if (acceptedTypes.length > 0) {
       // With vehicle type filtering
