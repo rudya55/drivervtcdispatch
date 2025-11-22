@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { Loader2, ArrowLeft, User, Building2 } from 'lucide-react';
 
 const Profile = () => {
-  const { driver } = useAuth();
+  const { driver, profilePhotoSignedUrl, refreshDriver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -56,21 +56,18 @@ const Profile = () => {
       if (driverData) {
         console.log('✅ Driver data loaded:', driverData);
         
-        // Generate signed URLs for display
-        let photoSignedUrl = null;
-        if (driverData.profile_photo_url) {
-          const { data: photoSigned } = await supabase.storage
-            .from('driver-documents')
-            .createSignedUrl(driverData.profile_photo_url, 60 * 60 * 24 * 7); // 7 days
-          photoSignedUrl = photoSigned?.signedUrl || null;
-        }
-
+        // Generate signed URL for company logo only
         let logoSignedUrl = null;
         if (driverData.company_logo_url) {
-          const { data: logoSigned } = await supabase.storage
+          const { data: logoSigned, error: logoError } = await supabase.storage
             .from('driver-documents')
             .createSignedUrl(driverData.company_logo_url, 60 * 60 * 24 * 7);
-          logoSignedUrl = logoSigned?.signedUrl || null;
+          
+          if (logoError) {
+            console.error('❌ Error generating logo signed URL:', logoError);
+          } else {
+            logoSignedUrl = logoSigned?.signedUrl || null;
+          }
         }
 
         setFormData({
@@ -84,8 +81,8 @@ const Profile = () => {
           company_logo_url: driverData.company_logo_url || '',
         });
         
-        // Use signed URLs for preview
-        setPhotoPreview(photoSignedUrl);
+        // Use profilePhotoSignedUrl from useAuth for consistency
+        setPhotoPreview(profilePhotoSignedUrl);
         setLogoPreview(logoSignedUrl);
       } else {
         console.log('⚠️ No driver profile, showing email only');
@@ -294,10 +291,15 @@ const Profile = () => {
       console.log('✅ Profile updated successfully');
       toast.success('Profil mis à jour avec succès');
 
-      // Recharger la page après 500ms
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      // Refresh driver data without full page reload
+      await refreshDriver();
+      
+      // Update form data with new values
+      setFormData(prev => ({
+        ...prev,
+        profile_photo_url,
+        company_logo_url,
+      }));
 
     } catch (error: any) {
       console.error('❌ Error saving profile:', error);
@@ -329,9 +331,13 @@ const Profile = () => {
                 <User className="w-4 h-4 text-primary" />
                 <Label className="font-semibold">Photo de profil</Label>
               </div>
-              {photoPreview && (
+              {photoPreview ? (
                 <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border">
                   <img src={photoPreview} alt="Profil" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                  <User className="w-8 h-8 text-muted-foreground" />
                 </div>
               )}
               <Input
@@ -340,6 +346,11 @@ const Profile = () => {
                 onChange={handlePhotoChange}
                 className="cursor-pointer"
               />
+              {!photoPreview && (
+                <p className="text-xs text-muted-foreground">
+                  Aucune photo enregistrée. Sélectionnez un fichier pour ajouter une photo.
+                </p>
+              )}
             </div>
 
             {/* Nom complet */}
@@ -387,9 +398,13 @@ const Profile = () => {
               {/* Logo société */}
               <div className="space-y-3">
                 <Label>Logo de la société</Label>
-                {logoPreview && (
+                {logoPreview ? (
                   <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-border">
                     <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                    <Building2 className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 <Input
@@ -398,6 +413,11 @@ const Profile = () => {
                   onChange={handleLogoChange}
                   className="cursor-pointer"
                 />
+                {!logoPreview && (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun logo enregistré.
+                  </p>
+                )}
               </div>
 
               {/* Nom de la société */}
