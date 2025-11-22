@@ -104,6 +104,27 @@ ALTER TABLE public.courses
   ADD COLUMN IF NOT EXISTS company_name text;
 
 -- ============================================================================
+-- PARTIE 8B: TABLE COURSES - TIMESTAMPS DE PROGRESSION
+-- ============================================================================
+
+-- Ajout des colonnes de timestamps pour tracker la progression des courses
+ALTER TABLE public.courses
+  ADD COLUMN IF NOT EXISTS accepted_at timestamptz,
+  ADD COLUMN IF NOT EXISTS started_at timestamptz,
+  ADD COLUMN IF NOT EXISTS arrived_at timestamptz,
+  ADD COLUMN IF NOT EXISTS picked_up_at timestamptz,
+  ADD COLUMN IF NOT EXISTS dropped_off_at timestamptz,
+  ADD COLUMN IF NOT EXISTS completed_at timestamptz;
+
+-- Index pour améliorer les performances des requêtes Analytics
+CREATE INDEX IF NOT EXISTS idx_courses_driver_completed 
+  ON public.courses(driver_id, status, completed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_courses_completed_at 
+  ON public.courses(completed_at) 
+  WHERE status = 'completed';
+
+-- ============================================================================
 -- PARTIE 9: STORAGE BUCKET POUR DOCUMENTS & PHOTOS
 -- ============================================================================
 
@@ -204,7 +225,8 @@ DO $$
 BEGIN
   RAISE NOTICE '✅ Migration terminée avec succès !';
   RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule, banque, notifications, approbation';
-  RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name';
+  RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name, timestamps de progression';
+  RAISE NOTICE '✅ Index créés pour améliorer les performances des Analytics';
   RAISE NOTICE '✅ Bucket driver-documents créé avec policies RLS';
   RAISE NOTICE '✅ Tous les chauffeurs existants ont été approuvés automatiquement';
   RAISE NOTICE '';
@@ -214,4 +236,5 @@ BEGIN
   RAISE NOTICE '   3. Remplir les infos société (nom, adresse, SIRET)';
   RAISE NOTICE '   4. Cliquer sur Sauvegarder';
   RAISE NOTICE '   5. Retourner sur /settings → la photo doit apparaître dans l''avatar ! ✅';
+  RAISE NOTICE '   6. Tester /analytics → les statistiques du mois doivent s''afficher correctement ! 📊';
 END $$;
