@@ -11,6 +11,8 @@ interface MapWithStatusButtonProps {
   driverStatus: 'active' | 'inactive';
   onStatusChange: (status: 'active' | 'inactive') => void;
   isUpdating?: boolean;
+  driverIcon?: 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv';
+  driverHeading?: number;
 }
 
 export const MapWithStatusButton = ({
@@ -19,7 +21,9 @@ export const MapWithStatusButton = ({
   markers,
   driverStatus,
   onStatusChange,
-  isUpdating = false
+  isUpdating = false,
+  driverIcon = 'car',
+  driverHeading = 0
 }: MapWithStatusButtonProps) => {
   const isOnline = driverStatus === 'active';
 
@@ -35,6 +39,12 @@ export const MapWithStatusButton = ({
         center={center}
         zoom={zoom}
         markers={markers}
+        driverMarker={{
+          lat: center.lat,
+          lng: center.lng,
+          icon: driverIcon,
+          heading: driverHeading
+        }}
       />
 
       {/* Status Indicator - Top Right Corner */}

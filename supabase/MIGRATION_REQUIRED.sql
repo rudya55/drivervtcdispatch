@@ -42,7 +42,8 @@ ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS vehicle_model text,
   ADD COLUMN IF NOT EXISTS vehicle_year text,
   ADD COLUMN IF NOT EXISTS vehicle_plate text,
-  ADD COLUMN IF NOT EXISTS license_number text;
+  ADD COLUMN IF NOT EXISTS license_number text,
+  ADD COLUMN IF NOT EXISTS vehicle_icon text DEFAULT 'car' CHECK (vehicle_icon IN ('car', 'taxi', 'van', 'motorcycle', 'suv'));
 
 -- ============================================================================
 -- PARTIE 3: TABLE DRIVERS - COORDONNÉES BANCAIRES
@@ -224,7 +225,7 @@ END $$;
 DO $$
 BEGIN
   RAISE NOTICE '✅ Migration terminée avec succès !';
-  RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule, banque, notifications, approbation';
+  RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule (+ icône personnalisable), banque, notifications, approbation';
   RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name, timestamps de progression';
   RAISE NOTICE '✅ Index créés pour améliorer les performances des Analytics';
   RAISE NOTICE '✅ Bucket driver-documents créé avec policies RLS';
