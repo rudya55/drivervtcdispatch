@@ -25,6 +25,7 @@ const Vehicle = () => {
     vehicle_plate: driver?.vehicle_plate || '',
     license_number: driver?.license_number || '',
     vehicle_icon: (driver?.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
+    vehicle_types_accepted: driver?.vehicle_types_accepted || ['Berline', 'Van', 'Standard', 'Moto', 'SUV', 'Minibus'],
   });
 
   const vehicleIcons = [
@@ -35,6 +36,15 @@ const Vehicle = () => {
     { id: 'suv', name: 'SUV', emoji: '🚙' },
   ] as const;
 
+  const vehicleTypes = [
+    { id: 'Berline', name: 'Berline', emoji: '🚗' },
+    { id: 'Van', name: 'Van', emoji: '🚐' },
+    { id: 'Standard', name: 'Standard', emoji: '🚕' },
+    { id: 'Moto', name: 'Moto', emoji: '🏍️' },
+    { id: 'SUV', name: 'SUV', emoji: '🚙' },
+    { id: 'Minibus', name: 'Minibus', emoji: '🚌' },
+  ];
+
   useEffect(() => {
     if (driver) {
       setFormData({
@@ -44,9 +54,32 @@ const Vehicle = () => {
         vehicle_plate: driver.vehicle_plate || '',
         license_number: driver.license_number || '',
         vehicle_icon: (driver.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
+        vehicle_types_accepted: driver.vehicle_types_accepted || ['Berline', 'Van', 'Standard', 'Moto', 'SUV', 'Minibus'],
       });
     }
   }, [driver]);
+
+  const toggleVehicleType = (typeId: string) => {
+    const currentTypes = formData.vehicle_types_accepted || [];
+    const isSelected = currentTypes.includes(typeId);
+    
+    if (isSelected) {
+      // Empêcher de tout désélectionner
+      if (currentTypes.length === 1) {
+        toast.error('Vous devez sélectionner au moins un type de véhicule');
+        return;
+      }
+      setFormData({
+        ...formData,
+        vehicle_types_accepted: currentTypes.filter(t => t !== typeId)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        vehicle_types_accepted: [...currentTypes, typeId]
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +94,7 @@ const Vehicle = () => {
         vehicle_plate: formData.vehicle_plate,
         license_number: formData.license_number,
         vehicle_icon: formData.vehicle_icon,
+        vehicle_types_accepted: formData.vehicle_types_accepted,
       };
 
       // === ATTEMPT 1: Direct update with driver.id ===
@@ -167,6 +201,34 @@ const Vehicle = () => {
                   >
                     <span className="text-2xl mb-1">{icon.emoji}</span>
                     <span className="text-xs font-medium">{icon.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Types de véhicules acceptés</Label>
+              <p className="text-sm text-muted-foreground">
+                Sélectionnez les types de courses que vous souhaitez recevoir
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {vehicleTypes.map((type) => (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => toggleVehicleType(type.id)}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all",
+                      formData.vehicle_types_accepted?.includes(type.id)
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50 hover:bg-muted"
+                    )}
+                  >
+                    <span className="text-2xl mb-1">{type.emoji}</span>
+                    <span className="text-xs font-medium">{type.name}</span>
+                    {formData.vehicle_types_accepted?.includes(type.id) && (
+                      <span className="text-xs text-primary mt-1">✓</span>
+                    )}
                   </button>
                 ))}
               </div>
