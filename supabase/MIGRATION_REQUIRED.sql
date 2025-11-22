@@ -44,7 +44,7 @@ ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS vehicle_plate text,
   ADD COLUMN IF NOT EXISTS license_number text,
   ADD COLUMN IF NOT EXISTS vehicle_icon text DEFAULT 'car' CHECK (vehicle_icon IN ('car', 'taxi', 'van', 'motorcycle', 'suv')),
-  ADD COLUMN IF NOT EXISTS vehicle_types_accepted text[] DEFAULT ARRAY['Berline', 'Van', 'Standard', 'Moto', 'SUV', 'Minibus'];
+  ADD COLUMN IF NOT EXISTS vehicle_types_accepted text[] DEFAULT ARRAY['Standard', 'Berline', 'Van', 'Minibus', 'First Class'];
 
 -- Index pour améliorer les performances de recherche par type de véhicule
 CREATE INDEX IF NOT EXISTS idx_drivers_vehicle_types 

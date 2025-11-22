@@ -157,7 +157,12 @@ const Vehicle = () => {
 
     } catch (error: any) {
       console.error(`[${new Date().toISOString()}] ❌ Vehicle update error:`, error);
-      toast.error('Impossible de sauvegarder les informations du véhicule. Réessayez.');
+      
+      if (error?.code === 'PGRST204' || error?.message?.includes('column')) {
+        toast.error("Migration en cours sur le serveur. Patientez 1 minute puis réessayez.");
+      } else {
+        toast.error("Impossible de sauvegarder les informations du véhicule. Réessayez.");
+      }
     } finally {
       setLoading(false);
       console.log(`[${new Date().toISOString()}] Vehicle update finished`);
