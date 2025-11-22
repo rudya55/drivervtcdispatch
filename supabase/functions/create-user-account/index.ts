@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       }
     });
 
-    const { email, password, role, name, phone } = await req.json();
+    const { email, password, role, name, phone, created_by } = await req.json();
     
     console.log('Creating user account with role:', role);
 
@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
               email,
               phone: phone || '',
               status: 'inactive',
-              approved: false
+              approved: false,
+              created_by: created_by || null  // Link to fleet manager if provided
               // Removed type: 'vtc' - field doesn't exist in database
             });
 
@@ -194,7 +195,8 @@ Deno.serve(async (req) => {
           email,
           phone: phone || '',
           status: 'inactive',
-          approved: false
+          approved: false,
+          created_by: created_by || null  // Link to fleet manager if provided
           // Removed type: 'vtc' - field doesn't exist in database
         });
 
