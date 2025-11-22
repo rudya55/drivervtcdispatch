@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créer Compte Démo - Driver VTC Dispatch</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+
+        .button {
+            display: block;
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            margin-top: 20px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        #log.show {
+            display: block;
+        }
+
+        .log-line {
+            margin: 5px 0;
+        }
+
+        .log-success {
+            color: #4caf50;
+        }
+
+        .log-error {
+            color: #f44336;
+        }
+
+        .log-info {
+            color: #2196f3;
+        }
+
+        .credentials {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .credentials.show {
+            display: block;
+        }
+
+        .credentials h3 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+
+        .credentials p {
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+
+        .credentials strong {
+            color: #1b5e20;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚕 Compte Démo VTC</h1>
+        <p class="subtitle">Création d'un compte de test avec des courses réalistes</p>
+
+        <div class="info-box">
+            <h3>📋 Ce qui sera créé :</h3>
+            <p>✅ <strong>1 compte chauffeur</strong> avec profil complet</p>
+            <p>✅ <strong>5 courses de démonstration</strong> avec différents statuts :</p>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Course en attente (à accepter)</li>
+                <li>Course acceptée (prêt à démarrer)</li>
+                <li>Course en cours (client à bord)</li>
+                <li>Course terminée (paiement reçu)</li>
+                <li>Course annulée</li>
+            </ul>
+            <p style="margin-top: 10px;">✅ <strong>Adresses réalistes</strong> à Paris</p>
+            <p>✅ <strong>Notifications</strong> pour chaque course</p>
+        </div>
+
+        <button class="button" onclick="createDemoAccount()" id="createBtn">
+            🚀 Créer le Compte Démo
+        </button>
+
+        <div id="log"></div>
+
+        <div class="credentials" id="credentials">
+            <h3>✅ Compte Démo Créé avec Succès !</h3>
+            <p><strong>Email :</strong> demo@vtcdispatch.fr</p>
+            <p><strong>Mot de passe :</strong> Demo123456</p>
+            <p style="margin-top: 20px; color: #666;">
+                Connectez-vous sur <a href="https://drivervtcdispatch.lovable.app/" target="_blank" const
+                    line=document.createElement('div'); line.className=`log-line log-${type}`; line.textContent=`${new
+                    Date().toLocaleTimeString()} - ${message}`; logDiv.appendChild(line);
+                    logDiv.scrollTop=logDiv.scrollHeight; } async function createDemoAccount() { const
+                    btn=document.getElementById('createBtn'); btn.disabled=true;
+                    btn.textContent='⏳ Création en cours...' ; try { log('🚀 Démarrage de la création du compte
+                    démo...', 'info' ); // 1. Créer le compte utilisateur log('📧 Création du compte
+                    utilisateur...', 'info' ); const email='demo@vtcdispatch.fr' ; const password='Demo123456' ; //
+                    Supprimer l'ancien compte s'il existe try { const { data: { user } }=await
+                    supabase.auth.signInWithPassword({ email, password }); if (user) { log('🗑️ Suppression de l\'ancien
+                    compte démo...', 'info' ); await supabase.auth.signOut(); } } catch (e) { // Pas grave si le compte
+                    n'existe pas } // Créer le nouveau compte const { data: authData, error: authError }=await
+                    supabase.auth.signUp({ email: email, password: password, options: { data: { name: 'Chauffeur Démo' }
+                    } }); if (authError) throw authError; log('✅ Compte utilisateur créé', 'success' ); const
+                    userId=authData.user.id; // 2. Créer le profil chauffeur log('👤 Création du profil
+                    chauffeur...', 'info' ); const { data: driver, error: driverError }=await supabase .from('drivers')
+                    .insert({ user_id: userId, name: 'Jean Dupont' , email: email, phone: '+33 6 12 34 56 78' ,
+                    status: 'inactive' , company_name: 'VTC Paris Premium' ,
+                    company_address: '15 Avenue des Champs-Élysées, 75008 Paris' , siret: '123 456 789 00012' })
+                    .select() .single(); if (driverError) throw driverError; log('✅ Profil chauffeur créé', 'success' );
+                    const driverId=driver.id; // 3. Créer les courses de démonstration log('🚗 Création des courses de
+                    démonstration...', 'info' ); const courses=[ { driver_id: driverId, client_name: 'Marie Martin' ,
+                    client_phone: '+33 6 98 76 54 32' , pickup_address: 'Gare du Nord, 75010 Paris' ,
+                    dropoff_address: 'Aéroport Charles de Gaulle, Terminal 2E' , pickup_time: new Date(Date.now() + 2 *
+                    60 * 60 * 1000).toISOString(), // Dans 2h status: 'pending' , price: 65.00, distance: 28.5,
+                    payment_method: 'card' }, { driver_id: driverId, client_name: 'Pierre Dubois' ,
+                    client_phone: '+33 6 45 67 89 01' , pickup_address: 'Tour Eiffel, 75007 Paris' ,
+                    dropoff_address: 'Musée du Louvre, 75001 Paris' , pickup_time: new Date(Date.now() + 4 * 60 * 60 *
+                    1000).toISOString(), // Dans 4h status: 'accepted' , price: 25.00, distance: 4.2,
+                    payment_method: 'cash' }, { driver_id: driverId, client_name: 'Sophie Bernard' ,
+                    client_phone: '+33 6 23 45 67 89' , pickup_address: 'Gare de Lyon, 75012 Paris' ,
+                    dropoff_address: 'La Défense, 92400 Courbevoie' , pickup_time: new Date().toISOString(), //
+                    Maintenant status: 'in_progress' , price: 45.00, distance: 12.8, payment_method: 'card' }, {
+                    driver_id: driverId, client_name: 'Thomas Petit' , client_phone: '+33 6 87 65 43 21' ,
+                    pickup_address: 'Opéra Garnier, 75009 Paris' , dropoff_address: 'Montmartre, 75018 Paris' ,
+                    pickup_time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // Il y a 2h
+                    status: 'completed' , price: 18.50, distance: 3.5, payment_method: 'cash' , completed_at: new
+                    Date(Date.now() - 1 * 60 * 60 * 1000).toISOString() }, { driver_id: driverId,
+                    client_name: 'Isabelle Moreau' , client_phone: '+33 6 11 22 33 44' ,
+                    pickup_address: 'Gare Montparnasse, 75015 Paris' , dropoff_address: 'Versailles, 78000' ,
+                    pickup_time: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), // Il y a 3h
+                    status: 'cancelled' , price: 55.00, distance: 18.0, payment_method: 'card' , cancelled_at: new
+                    Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(),
+                    cancellation_reason: 'Client a annulé - changement de plans' } ]; const { data: createdCourses,
+                    error: coursesError }=await supabase .from('courses') .insert(courses) .select(); if (coursesError)
+                    throw coursesError; log(`✅ ${createdCourses.length} courses créées`, 'success' ); // 4. Créer des
+                    notifications pour chaque course log('🔔 Création des notifications...', 'info' ); const
+                    notifications=createdCourses.map(course=> ({
+                    driver_id: driverId,
+                    course_id: course.id,
+                    title: course.status === 'pending' ? 'Nouvelle course disponible' :
+                    course.status === 'accepted' ? 'Course acceptée' :
+                    course.status === 'in_progress' ? 'Course en cours' :
+                    course.status === 'completed' ? 'Course terminée' :
+                    'Course annulée',
+                    message: `${course.client_name} - ${course.pickup_address} → ${course.dropoff_address}`,
+                    type: 'course_update',
+                    read: course.status === 'completed' || course.status === 'cancelled'
+                    }));
+
+                    const { error: notifError } = await supabase
+                    .from('driver_notifications')
+                    .insert(notifications);
+
+                    if (notifError) throw notifError;
+                    log(`✅ ${notifications.length} notifications créées`, 'success');
+
+                    // 5. Afficher les identifiants
+                    log('🎉 Compte démo créé avec succès !', 'success');
+                    document.getElementById('credentials').classList.add('show');
+
+                    btn.textContent = '✅ Compte Créé !';
+                    btn.style.background = '#4caf50';
+
+                    } catch (error) {
+                    log(`❌ Erreur: ${error.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Réessayer';
+                    console.error('Error:', error);
+                    }
+                    }
+                    </script>
+</body>
+
+</html>
