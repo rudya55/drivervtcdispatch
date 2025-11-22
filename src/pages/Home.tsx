@@ -260,6 +260,8 @@ const Home = () => {
               driverStatus={driver?.status || 'inactive'}
               onStatusChange={(status) => statusMutation.mutate(status)}
               isUpdating={statusMutation.isPending}
+              driverIcon={(driver?.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car'}
+              driverHeading={locationState.heading || 0}
             />
           </div>
         </Card>

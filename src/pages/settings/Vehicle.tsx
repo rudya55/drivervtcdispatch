@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { Loader2, ArrowLeft } from 'lucide-react';
 
 const Vehicle = () => {
@@ -23,7 +24,16 @@ const Vehicle = () => {
     vehicle_year: driver?.vehicle_year || '',
     vehicle_plate: driver?.vehicle_plate || '',
     license_number: driver?.license_number || '',
+    vehicle_icon: (driver?.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
   });
+
+  const vehicleIcons = [
+    { id: 'car', name: 'Berline', emoji: '🚗' },
+    { id: 'taxi', name: 'Taxi', emoji: '🚕' },
+    { id: 'van', name: 'Van', emoji: '🚐' },
+    { id: 'motorcycle', name: 'Moto', emoji: '🏍️' },
+    { id: 'suv', name: 'SUV', emoji: '🚙' },
+  ] as const;
 
   useEffect(() => {
     if (driver) {
@@ -33,6 +43,7 @@ const Vehicle = () => {
         vehicle_year: driver.vehicle_year || '',
         vehicle_plate: driver.vehicle_plate || '',
         license_number: driver.license_number || '',
+        vehicle_icon: (driver.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
       });
     }
   }, [driver]);
@@ -49,6 +60,7 @@ const Vehicle = () => {
         vehicle_year: formData.vehicle_year,
         vehicle_plate: formData.vehicle_plate,
         license_number: formData.license_number,
+        vehicle_icon: formData.vehicle_icon,
       };
 
       // === ATTEMPT 1: Direct update with driver.id ===
@@ -138,6 +150,28 @@ const Vehicle = () => {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Icône du véhicule sur la carte</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {vehicleIcons.map((icon) => (
+                  <button
+                    key={icon.id}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, vehicle_icon: icon.id })}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all",
+                      formData.vehicle_icon === icon.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50 hover:bg-muted"
+                    )}
+                  >
+                    <span className="text-2xl mb-1">{icon.emoji}</span>
+                    <span className="text-xs font-medium">{icon.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="brand">Marque</Label>
               <Input

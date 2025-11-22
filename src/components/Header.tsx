@@ -26,6 +26,7 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
           <Button
             variant="ghost"
             size="icon"
+            className="h-12 w-12 touch-manipulation"
             onClick={toggleTheme}
           >
             {theme === 'dark' ? (
@@ -38,13 +39,13 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
           <Button
             variant="ghost"
             size="icon"
-            className="relative flex items-center justify-center"
+            className="relative h-12 w-12 touch-manipulation"
             onClick={() => navigate('/notifications')}
           >
             <Bell className="w-5 h-5 text-foreground" />
             {unreadCount > 0 && (
               <Badge
-                className="absolute -top-0.5 -right-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs font-semibold"
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs font-semibold pointer-events-none"
                 variant="destructive"
               >
                 {unreadCount > 9 ? '9+' : unreadCount}
