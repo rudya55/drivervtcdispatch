@@ -25,7 +25,7 @@ const Vehicle = () => {
     vehicle_plate: driver?.vehicle_plate || '',
     license_number: driver?.license_number || '',
     vehicle_icon: (driver?.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
-    vehicle_types_accepted: driver?.vehicle_types_accepted || ['Berline', 'Van', 'Standard', 'Moto', 'SUV', 'Minibus'],
+    vehicle_types_accepted: driver?.vehicle_types_accepted || ['Standard', 'Berline', 'Van', 'Minibus', 'First Class'],
   });
 
   const vehicleIcons = [
@@ -33,16 +33,15 @@ const Vehicle = () => {
     { id: 'taxi', name: 'Taxi', emoji: '🚕' },
     { id: 'van', name: 'Van', emoji: '🚐' },
     { id: 'motorcycle', name: 'Moto', emoji: '🏍️' },
-    { id: 'suv', name: 'SUV', emoji: '🚙' },
+    { id: 'suv', name: 'First Class', emoji: '💎' },
   ] as const;
 
   const vehicleTypes = [
-    { id: 'Berline', name: 'Berline', emoji: '🚗' },
+    { id: 'Standard', name: 'Standard', emoji: '🚗' },
+    { id: 'Berline', name: 'Berline', emoji: '✨' },
     { id: 'Van', name: 'Van', emoji: '🚐' },
-    { id: 'Standard', name: 'Standard', emoji: '🚕' },
-    { id: 'Moto', name: 'Moto', emoji: '🏍️' },
-    { id: 'SUV', name: 'SUV', emoji: '🚙' },
     { id: 'Minibus', name: 'Minibus', emoji: '🚌' },
+    { id: 'First Class', name: 'First Class', emoji: '💎' },
   ];
 
   useEffect(() => {
@@ -54,7 +53,7 @@ const Vehicle = () => {
         vehicle_plate: driver.vehicle_plate || '',
         license_number: driver.license_number || '',
         vehicle_icon: (driver.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
-        vehicle_types_accepted: driver.vehicle_types_accepted || ['Berline', 'Van', 'Standard', 'Moto', 'SUV', 'Minibus'],
+        vehicle_types_accepted: driver.vehicle_types_accepted || ['Standard', 'Berline', 'Van', 'Minibus', 'First Class'],
       });
     }
   }, [driver]);
@@ -85,6 +84,10 @@ const Vehicle = () => {
     e.preventDefault();
     setLoading(true);
     console.log(`[${new Date().toISOString()}] Starting vehicle update`);
+    console.log('🚗 Données à sauvegarder:');
+    console.log('  - vehicle_icon:', formData.vehicle_icon);
+    console.log('  - vehicle_types_accepted:', formData.vehicle_types_accepted);
+    console.log('  - driver.id:', driver?.id);
 
     try {
       const updateData = {
@@ -199,7 +202,7 @@ const Vehicle = () => {
                         : "border-border hover:border-primary/50 hover:bg-muted"
                     )}
                   >
-                    <span className="text-2xl mb-1">{icon.emoji}</span>
+                    <span className="text-4xl mb-1">{icon.emoji}</span>
                     <span className="text-xs font-medium">{icon.name}</span>
                   </button>
                 ))}
@@ -224,7 +227,7 @@ const Vehicle = () => {
                         : "border-border hover:border-primary/50 hover:bg-muted"
                     )}
                   >
-                    <span className="text-2xl mb-1">{type.emoji}</span>
+                    <span className="text-4xl mb-1">{type.emoji}</span>
                     <span className="text-xs font-medium">{type.name}</span>
                     {formData.vehicle_types_accepted?.includes(type.id) && (
                       <span className="text-xs text-primary mt-1">✓</span>
