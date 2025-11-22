@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/hooks/useAuth';
 
 interface HeaderProps {
   title: string;
@@ -10,6 +11,7 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
+  const { driver } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
 
