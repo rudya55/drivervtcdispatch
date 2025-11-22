@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -24,20 +24,30 @@ const Notifications = () => {
   const { driver, refreshDriver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(driver?.notifications_enabled ?? true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(driver?.notifications_enabled ?? false);
   const [selectedSound, setSelectedSound] = useState(driver?.notification_sound || 'default');
   const [loading, setLoading] = useState(false);
+
+  // Sync UI state with driver data when it changes
+  useEffect(() => {
+    if (!driver) return;
+    
+    setNotificationsEnabled(driver.notifications_enabled ?? false);
+    setSelectedSound(driver.notification_sound || 'default');
+  }, [driver]);
 
   const playSound = (soundId: string) => {
     try {
       const sound = notificationSounds.find(s => s.id === soundId);
       if (!sound) return;
 
+      console.log('[Notifications] Playing sound preview:', sound);
+
       const audio = new Audio(sound.url);
       audio.volume = 0.7;
       
       audio.play().catch(err => {
-        console.error('Audio playback error:', err);
+        console.error('Audio playback error for', sound.url, err);
         toast.error("Impossible de jouer le son. Vérifiez les permissions audio de votre navigateur.");
       });
     } catch (e) {
