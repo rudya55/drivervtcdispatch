@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload } from 'lucide-react';
+import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload, CheckCircle2 } from 'lucide-react';
 
 const documentCategories = [
   { id: 'identity', name: "Pièce d'identité", required: true },
@@ -123,12 +123,18 @@ const Documents = () => {
       fetchDocuments();
     } catch (error: any) {
       console.error(`[${new Date().toISOString()}] Upload error:`, error);
-      const errorMessage = [
-        error.message,
-        error.hint,
-        error.code
-      ].filter(Boolean).join(' - ');
-      toast.error(errorMessage || 'Erreur lors du téléchargement');
+      
+      // Message spécifique pour les erreurs RLS
+      if (error.message?.includes('policy') || error.message?.includes('permission') || error.message?.includes('RLS')) {
+        toast.error('Erreur de permissions. Vérifiez que le script SQL a bien été exécuté dans Supabase.');
+      } else {
+        const errorMessage = [
+          error.message,
+          error.hint,
+          error.code
+        ].filter(Boolean).join(' - ');
+        toast.error(errorMessage || 'Erreur lors du téléchargement');
+      }
     } finally {
       setUploading(null);
     }
@@ -176,6 +182,35 @@ const Documents = () => {
           Retour
         </Button>
 
+        {/* Progress Bar for Required Documents */}
+        {(() => {
+          const uploadedRequiredCount = documentCategories
+            .filter(cat => cat.required)
+            .filter(cat => documents.some(doc => doc.category === cat.id))
+            .length;
+          const totalRequired = documentCategories.filter(cat => cat.required).length;
+          const progressPercentage = (uploadedRequiredCount / totalRequired) * 100;
+
+          return (
+            <Card className="p-4 mb-4 bg-accent/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">
+                  Documents obligatoires
+                </span>
+                <span className="text-sm font-semibold text-primary">
+                  {uploadedRequiredCount} / {totalRequired}
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
+            </Card>
+          );
+        })()}
+
         <div className="space-y-4">
           {documentCategories.map((category) => {
             const categoryDocs = documents.filter(doc => doc.category === category.id);
@@ -188,6 +223,12 @@ const Documents = () => {
                     <h3 className="font-semibold">{category.name}</h3>
                     {category.required && (
                       <span className="text-xs text-destructive">*</span>
+                    )}
+                    {hasDocument && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full border border-green-500/20">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Téléchargé
+                      </span>
                     )}
                   </div>
                   {!hasDocument && (
