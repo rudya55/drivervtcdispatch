@@ -55,6 +55,24 @@ const Profile = () => {
 
       if (driverData) {
         console.log('✅ Driver data loaded:', driverData);
+        
+        // Generate signed URLs for display
+        let photoSignedUrl = null;
+        if (driverData.profile_photo_url) {
+          const { data: photoSigned } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(driverData.profile_photo_url, 60 * 60 * 24 * 7); // 7 days
+          photoSignedUrl = photoSigned?.signedUrl || null;
+        }
+
+        let logoSignedUrl = null;
+        if (driverData.company_logo_url) {
+          const { data: logoSigned } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(driverData.company_logo_url, 60 * 60 * 24 * 7);
+          logoSignedUrl = logoSigned?.signedUrl || null;
+        }
+
         setFormData({
           name: driverData.name || '',
           email: driverData.email || session.user.email || '',
@@ -65,8 +83,10 @@ const Profile = () => {
           profile_photo_url: driverData.profile_photo_url || '',
           company_logo_url: driverData.company_logo_url || '',
         });
-        setPhotoPreview(driverData.profile_photo_url || null);
-        setLogoPreview(driverData.company_logo_url || null);
+        
+        // Use signed URLs for preview
+        setPhotoPreview(photoSignedUrl);
+        setLogoPreview(logoSignedUrl);
       } else {
         console.log('⚠️ No driver profile, showing email only');
         setFormData(prev => ({
@@ -115,10 +135,26 @@ const Profile = () => {
 
       // Upload profile photo if changed
       if (profilePhoto) {
-        const photoPath = `${userId}/profile-photo-${Date.now()}`;
+        // Validation: max 5MB
+        if (profilePhoto.size > 5 * 1024 * 1024) {
+          toast.error("La photo ne doit pas dépasser 5MB");
+          setLoading(false);
+          return;
+        }
+
+        // Validation: must be an image
+        if (!profilePhoto.type.startsWith('image/')) {
+          toast.error("Le fichier doit être une image");
+          setLoading(false);
+          return;
+        }
+
+        const fileExt = profilePhoto.name.split('.').pop();
+        const photoPath = `${userId}/profile-photo-${Date.now()}.${fileExt}`;
+        
         const { error: photoError } = await supabase.storage
           .from('driver-documents')
-          .upload(photoPath, profilePhoto);
+          .upload(photoPath, profilePhoto, { upsert: true });
 
         if (photoError) {
           console.error('❌ Photo upload failed:', photoError);
@@ -127,19 +163,33 @@ const Profile = () => {
           return;
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(photoPath);
-        profile_photo_url = publicUrl;
-        console.log('✅ Photo uploaded successfully:', publicUrl);
+        // ✅ Store PATH, not public URL
+        profile_photo_url = photoPath;
+        console.log('✅ Photo uploaded, path saved:', photoPath);
       }
 
       // Upload company logo if changed
       if (companyLogo) {
-        const logoPath = `${userId}/company-logo-${Date.now()}`;
+        // Validation: max 5MB
+        if (companyLogo.size > 5 * 1024 * 1024) {
+          toast.error("Le logo ne doit pas dépasser 5MB");
+          setLoading(false);
+          return;
+        }
+
+        // Validation: must be an image
+        if (!companyLogo.type.startsWith('image/')) {
+          toast.error("Le fichier doit être une image");
+          setLoading(false);
+          return;
+        }
+
+        const fileExt = companyLogo.name.split('.').pop();
+        const logoPath = `${userId}/company-logo-${Date.now()}.${fileExt}`;
+        
         const { error: logoError } = await supabase.storage
           .from('driver-documents')
-          .upload(logoPath, companyLogo);
+          .upload(logoPath, companyLogo, { upsert: true });
 
         if (logoError) {
           console.error('❌ Logo upload failed:', logoError);
@@ -148,11 +198,9 @@ const Profile = () => {
           return;
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(logoPath);
-        company_logo_url = publicUrl;
-        console.log('✅ Logo uploaded successfully:', publicUrl);
+        // ✅ Store PATH, not public URL
+        company_logo_url = logoPath;
+        console.log('✅ Logo uploaded, path saved:', logoPath);
       }
 
       // Ensure driver profile exists
