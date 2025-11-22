@@ -29,7 +29,7 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -40,11 +40,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
   if (!session) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -66,13 +66,13 @@ const AppContent = () => {
 
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={session ? <Navigate to="/" replace /> : <Login />} 
+      <Route
+        path="/login"
+        element={session ? <Navigate to="/" replace /> : <Login />}
       />
-      <Route 
-        path="/reset-password" 
-        element={<ResetPassword />} 
+      <Route
+        path="/reset-password"
+        element={<ResetPassword />}
       />
       <Route
         path="/"
@@ -197,7 +197,11 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <AppContent />
+        <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex justify-center">
+          <div className="w-full max-w-lg bg-background min-h-screen shadow-2xl relative">
+            <AppContent />
+          </div>
+        </div>
       </TooltipProvider>
     </BrowserRouter>
   </QueryClientProvider>

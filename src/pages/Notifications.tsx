@@ -16,7 +16,7 @@ const Notifications = () => {
 
   return (
     <div className="min-h-screen bg-background pb-6 pt-16">
-      <header className="fixed top-0 left-0 right-0 bg-card border-b border-border z-40">
+      <header className="fixed top-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-card border-b border-border z-40">
         <div className="flex items-center justify-between h-16 px-4 max-w-lg mx-auto">
           <Button
             variant="ghost"
@@ -25,9 +25,9 @@ const Notifications = () => {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          
+
           <h1 className="text-xl font-bold">Notifications</h1>
-          
+
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -53,9 +53,8 @@ const Notifications = () => {
           notifications.map((notification) => (
             <Card
               key={notification.id}
-              className={`p-4 cursor-pointer transition-colors ${
-                !notification.read ? 'bg-primary/5' : ''
-              }`}
+              className={`p-4 cursor-pointer transition-colors ${!notification.read ? 'bg-primary/5' : ''
+                }`}
               onClick={() => !notification.read && markAsRead(notification.id)}
             >
               <div className="flex items-start justify-between gap-3">

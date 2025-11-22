@@ -2,11 +2,11 @@ import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Course } from '@/lib/supabase';
-import { 
-  MapPin, 
-  Clock, 
-  Users, 
-  Briefcase, 
+import {
+  MapPin,
+  Clock,
+  Users,
+  Briefcase,
   Euro,
   Navigation,
   UserCheck,
@@ -54,7 +54,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
         action: 'start'
       }];
     }
-    
+
     if (course.status === 'in_progress' && !course.arrived_at) {
       return [{
         id: 'arrived',
@@ -65,7 +65,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
         action: 'arrived'
       }];
     }
-    
+
     if (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at) {
       return [{
         id: 'pickup',
@@ -76,7 +76,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
         action: 'pickup'
       }];
     }
-    
+
     if (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at) {
       return [{
         id: 'dropoff',
@@ -87,7 +87,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
         action: 'dropoff'
       }];
     }
-    
+
     if (course.status === 'in_progress' && course.dropped_off_at) {
       return [{
         id: 'complete',
@@ -98,7 +98,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
         action: 'complete'
       }];
     }
-    
+
     return [];
   };
 
@@ -111,10 +111,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!currentAction) return;
-    
+
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
-    
+
     // Only allow right swipe
     if (diff > 0 && diff < 200) {
       setSwipeX(diff);
@@ -226,13 +226,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
     <>
       <div className="relative overflow-hidden">
         {/* Swipe background indicator */}
-        <div 
+        <div
           className={cn(
             "absolute inset-0 flex items-center justify-start pl-8 rounded-lg transition-opacity",
             currentAction.bgColor,
             swipeX > 0 ? "opacity-100" : "opacity-0"
           )}
-          style={{ 
+          style={{
             transform: `scaleX(${Math.min(swipeX / 200, 1)})`,
             transformOrigin: 'left',
           }}
@@ -244,13 +244,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
         </div>
 
         {/* Main card */}
-        <Card 
+        <Card
           ref={cardRef}
           className={cn(
             "p-4 space-y-4 cursor-grab active:cursor-grabbing transition-transform touch-none",
             activeAction && "shadow-lg"
           )}
-          style={{ 
+          style={{
             transform: `translateX(${swipeX}px)`,
           }}
           onTouchStart={handleTouchStart}
@@ -321,10 +321,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
 
       {/* Rating Modal */}
       {showRatingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed top-0 bottom-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="p-6 space-y-4 w-full max-w-md">
             <h3 className="text-lg font-semibold">Terminer la course</h3>
-            
+
             {/* Rating */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Notation</label>
