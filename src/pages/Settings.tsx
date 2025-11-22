@@ -87,12 +87,15 @@ const Settings = () => {
               {driver?.profile_photo_url ? (
                 <AvatarImage 
                   src={driver.profile_photo_url} 
-                  alt={driver.name || "Photo de profil"}
-                  onError={() => console.error('❌ Avatar image failed to load')}
+                  alt={driver?.name || "Photo de profil"}
+                  onError={(e) => {
+                    console.error('❌ Erreur de chargement de la photo:', driver.profile_photo_url);
+                    e.currentTarget.style.display = 'none';
+                  }}
                 />
               ) : null}
               <AvatarFallback className="bg-primary text-primary-foreground">
-                <User className="w-8 h-8" />
+                <User className="w-12 h-12" />
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
