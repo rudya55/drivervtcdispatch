@@ -11,18 +11,11 @@ import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
 import { ArrowLeft, Volume2, Loader2 } from 'lucide-react';
-
-const notificationSounds = [
-  { id: 'default', name: 'Par défaut', url: '/sounds/default.mp3' },
-  { id: 'bell', name: 'Cloche', url: '/sounds/bell.mp3' },
-  { id: 'chime', name: 'Carillon', url: '/sounds/chime.mp3' },
-  { id: 'alert', name: 'Alerte', url: '/sounds/alert.mp3' },
-  { id: 'gentle', name: 'Doux', url: '/sounds/gentle.mp3' },
-];
+import { notificationSounds, playNotificationSound } from '@/lib/notificationSounds';
 
 const Notifications = () => {
   const { driver, refreshDriver } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null);
+  const { unreadCount } = useNotifications(driver?.id || null, driver);
   const navigate = useNavigate();
   const [notificationsEnabled, setNotificationsEnabled] = useState(driver?.notifications_enabled ?? false);
   const [selectedSound, setSelectedSound] = useState(driver?.notification_sound || 'default');
@@ -36,25 +29,6 @@ const Notifications = () => {
     setSelectedSound(driver.notification_sound || 'default');
   }, [driver]);
 
-  const playSound = (soundId: string) => {
-    try {
-      const sound = notificationSounds.find(s => s.id === soundId);
-      if (!sound) return;
-
-      console.log('[Notifications] Playing sound preview:', sound);
-
-      const audio = new Audio(sound.url);
-      audio.volume = 0.7;
-      
-      audio.play().catch(err => {
-        console.error('Audio playback error for', sound.url, err);
-        toast.error("Impossible de jouer le son. Vérifiez les permissions audio de votre navigateur.");
-      });
-    } catch (e) {
-      console.error('Audio preview error', e);
-      toast.error("Erreur lors de la lecture du son.");
-    }
-  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -222,7 +196,7 @@ const Notifications = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        playSound(sound.id);
+                        playNotificationSound(sound.id);
                       }}
                     >
                       <Volume2 className="w-4 h-4" />

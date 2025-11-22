@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, DriverNotification } from '@/lib/supabase';
 import { requestNotificationPermission, onMessageListener } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { playNotificationSound } from '@/lib/notificationSounds';
 
-export const useNotifications = (driverId: string | null) => {
+export const useNotifications = (driverId: string | null, driver?: any) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const queryClient = useQueryClient();
 
@@ -47,6 +48,11 @@ export const useNotifications = (driverId: string | null) => {
   // Listen for foreground messages
   useEffect(() => {
     const unsubscribe = onMessageListener().then((payload: any) => {
+      // Play custom notification sound
+      if (driver?.notifications_enabled !== false) {
+        playNotificationSound(driver?.notification_sound || 'default');
+      }
+      
       toast(payload.notification?.title || 'Nouvelle notification', {
         description: payload.notification?.body,
       });
@@ -58,7 +64,7 @@ export const useNotifications = (driverId: string | null) => {
     return () => {
       unsubscribe.then(() => {});
     };
-  }, [driverId, queryClient]);
+  }, [driverId, driver, queryClient]);
 
   // Subscribe to realtime notifications
   useEffect(() => {
@@ -78,6 +84,12 @@ export const useNotifications = (driverId: string | null) => {
           queryClient.invalidateQueries({ queryKey: ['notifications', driverId] });
           
           const notification = payload.new as DriverNotification;
+          
+          // Play custom notification sound
+          if (driver?.notifications_enabled !== false) {
+            playNotificationSound(driver?.notification_sound || 'default');
+          }
+          
           toast(notification.title, {
             description: notification.message,
           });
