@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     // Get driver
     const { data: driver, error: driverError } = await supabase
       .from('drivers')
-      .select('id, status')
+      .select('id, status, vehicle_types_accepted')
       .eq('user_id', user.id)
       .single();
 
@@ -48,18 +48,44 @@ Deno.serve(async (req) => {
     }
 
     console.log('Fetching courses for driver:', driver.id);
+    console.log('Driver accepts vehicle types:', driver.vehicle_types_accepted);
 
-    // Fetch courses based on dispatch mode logic:
-    // 1. Courses assigned to this driver (any status except cancelled)
-    // 2. Courses in 'dispatched' status with dispatch_mode = 'auto' (visible to all active drivers)
-    // 3. Courses in 'dispatched' status with dispatch_mode = 'manual' ONLY if assigned to this driver
-    // 4. Courses in 'pending' status (not yet dispatched)
-    const { data: courses, error: coursesError } = await supabase
+    // Fetch courses based on dispatch mode logic + vehicle type filtering:
+    // 1. Courses assigned to this driver (any status except cancelled) - NO FILTER on vehicle_type
+    // 2. Courses in 'dispatched' status with dispatch_mode = 'auto' - FILTER by vehicle_type
+    // 3. Courses in 'dispatched' status with dispatch_mode = 'manual' ONLY if assigned to this driver - FILTER by vehicle_type
+    // 4. Courses in 'pending' status (not yet dispatched) - FILTER by vehicle_type
+    
+    let query = supabase
       .from('courses')
       .select('*')
-      .or(`driver_id.eq.${driver.id},and(status.eq.dispatched,dispatch_mode.eq.auto),and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driver.id}),status.eq.pending`)
       .neq('status', 'cancelled')
       .order('pickup_date', { ascending: true });
+
+    // Build the OR filter with vehicle type filtering
+    const driverId = driver.id;
+    const acceptedTypes = driver.vehicle_types_accepted || [];
+    
+    if (acceptedTypes.length > 0) {
+      // With vehicle type filtering
+      const typeFilters = acceptedTypes.map((t: string) => `vehicle_type.eq.${t}`).join(',');
+      query = query.or(
+        `driver_id.eq.${driverId},` + // My assigned courses (no filter)
+        `and(status.eq.dispatched,dispatch_mode.eq.auto,or(${typeFilters})),` + // Auto-dispatch with type filter
+        `and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driverId},or(${typeFilters})),` + // Manual-dispatch assigned to me with type filter
+        `and(status.eq.pending,or(${typeFilters}))` // Pending with type filter
+      );
+    } else {
+      // No filtering (accept all types)
+      query = query.or(
+        `driver_id.eq.${driverId},` +
+        `and(status.eq.dispatched,dispatch_mode.eq.auto),` +
+        `and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driverId}),` +
+        `status.eq.pending`
+      );
+    }
+
+    const { data: courses, error: coursesError } = await query;
 
     if (coursesError) {
       console.error('Courses error:', coursesError);

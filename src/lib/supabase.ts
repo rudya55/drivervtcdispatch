@@ -27,6 +27,7 @@ export type Driver = {
   vehicle_plate?: string | null;
   license_number?: string | null;
   vehicle_icon?: string | null;
+  vehicle_types_accepted?: string[] | null;
   iban?: string | null;
   bic?: string | null;
   profile_photo_url?: string | null;

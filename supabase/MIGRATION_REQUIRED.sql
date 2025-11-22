@@ -43,7 +43,16 @@ ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS vehicle_year text,
   ADD COLUMN IF NOT EXISTS vehicle_plate text,
   ADD COLUMN IF NOT EXISTS license_number text,
-  ADD COLUMN IF NOT EXISTS vehicle_icon text DEFAULT 'car' CHECK (vehicle_icon IN ('car', 'taxi', 'van', 'motorcycle', 'suv'));
+  ADD COLUMN IF NOT EXISTS vehicle_icon text DEFAULT 'car' CHECK (vehicle_icon IN ('car', 'taxi', 'van', 'motorcycle', 'suv')),
+  ADD COLUMN IF NOT EXISTS vehicle_types_accepted text[] DEFAULT ARRAY['Berline', 'Van', 'Standard', 'Moto', 'SUV', 'Minibus'];
+
+-- Index pour améliorer les performances de recherche par type de véhicule
+CREATE INDEX IF NOT EXISTS idx_drivers_vehicle_types 
+  ON public.drivers USING GIN (vehicle_types_accepted);
+
+-- Commenter la colonne
+COMMENT ON COLUMN public.drivers.vehicle_types_accepted IS 
+  'Types de véhicules que le chauffeur accepte de conduire (filtre pour les courses)';
 
 -- ============================================================================
 -- PARTIE 3: TABLE DRIVERS - COORDONNÉES BANCAIRES
