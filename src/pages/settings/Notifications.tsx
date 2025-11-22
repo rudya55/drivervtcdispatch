@@ -21,7 +21,7 @@ const notificationSounds = [
 ];
 
 const Notifications = () => {
-  const { driver } = useAuth();
+  const { driver, refreshDriver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [notificationsEnabled, setNotificationsEnabled] = useState(driver?.notifications_enabled ?? true);
@@ -30,69 +30,19 @@ const Notifications = () => {
 
   const playSound = (soundId: string) => {
     try {
-      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const sound = notificationSounds.find(s => s.id === soundId);
+      if (!sound) return;
+
+      const audio = new Audio(sound.url);
+      audio.volume = 0.7;
       
-      // Generate different sounds based on soundId
-      switch (soundId) {
-        case 'bell':
-          osc.type = 'sine';
-          osc.frequency.value = 1046; // C6 (high pitch)
-          gain.gain.value = 0.0001;
-          osc.start();
-          gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-          osc.stop(ctx.currentTime + 0.41);
-          break;
-          
-        case 'chime':
-          osc.type = 'triangle';
-          osc.frequency.value = 659; // E5 (medium)
-          gain.gain.value = 0.0001;
-          osc.start();
-          gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-          osc.stop(ctx.currentTime + 0.61);
-          break;
-          
-        case 'alert':
-          osc.type = 'square';
-          osc.frequency.value = 880; // A5 (alert)
-          gain.gain.value = 0.0001;
-          osc.start();
-          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
-          osc.stop(ctx.currentTime + 0.16);
-          break;
-          
-        case 'gentle':
-          osc.type = 'sine';
-          osc.frequency.value = 440; // A4 (soft)
-          gain.gain.value = 0.0001;
-          osc.start();
-          gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
-          osc.stop(ctx.currentTime + 0.81);
-          break;
-          
-        case 'default':
-        default:
-          osc.type = 'sine';
-          osc.frequency.value = 880; // A5 (standard)
-          gain.gain.value = 0.0001;
-          osc.start();
-          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-          osc.stop(ctx.currentTime + 0.36);
-          break;
-      }
-      
-      osc.connect(gain).connect(ctx.destination);
+      audio.play().catch(err => {
+        console.error('Audio playback error:', err);
+        toast.error("Impossible de jouer le son. Vérifiez les permissions audio de votre navigateur.");
+      });
     } catch (e) {
       console.error('Audio preview error', e);
-      toast.error("Impossible de jouer le son. Vérifiez les permissions audio.");
+      toast.error("Erreur lors de la lecture du son.");
     }
   };
 
@@ -116,6 +66,17 @@ const Notifications = () => {
 
         if (!updateError) {
           console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 1)`);
+          
+          // Update local state immediately
+          setNotificationsEnabled(updateData.notifications_enabled);
+          setSelectedSound(updateData.notification_sound);
+          
+          // Refresh driver profile in context
+          if (refreshDriver) {
+            await refreshDriver();
+          }
+          
+          setLoading(false);
           toast.success('Préférences enregistrées');
           setTimeout(() => navigate('/settings'), 300);
           return;
@@ -138,6 +99,17 @@ const Notifications = () => {
 
       if (!retryError) {
         console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 2)`);
+        
+        // Update local state immediately
+        setNotificationsEnabled(updateData.notifications_enabled);
+        setSelectedSound(updateData.notification_sound);
+        
+        // Refresh driver profile in context
+        if (refreshDriver) {
+          await refreshDriver();
+        }
+        
+        setLoading(false);
         toast.success('Préférences enregistrées');
         setTimeout(() => navigate('/settings'), 300);
         return;
@@ -158,6 +130,17 @@ const Notifications = () => {
       }
 
       console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 3)`);
+      
+      // Update local state immediately
+      setNotificationsEnabled(updateData.notifications_enabled);
+      setSelectedSound(updateData.notification_sound);
+      
+      // Refresh driver profile in context
+      if (refreshDriver) {
+        await refreshDriver();
+      }
+      
+      setLoading(false);
       toast.success('Préférences enregistrées');
       setTimeout(() => navigate('/settings'), 300);
 
