@@ -6,6 +6,7 @@ import { ensureDriverExists } from '@/lib/ensureDriver';
 export const useAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [driver, setDriver] = useState<Driver | null>(null);
+  const [profilePhotoSignedUrl, setProfilePhotoSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,6 +66,19 @@ export const useAuth = () => {
                   console.error('Error checking approval status:', err);
                 }
               }
+
+              // Generate signed URL for avatar if available
+              if (data.profile_photo_url) {
+                const { data: signedData } = await supabase.storage
+                  .from('driver-documents')
+                  .createSignedUrl(data.profile_photo_url, 60 * 60 * 24 * 7); // 7 days
+                
+                if (signedData?.signedUrl) {
+                  setProfilePhotoSignedUrl(signedData.signedUrl);
+                  console.log('✅ Avatar signed URL generated');
+                }
+              }
+
               setDriver(data);
             } else {
               console.warn('No driver profile available for user:', user.id);
@@ -133,6 +147,19 @@ export const useAuth = () => {
                 console.error('Error checking approval status at init:', err);
               }
             }
+
+            // Generate signed URL for avatar if available
+            if (data.profile_photo_url) {
+              const { data: signedData } = await supabase.storage
+                .from('driver-documents')
+                .createSignedUrl(data.profile_photo_url, 60 * 60 * 24 * 7); // 7 days
+              
+              if (signedData?.signedUrl) {
+                setProfilePhotoSignedUrl(signedData.signedUrl);
+                console.log('✅ Avatar signed URL generated at init');
+              }
+            }
+
             setDriver(data);
           } else {
             console.warn('No driver profile available at init for user:', user.id);
@@ -217,5 +244,5 @@ export const useAuth = () => {
     setDriver(null);
   };
 
-  return { session, driver, loading, login, logout };
+  return { session, driver, loading, login, logout, profilePhotoSignedUrl };
 };

@@ -21,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const Settings = () => {
-  const { driver, logout } = useAuth();
+  const { driver, logout, profilePhotoSignedUrl } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
 
@@ -84,12 +84,12 @@ const Settings = () => {
         <Card className="p-4">
           <div className="flex items-center gap-4">
             <Avatar className="w-16 h-16">
-              {driver?.profile_photo_url ? (
+              {profilePhotoSignedUrl ? (
                 <AvatarImage 
-                  src={driver.profile_photo_url} 
+                  src={profilePhotoSignedUrl} 
                   alt={driver?.name || "Photo de profil"}
                   onError={(e) => {
-                    console.error('❌ Erreur de chargement de la photo:', driver.profile_photo_url);
+                    console.error('❌ Erreur de chargement de la photo:', profilePhotoSignedUrl);
                     e.currentTarget.style.display = 'none';
                   }}
                 />
