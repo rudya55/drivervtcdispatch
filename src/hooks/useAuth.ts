@@ -244,5 +244,35 @@ export const useAuth = () => {
     setDriver(null);
   };
 
-  return { session, driver, loading, login, logout, profilePhotoSignedUrl };
+  const refreshDriver = async () => {
+    if (!session?.user) return;
+
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error refreshing driver profile:', error);
+      return;
+    }
+
+    if (data) {
+      setDriver(data);
+      
+      // Refresh signed URL for avatar if available
+      if (data.profile_photo_url) {
+        const { data: signedData } = await supabase.storage
+          .from('driver-documents')
+          .createSignedUrl(data.profile_photo_url, 60 * 60 * 24 * 7);
+        
+        if (signedData?.signedUrl) {
+          setProfilePhotoSignedUrl(signedData.signedUrl);
+        }
+      }
+    }
+  };
+
+  return { session, driver, loading, login, logout, profilePhotoSignedUrl, refreshDriver };
 };
