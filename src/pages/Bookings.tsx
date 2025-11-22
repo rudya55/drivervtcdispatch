@@ -33,12 +33,13 @@ const Bookings = () => {
     }
   }, [driver]);
 
-  // Realtime listener for courses
+  // Realtime listener for courses - Two channels for better reactivity
   useEffect(() => {
     if (!driver) return;
 
-    const channel = supabase
-      .channel('bookings-realtime')
+    // Channel 1: My assigned courses
+    const myCoursesChannel = supabase
+      .channel('my-bookings-realtime')
       .on(
         'postgres_changes',
         {
@@ -48,46 +49,97 @@ const Bookings = () => {
           filter: `driver_id=eq.${driver.id}`,
         },
         (payload) => {
-          console.log('Booking update:', payload);
+          console.log('My course update:', payload);
+          fetchCourses();
+        }
+      )
+      .subscribe();
+
+    // Channel 2: Auto-dispatched courses (visible by all active drivers)
+    const autoDispatchChannel = supabase
+      .channel('auto-dispatch-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'courses',
+          filter: `status=eq.dispatched,dispatch_mode=eq.auto`,
+        },
+        (payload) => {
+          console.log('Auto-dispatch course update:', payload);
           fetchCourses();
           
           if (payload.eventType === 'INSERT') {
-            toast.info('Nouvelle course reçue !');
-          } else if (payload.eventType === 'UPDATE') {
-            const course = payload.new as Course;
-            if (course.status === 'dispatched') {
-              toast.info('Une course vous a été assignée !');
-            }
+            toast.info('Nouvelle course disponible !', {
+              description: 'Une course vient d\'être publiée'
+            });
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(myCoursesChannel);
+      supabase.removeChannel(autoDispatchChannel);
     };
   }, [driver]);
+
+  // Synchronize with notifications system
+  useEffect(() => {
+    const handleNewCourseNotification = () => {
+      console.log('🔔 New course notification received, reloading courses...');
+      fetchCourses();
+    };
+    
+    window.addEventListener('reload-courses', handleNewCourseNotification);
+    
+    return () => {
+      window.removeEventListener('reload-courses', handleNewCourseNotification);
+    };
+  }, []);
 
   const fetchCourses = async () => {
     if (!driver) return;
 
+    console.log('📊 Fetching courses for driver:', driver.id);
+    console.log('📊 Driver accepts vehicle types:', driver.vehicle_types_accepted);
+
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .or(`driver_id.eq.${driver.id},status.eq.dispatched`)
-        .order('pickup_date', { ascending: true });
+      // Use Edge Function that handles dispatch_mode and vehicle_types_accepted filtering
+      const { data, error } = await supabase.functions.invoke('driver-courses');
 
       if (error) throw error;
 
-      if (data) {
-        setNewCourses(data.filter(c => c.status === 'pending' || c.status === 'dispatched'));
-        setActiveCourses(data.filter(c => c.status === 'accepted' || c.status === 'in_progress'));
-        setCompletedCourses(data.filter(c => c.status === 'completed'));
+      console.log('📊 Received courses:', data?.courses?.length || 0);
+
+      if (data?.courses) {
+        // Only 'dispatched' status for new courses
+        const newCoursesFiltered = data.courses.filter((c: Course) => c.status === 'dispatched');
+        
+        // Active courses include all in-progress statuses
+        const activeCoursesFiltered = data.courses.filter((c: Course) => 
+          ['accepted', 'in_progress', 'started', 'arrived', 'picked_up'].includes(c.status)
+        );
+        
+        // Completed courses
+        const completedCoursesFiltered = data.courses.filter((c: Course) => 
+          ['completed', 'dropped_off'].includes(c.status)
+        );
+
+        console.log('📊 Setting state:', {
+          new: newCoursesFiltered.length,
+          active: activeCoursesFiltered.length,
+          completed: completedCoursesFiltered.length
+        });
+
+        setNewCourses(newCoursesFiltered);
+        setActiveCourses(activeCoursesFiltered);
+        setCompletedCourses(completedCoursesFiltered);
       }
     } catch (error: any) {
-      console.error('Fetch courses error:', error);
+      console.error('❌ Fetch courses error:', error);
       toast.error('Erreur lors du chargement des courses');
     } finally {
       setLoading(false);
@@ -367,12 +419,32 @@ const Bookings = () => {
           <TabsContent value="new" className="space-y-4 mt-4">
             {newCourses.length === 0 ? (
               <Card className="p-8 text-center">
-                <p className="text-muted-foreground">Aucune nouvelle course</p>
+                <div className="flex flex-col items-center gap-2">
+                  <MapPin className="w-12 h-12 text-muted-foreground/30" />
+                  <p className="text-muted-foreground font-medium">Aucune nouvelle course disponible</p>
+                  <p className="text-xs text-muted-foreground">
+                    Les nouvelles courses apparaîtront ici dès leur publication
+                  </p>
+                </div>
               </Card>
             ) : (
-              newCourses.map(course => (
-                <CourseCard key={course.id} course={course} showActions />
-              ))
+              <>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <p className="text-sm text-muted-foreground">
+                    {newCourses.length} course{newCourses.length > 1 ? 's' : ''} disponible{newCourses.length > 1 ? 's' : ''}
+                  </p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={fetchCourses}
+                  >
+                    🔄 Actualiser
+                  </Button>
+                </div>
+                {newCourses.map(course => (
+                  <CourseCard key={course.id} course={course} showActions />
+                ))}
+              </>
             )}
           </TabsContent>
 
