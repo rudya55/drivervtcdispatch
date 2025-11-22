@@ -157,15 +157,27 @@ const Vehicle = () => {
 
     } catch (error: any) {
       console.error(`[${new Date().toISOString()}] ❌ Vehicle update error:`, error);
+      console.error('Error details:', {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint
+      });
       
-      if (error?.code === 'PGRST204' || error?.message?.includes('column')) {
-        toast.error("Migration en cours sur le serveur. Patientez 1 minute puis réessayez.");
+      // Vérification si c'est une erreur de colonne manquante (migration non appliquée)
+      if (error?.code === 'PGRST204' || 
+          error?.code === '42703' || 
+          error?.message?.toLowerCase().includes('column') ||
+          error?.message?.toLowerCase().includes('does not exist')) {
+        toast.error("⚠️ Migration requise : Veuillez appliquer MIGRATION_REQUIRED.sql dans Supabase Dashboard > SQL Editor");
+      } else if (error?.code === 'PGRST116') {
+        toast.error("Aucun profil chauffeur trouvé. Reconnectez-vous.");
       } else {
-        toast.error("Impossible de sauvegarder les informations du véhicule. Réessayez.");
+        toast.error("Erreur lors de la sauvegarde. Vérifiez votre connexion et réessayez.");
       }
     } finally {
       setLoading(false);
-      console.log(`[${new Date().toISOString()}] Vehicle update finished`);
+      console.log(`[${new Date().toISOString()}] ✅ Vehicle update process finished`);
     }
   };
 
