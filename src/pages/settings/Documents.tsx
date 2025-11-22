@@ -47,12 +47,12 @@ const Documents = () => {
 
     try {
       // Ensure driver profile exists before fetching
-      const { driverId } = await ensureDriverExists();
-      console.log(`[${new Date().toISOString()}] Using driver ID:`, driverId);
+      const { userId } = await ensureDriverExists();
+      console.log(`[${new Date().toISOString()}] Using user ID for storage:`, userId);
 
       const { data, error } = await supabase.storage
         .from('driver-documents')
-        .list(driverId);
+        .list(userId);
 
       if (error) {
         console.error('Fetch documents error:', error);
@@ -68,13 +68,13 @@ const Documents = () => {
       const docsWithUrls = data.map((file: any) => {
         const { data: { publicUrl } } = supabase.storage
           .from('driver-documents')
-          .getPublicUrl(`${driverId}/${file.name}`);
+          .getPublicUrl(`${userId}/${file.name}`);
         
         const category = file.name.split('_')[0];
         
         return {
           name: file.name,
-          path: `${driverId}/${file.name}`,
+          path: `${userId}/${file.name}`,
           url: publicUrl,
           created_at: file.created_at,
           category,
@@ -105,12 +105,12 @@ const Documents = () => {
 
     try {
       // Ensure driver profile exists before uploading
-      const { driverId } = await ensureDriverExists();
-      console.log(`[${new Date().toISOString()}] Using driver ID:`, driverId);
+      const { userId } = await ensureDriverExists();
+      console.log(`[${new Date().toISOString()}] Using user ID for storage:`, userId);
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${category}_${Date.now()}.${fileExt}`;
-      const filePath = `${driverId}/${fileName}`;
+      const filePath = `${userId}/${fileName}`;
       
       const { error } = await supabase.storage
         .from('driver-documents')
