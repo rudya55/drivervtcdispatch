@@ -230,11 +230,17 @@ const Home = () => {
 
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-16">
+    <div 
+      className="min-h-screen bg-background pb-20"
+      style={{ paddingTop: 'var(--header-height)' }}
+    >
       <Header title="Accueil" unreadCount={unreadCount} />
 
       {/* Bouton En ligne/Hors ligne - Sticky en haut au centre */}
-      <div className="sticky top-16 z-20 flex flex-col items-center px-4 py-3 bg-background/80 backdrop-blur-sm">
+      <div 
+        className="sticky z-20 flex flex-col items-center px-4 py-3 bg-background/80 backdrop-blur-sm"
+        style={{ top: 'var(--header-height)' }}
+      >
         <StatusToggle
           isOnline={isActive}
           onToggle={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
