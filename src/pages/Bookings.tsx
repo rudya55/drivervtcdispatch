@@ -113,10 +113,19 @@ const Bookings = () => {
       if (error) throw error;
 
       console.log('📊 Received courses:', data?.courses?.length || 0);
+      console.log('📊 Courses by status:', {
+        dispatched: data?.courses?.filter((c: Course) => c.status === 'dispatched').length,
+        pending: data?.courses?.filter((c: Course) => c.status === 'pending').length,
+        accepted: data?.courses?.filter((c: Course) => c.status === 'accepted').length,
+        in_progress: data?.courses?.filter((c: Course) => c.status === 'in_progress').length,
+        completed: data?.courses?.filter((c: Course) => c.status === 'completed').length,
+      });
 
       if (data?.courses) {
-        // Only 'dispatched' status for new courses
-        const newCoursesFiltered = data.courses.filter((c: Course) => c.status === 'dispatched');
+        // Include both 'dispatched' and 'pending' in new courses tab
+        const newCoursesFiltered = data.courses.filter((c: Course) => 
+          c.status === 'dispatched' || c.status === 'pending'
+        );
         
         // Active courses include all in-progress statuses
         const activeCoursesFiltered = data.courses.filter((c: Course) => 

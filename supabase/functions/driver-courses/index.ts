@@ -53,43 +53,27 @@ Deno.serve(async (req) => {
     console.log('Fetching courses for driver:', driver.id);
     console.log('Driver accepts vehicle types:', driver.vehicle_types_accepted);
 
-    // Fetch courses based on dispatch mode logic + vehicle type filtering:
-    // 1. Courses assigned to this driver (any status except cancelled) - NO FILTER on vehicle_type
-    // 2. Courses in 'dispatched' status with dispatch_mode = 'auto' - FILTER by vehicle_type
-    // 3. Courses in 'dispatched' status with dispatch_mode = 'manual' ONLY if assigned to this driver - FILTER by vehicle_type
-    // 4. Courses in 'pending' status (not yet dispatched) - FILTER by vehicle_type
+    // Simplified fetch: get all relevant courses without vehicle_type filtering in SQL
+    // We'll filter by vehicle_type in JavaScript for more robustness
     
+    const driverId = driver.id;
+    const acceptedTypes = driver.vehicle_types_accepted || [];
+    
+    console.log('🔍 Driver ID:', driverId);
+    console.log('🔍 Accepted types:', acceptedTypes);
+    
+    // Simple SQL query: get courses based on driver_id, status, dispatch_mode
     let query = supabase
       .from('courses')
       .select('*')
       .neq('status', 'cancelled')
-      .order('pickup_date', { ascending: true });
-
-    // Build the OR filter with vehicle type filtering
-    const driverId = driver.id;
-    const acceptedTypes = driver.vehicle_types_accepted || [];
-    
-    console.log('🔍 Accepted types:', acceptedTypes);
-    console.log('🔍 Building filter query...');
-    
-    if (acceptedTypes.length > 0) {
-      // With vehicle type filtering
-      const typeFilters = acceptedTypes.map((t: string) => `vehicle_type.eq.${t}`).join(',');
-      query = query.or(
-        `driver_id.eq.${driverId},` + // My assigned courses (no filter)
-        `and(status.eq.dispatched,dispatch_mode.eq.auto,or(${typeFilters})),` + // Auto-dispatch with type filter
-        `and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driverId},or(${typeFilters})),` + // Manual-dispatch assigned to me with type filter
-        `and(status.eq.pending,or(${typeFilters}))` // Pending with type filter
+      .order('pickup_date', { ascending: true })
+      .or(
+        `driver_id.eq.${driverId},` + // My assigned courses
+        `and(status.eq.dispatched,dispatch_mode.eq.auto),` + // Auto-dispatch courses
+        `and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driverId}),` + // Manual-dispatch assigned to me
+        `status.eq.pending` // Pending courses
       );
-    } else {
-      // No filtering (accept all types)
-      query = query.or(
-        `driver_id.eq.${driverId},` +
-        `and(status.eq.dispatched,dispatch_mode.eq.auto),` +
-        `and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driverId}),` +
-        `status.eq.pending`
-      );
-    }
 
     const { data: courses, error: coursesError } = await query;
 
@@ -101,12 +85,56 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log(`📊 Raw courses fetched: ${courses?.length || 0}`);
+
+    // Filter by vehicle_type in JavaScript (more robust than SQL OR clause)
+    const filteredCourses = (courses || []).filter((course) => {
+      // Always show all my assigned courses (regardless of vehicle type)
+      if (course.driver_id === driverId) {
+        console.log(`✅ Keeping assigned course ${course.id} (driver_id match)`);
+        return true;
+      }
+
+      // If driver accepts all types (empty array), show everything
+      if (acceptedTypes.length === 0) {
+        console.log(`✅ Keeping course ${course.id} (driver accepts all types)`);
+        return true;
+      }
+
+      // For auto-dispatch courses, filter by vehicle_type
+      if (course.status === 'dispatched' && course.dispatch_mode === 'auto') {
+        const match = acceptedTypes.includes(course.vehicle_type);
+        console.log(`${match ? '✅' : '❌'} Auto-dispatch course ${course.id}, vehicle_type: ${course.vehicle_type}, accepted: ${match}`);
+        return match;
+      }
+
+      // For manual-dispatch courses not yet assigned, filter by vehicle_type
+      if (course.status === 'dispatched' && course.dispatch_mode === 'manual' && !course.driver_id) {
+        const match = acceptedTypes.includes(course.vehicle_type);
+        console.log(`${match ? '✅' : '❌'} Manual-dispatch course ${course.id}, vehicle_type: ${course.vehicle_type}, accepted: ${match}`);
+        return match;
+      }
+
+      // For pending courses, filter by vehicle_type
+      if (course.status === 'pending') {
+        const match = acceptedTypes.includes(course.vehicle_type);
+        console.log(`${match ? '✅' : '❌'} Pending course ${course.id}, vehicle_type: ${course.vehicle_type}, accepted: ${match}`);
+        return match;
+      }
+
+      // Default: include the course
+      console.log(`✅ Keeping course ${course.id} (default)`);
+      return true;
+    });
+
+    console.log(`📊 Filtered courses: ${filteredCourses.length}`);
+
     // Sort courses by priority:
     // 1. Accepted/In Progress/Completed courses for this driver (my courses)
     // 2. Auto-dispatched courses (available to all)
     // 3. Manual-dispatched courses assigned to me
     // 4. Pending courses
-    const sortedCourses = (courses || []).sort((a, b) => {
+    const sortedCourses = filteredCourses.sort((a, b) => {
       // My active courses first
       if (a.driver_id === driver.id && ['accepted', 'in_progress', 'completed'].includes(a.status)) {
         return -1;
