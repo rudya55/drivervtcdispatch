@@ -85,6 +85,11 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
           
           const notification = payload.new as DriverNotification;
           
+          // Dispatch reload-courses event for new_course notifications
+          if (notification.type === 'new_course') {
+            window.dispatchEvent(new CustomEvent('reload-courses'));
+          }
+          
           // Play custom notification sound
           if (driver?.notifications_enabled !== false) {
             playNotificationSound(driver?.notification_sound || 'default');
@@ -100,7 +105,7 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [driverId, queryClient]);
+  }, [driverId, driver, queryClient]);
 
   const markAsRead = async (notificationId: string) => {
     await supabase
