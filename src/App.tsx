@@ -198,7 +198,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex justify-center">
-          <div className="w-full max-w-lg bg-background min-h-screen shadow-2xl relative">
+          <div className="w-full max-w-lg bg-background min-h-screen shadow-2xl relative safe-area-pt safe-area-pb">
             <AppContent />
           </div>
         </div>
