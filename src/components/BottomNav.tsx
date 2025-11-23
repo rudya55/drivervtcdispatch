@@ -3,7 +3,10 @@ import { NavLink } from './NavLink';
 
 export const BottomNav = () => {
   return (
-    <nav className="fixed bottom-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-card border-t border-border z-50">
+    <nav 
+      className="fixed bottom-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-card border-t border-border z-50"
+      style={{ paddingBottom: 'var(--safe-area-inset-bottom)' }}
+    >
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
         <NavLink
           to="/"
