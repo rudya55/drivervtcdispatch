@@ -20,11 +20,11 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
   };
 
   return (
-    <header 
+    <header
       className="fixed top-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-card border-b border-border z-40"
-      style={{ 
-        paddingTop: 'var(--safe-area-inset-top)',
-        height: 'var(--header-height)'
+      style={{
+        paddingTop: 'calc(var(--safe-area-inset-top) + 8px)',
+        height: 'auto'
       }}
     >
       <div className="flex items-center justify-between h-16 px-4 max-w-lg mx-auto">
