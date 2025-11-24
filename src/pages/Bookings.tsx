@@ -13,7 +13,9 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CourseTimer } from '@/components/CourseTimer';
-import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
+import { CourseDetailsModal } from '@/components/CourseDetailsModal';
+import { CourseSwipeActions } from '@/components/CourseSwipeActions';
+import { Info } from 'lucide-react';
 
 const Bookings = () => {
   const { driver } = useAuth();
@@ -24,6 +26,7 @@ const Bookings = () => {
   const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (driver) {
@@ -32,6 +35,23 @@ const Bookings = () => {
       setLoading(false);
     }
   }, [driver]);
+
+  // Get GPS location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+        }
+      );
+    }
+  }, []);
 
   // Realtime listener for courses - Two channels for better reactivity
   useEffect(() => {
@@ -235,6 +255,57 @@ const Bookings = () => {
     } catch (error: any) {
       console.error('Complete course error:', error);
       toast.error('Erreur lors de la fin de la course');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleCourseAction = async (action: string, data?: any) => {
+    if (!driver) return;
+
+    const courseId = data?.courseId || activeCourses[0]?.id;
+    if (!courseId) return;
+
+    setProcessing(courseId);
+    try {
+      console.log(`📤 Action: ${action}`, data);
+
+      const body: any = {
+        course_id: courseId,
+        action,
+      };
+
+      if (action === 'complete' && data) {
+        body.rating = data.rating;
+        body.comment = data.comment;
+        body.final_price = data.finalPrice;
+      }
+
+      if (currentLocation) {
+        body.latitude = currentLocation.lat;
+        body.longitude = currentLocation.lng;
+      }
+
+      const { error } = await supabase.functions.invoke('driver-update-course-status', {
+        body
+      });
+
+      if (error) throw error;
+
+      const successMessages: Record<string, string> = {
+        start: '🚗 Course démarrée !',
+        arrived: '📍 Arrivée confirmée !',
+        pickup: '✅ Client à bord !',
+        dropoff: '🏁 Client déposé !',
+        complete: '🎉 Course terminée !',
+      };
+
+      toast.success(successMessages[action] || 'Action effectuée !');
+      await fetchCourses();
+
+    } catch (error: any) {
+      console.error(`❌ ${action} error:`, error);
+      toast.error(`Erreur lors de l'action : ${error.message || 'Erreur inconnue'}`);
     } finally {
       setProcessing(null);
     }
@@ -464,12 +535,39 @@ const Bookings = () => {
               </Card>
             ) : (
               activeCourses.map(course => (
-                <CourseCard 
-                  key={course.id} 
-                  course={course}
-                  showTimer={course.status === 'accepted'}
-                  showStartButton={true}
-                />
+                <div key={course.id}>
+                  {course.status === 'accepted' && (
+                    <div className="mb-4">
+                      <CourseTimer 
+                        pickupDate={course.pickup_date}
+                        onUnlock={() => {
+                          toast.success('Course débloquée ! Vous pouvez la démarrer.');
+                          fetchCourses();
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  <div 
+                    className="cursor-pointer hover:opacity-80 transition-opacity mb-2"
+                    onClick={() => setSelectedCourse(course)}
+                  >
+                    <Card className="p-4 bg-primary/5 border-primary/20">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Info className="w-4 h-4 text-primary" />
+                        <span className="font-medium text-primary">
+                          Cliquez pour voir les détails (client, vol, carte)
+                        </span>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <CourseSwipeActions
+                    course={course}
+                    onAction={handleCourseAction}
+                    currentLocation={currentLocation}
+                  />
+                </div>
               ))
             )}
           </TabsContent>
@@ -505,9 +603,9 @@ const Bookings = () => {
         </Tabs>
       </div>
 
-      <CompletedCourseDetails 
+      <CourseDetailsModal
         course={selectedCourse}
-        open={!!selectedCourse}
+        open={selectedCourse !== null}
         onOpenChange={(open) => !open && setSelectedCourse(null)}
       />
 
