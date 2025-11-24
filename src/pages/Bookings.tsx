@@ -552,39 +552,24 @@ const Bookings = () => {
               </Card>
             ) : (
               activeCourses.map(course => (
-                <div key={course.id}>
+                <div key={course.id} className="space-y-3">
                   {course.status === 'accepted' && (
-                    <div className="mb-4">
-                      <CourseTimer 
-                        pickupDate={course.pickup_date}
-                        onUnlock={() => {
-                          toast.success('Course débloquée ! Vous pouvez la démarrer.');
-                          fetchCourses();
-                        }}
-                      />
-                    </div>
+                    <CourseTimer 
+                      pickupDate={course.pickup_date}
+                      onUnlock={() => {
+                        toast.success('Course débloquée ! Vous pouvez la démarrer.');
+                        fetchCourses();
+                      }}
+                    />
                   )}
-                  
-                  <div 
-                    className="cursor-pointer hover:opacity-80 transition-opacity mb-2"
-                    onClick={() => setSelectedCourse(course)}
-                  >
-                    <Card className="p-4 bg-primary/5 border-primary/20">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Info className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-primary">
-                          Cliquez pour voir les détails (client, vol, carte)
-                        </span>
-                      </div>
-                    </Card>
-                  </div>
 
-                <CourseSwipeActions
-                  course={course}
-                  onAction={handleCourseAction}
-                  currentLocation={currentLocation}
-                  canStart={canStartCourse(course.pickup_date)}
-                />
+                  <CourseSwipeActions
+                    course={course}
+                    onAction={handleCourseAction}
+                    currentLocation={currentLocation}
+                    canStart={canStartCourse(course.pickup_date)}
+                    onViewDetails={() => setSelectedCourse(course)}
+                  />
                 </div>
               ))
             )}

@@ -13,7 +13,9 @@ import {
   UserCheck,
   MapPinOff,
   CheckCircle,
-  Star
+  Star,
+  Lock,
+  Info
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -24,6 +26,7 @@ interface CourseSwipeActionsProps {
   onAction: (action: string, data?: any) => void;
   currentLocation?: { lat: number; lng: number } | null;
   canStart?: boolean;
+  onViewDetails?: () => void;
 }
 
 type SwipeAction = {
@@ -35,7 +38,7 @@ type SwipeAction = {
   action: string;
 };
 
-export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart = true }: CourseSwipeActionsProps) => {
+export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart = true, onViewDetails }: CourseSwipeActionsProps) => {
   const [swipeX, setSwipeX] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -171,66 +174,19 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   if (!currentAction) {
-    // No action available - show course details only
     return (
-      <Card className="p-4 space-y-4">
-        {/* Company & Vehicle */}
-        {course.company_name && (
-          <div className="flex items-center justify-between">
-            <Badge variant="secondary">{course.company_name}</Badge>
-            <Badge variant="outline">{course.vehicle_type}</Badge>
+      <Card className="p-6 bg-warning/10 border-warning/30">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Lock className="w-10 h-10 text-warning" />
+          <div>
+            <p className="font-semibold text-lg">🔒 Course verrouillée</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Vous pourrez démarrer cette course 1h avant l'heure de prise en charge
+            </p>
           </div>
-        )}
-
-        {/* Pickup Date/Time */}
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <span className="font-medium">
-            {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
-          </span>
-        </div>
-
-        {/* Locations */}
-        <div className="space-y-2">
-          <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Départ</p>
-              <p className="text-sm font-medium">{course.departure_location}</p>
-            </div>
+          <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-full">
+            Glissez de gauche à droite pour progresser dans les étapes
           </div>
-          <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Destination</p>
-              <p className="text-sm font-medium">{course.destination_location}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Details */}
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-1">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <span>{course.passengers_count}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Briefcase className="w-4 h-4 text-muted-foreground" />
-            <span>{course.luggage_count}</span>
-          </div>
-          <div className="flex items-center gap-1 ml-auto">
-            <Euro className="w-4 h-4 text-success" />
-            <span className="font-semibold text-success">
-              {course.net_driver ? course.net_driver.toFixed(2) : course.client_price.toFixed(2)}€
-            </span>
-          </div>
-        </div>
-
-        {/* Status Badge */}
-        <div className="flex justify-center">
-          <Badge variant="secondary" className="text-xs">
-            En attente de l'étape suivante
-          </Badge>
         </div>
       </Card>
     );
@@ -329,6 +285,20 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             <p className="text-sm text-muted-foreground border-l-2 border-primary pl-3">
               {course.notes}
             </p>
+          )}
+
+          {/* View Details Button */}
+          {onViewDetails && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails();
+              }}
+              className="w-full mt-2 p-2 border border-border rounded-lg flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Info className="w-4 h-4" />
+              <span>Voir détails complets (client, vol, carte)</span>
+            </button>
           )}
         </Card>
       </div>

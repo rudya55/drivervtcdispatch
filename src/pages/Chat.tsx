@@ -81,7 +81,11 @@ export default function Chat() {
       setMessages(data || []);
     } catch (error: any) {
       console.error('Error fetching messages:', error);
-      toast.error('Erreur lors du chargement des messages');
+      if (error.message?.includes('relation "public.messages" does not exist')) {
+        toast.error('La table des messages n\'existe pas. Veuillez exécuter le script SQL create-messages-table.sql dans Supabase.');
+      } else {
+        toast.error('Erreur lors du chargement des messages');
+      }
     } finally {
       setLoading(false);
     }
@@ -134,13 +138,22 @@ export default function Chat() {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/bookings')}
+          className="h-10 w-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-6 h-6" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="font-semibold">Chat avec le dispatch</h1>
           <p className="text-sm text-muted-foreground">Course #{courseId?.slice(0, 8)}</p>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/bookings')}
+          className="h-10 w-10"
+        >
+          <span className="text-2xl font-light">×</span>
+        </Button>
       </div>
 
       {/* Messages */}
