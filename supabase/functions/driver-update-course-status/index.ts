@@ -240,6 +240,40 @@ Deno.serve(async (req) => {
       // Don't fail the request if notification fails
     }
 
+    // Notify admin/dispatch of status changes
+    try {
+      const { data: adminUsers, error: adminError } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', ['admin', 'fleet_manager']);
+
+      if (adminUsers && adminUsers.length > 0) {
+        const adminNotifications = adminUsers.map(admin => ({
+          driver_id: null,
+          course_id,
+          type: 'admin_course_update',
+          title: `${course.client_name} - ${titleMapping[action]}`,
+          message: `Le chauffeur a ${trackingNotes.toLowerCase()}`,
+          read: false,
+          data: {
+            action,
+            status: statusMapping[action] || course.status,
+            driver_id: driver.id,
+            course_id,
+            client_name: course.client_name,
+          },
+        }));
+
+        await supabase
+          .from('driver_notifications')
+          .insert(adminNotifications);
+        
+        console.log(`✅ ${adminNotifications.length} notification(s) envoyée(s) au dispatch`);
+      }
+    } catch (adminNotificationError) {
+      console.error('Failed to send admin notifications:', adminNotificationError);
+    }
+
     // Add tracking entry with location if provided (optional, table may not exist yet)
     try {
       const trackingData: any = {
