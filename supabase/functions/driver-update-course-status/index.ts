@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const { course_id, action, latitude, longitude, rating, comment, final_price } = await req.json();
+    console.log(`📍 Action received: ${action} for course ${course_id}`);
 
     if (!course_id || !action) {
       return new Response(
