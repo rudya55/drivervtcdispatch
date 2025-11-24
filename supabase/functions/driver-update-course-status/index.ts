@@ -39,10 +39,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get driver record
+    // Get driver record with name
     const { data: driver, error: driverError } = await supabase
       .from('drivers')
-      .select('id')
+      .select('id, name')
       .eq('user_id', user.id)
       .single();
 
@@ -259,8 +259,12 @@ Deno.serve(async (req) => {
             action,
             status: statusMapping[action] || course.status,
             driver_id: driver.id,
+            driver_name: driver.name,
             course_id,
             client_name: course.client_name,
+            latitude: latitude || null,
+            longitude: longitude || null,
+            timestamp: new Date().toISOString(),
           },
         }));
 
@@ -293,6 +297,37 @@ Deno.serve(async (req) => {
     } catch (trackingError) {
       console.log('Tracking insert failed (table may not exist yet):', trackingError);
       // Don't fail the request if tracking fails
+    }
+
+    // Si la course est terminée, créer une entrée comptable
+    if (action === 'complete') {
+      try {
+        const netDriver = course.net_driver || course.client_price * 0.8;
+        const netFleet = course.client_price - netDriver;
+
+        const { error: accountingError } = await supabase
+          .from('accounting_entries')
+          .insert({
+            course_id,
+            driver_id: driver.id,
+            driver_amount: netDriver,
+            fleet_amount: netFleet,
+            total_amount: course.client_price,
+            rating: rating || null,
+            comment: comment || null,
+            payment_status: 'pending',
+            created_at: new Date().toISOString(),
+          });
+
+        if (accountingError) {
+          console.error('Failed to create accounting entry:', accountingError);
+        } else {
+          console.log('✅ Entrée comptable créée automatiquement');
+        }
+      } catch (accountingError) {
+        console.error('Accounting error:', accountingError);
+        // Ne pas faire échouer la requête si la table n'existe pas encore
+      }
     }
 
     return new Response(

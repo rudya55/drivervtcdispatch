@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Course } from '@/lib/supabase';
+import { toast } from 'sonner';
 import {
   MapPin,
   Clock,
@@ -137,7 +138,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       if (currentAction.action === 'complete') {
         setShowRatingModal(true);
       } else {
-        const actionData: any = { action: currentAction.action };
+        const actionData: any = { 
+          courseId: course.id,
+          action: currentAction.action 
+        };
         if (currentLocation) {
           actionData.latitude = currentLocation.lat;
           actionData.longitude = currentLocation.lng;
@@ -150,7 +154,12 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleRatingSubmit = () => {
+    if (rating === 0) {
+      toast.error('Veuillez donner une note avant de terminer');
+      return;
+    }
     onAction('complete', {
+      courseId: course.id,
       rating,
       comment,
       latitude: currentLocation?.lat,

@@ -17,6 +17,7 @@ import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { SignBoardModal } from '@/components/SignBoardModal';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { Info } from 'lucide-react';
+import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 
 const Bookings = () => {
   const { driver } = useAuth();
@@ -29,6 +30,19 @@ const Bookings = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showSignBoard, setShowSignBoard] = useState(false);
+
+  // Activer le GPS en continu quand il y a des courses actives
+  const activeCoursesList = newCourses.filter(c => 
+    c.status === 'accepted' || c.status === 'in_progress'
+  ).concat(activeCourses);
+  const gpsState = useNativeGeolocation(activeCoursesList.length > 0);
+
+  // Mettre à jour la position en temps réel
+  useEffect(() => {
+    if (gpsState.coordinates) {
+      setCurrentLocation(gpsState.coordinates);
+    }
+  }, [gpsState.coordinates]);
 
   useEffect(() => {
     if (driver) {
@@ -565,11 +579,12 @@ const Bookings = () => {
                     </Card>
                   </div>
 
-                  <CourseSwipeActions
-                    course={course}
-                    onAction={handleCourseAction}
-                    currentLocation={currentLocation}
-                  />
+                <CourseSwipeActions
+                  course={course}
+                  onAction={handleCourseAction}
+                  currentLocation={currentLocation}
+                  canStart={canStartCourse(course.pickup_date)}
+                />
                 </div>
               ))
             )}
