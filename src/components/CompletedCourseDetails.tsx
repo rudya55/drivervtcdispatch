@@ -93,9 +93,6 @@ export const CompletedCourseDetails = ({
             <h3 className="font-semibold mb-3">Informations client</h3>
             <div className="space-y-2">
               <p><span className="text-muted-foreground">Nom:</span> {course.client_name}</p>
-              {course.client_phone && (
-                <p><span className="text-muted-foreground">Téléphone:</span> {course.client_phone}</p>
-              )}
             </div>
           </Card>
 

@@ -14,6 +14,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CourseTimer } from '@/components/CourseTimer';
 import { CourseDetailsModal } from '@/components/CourseDetailsModal';
+import { SignBoardModal } from '@/components/SignBoardModal';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { Info } from 'lucide-react';
 
@@ -27,6 +28,7 @@ const Bookings = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showSignBoard, setShowSignBoard] = useState(false);
 
   useEffect(() => {
     if (driver) {
@@ -52,6 +54,14 @@ const Bookings = () => {
       );
     }
   }, []);
+
+  // Fonction pour vérifier si une course peut être démarrée (1h avant pickup)
+  const canStartCourse = (pickupDate: string): boolean => {
+    const pickup = new Date(pickupDate);
+    const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
+    const now = new Date();
+    return now >= unlockTime;
+  };
 
   // Realtime listener for courses - Two channels for better reactivity
   useEffect(() => {
@@ -309,13 +319,6 @@ const Bookings = () => {
     } finally {
       setProcessing(null);
     }
-  };
-
-  const canStartCourse = (pickupDate: string) => {
-    const pickup = new Date(pickupDate);
-    const unlockTime = new Date(pickup.getTime() - 60 * 60000);
-    const now = new Date();
-    return now >= unlockTime;
   };
 
   const CourseCard = ({ 
@@ -603,11 +606,20 @@ const Bookings = () => {
         </Tabs>
       </div>
 
-      <CourseDetailsModal
-        course={selectedCourse}
-        open={selectedCourse !== null}
-        onOpenChange={(open) => !open && setSelectedCourse(null)}
-      />
+        <CourseDetailsModal
+          course={selectedCourse}
+          open={selectedCourse !== null}
+          onOpenChange={(open) => !open && setSelectedCourse(null)}
+          onOpenSignBoard={() => setShowSignBoard(true)}
+        />
+
+        <SignBoardModal
+          open={showSignBoard}
+          onOpenChange={setShowSignBoard}
+          clientName={selectedCourse?.client_name || ''}
+          companyName={driver?.company_name}
+          companyLogoUrl={driver?.company_logo_url}
+        />
 
       <BottomNav />
     </div>

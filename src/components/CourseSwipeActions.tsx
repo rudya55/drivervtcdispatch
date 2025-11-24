@@ -22,6 +22,7 @@ interface CourseSwipeActionsProps {
   course: Course;
   onAction: (action: string, data?: any) => void;
   currentLocation?: { lat: number; lng: number } | null;
+  canStart?: boolean;
 }
 
 type SwipeAction = {
@@ -33,7 +34,7 @@ type SwipeAction = {
   action: string;
 };
 
-export const CourseSwipeActions = ({ course, onAction, currentLocation }: CourseSwipeActionsProps) => {
+export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart = true }: CourseSwipeActionsProps) => {
   const [swipeX, setSwipeX] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -45,6 +46,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation }: Course
   // Determine available actions based on course status
   const getAvailableActions = (): SwipeAction[] => {
     if (course.status === 'accepted') {
+      // Bloquer l'action start si canStart est false
+      if (!canStart) {
+        return [];
+      }
       return [{
         id: 'start',
         label: 'Démarrer la course',
