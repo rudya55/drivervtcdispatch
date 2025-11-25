@@ -111,7 +111,12 @@ CREATE INDEX IF NOT EXISTS idx_drivers_approved_created ON public.drivers(approv
 ALTER TABLE public.courses
   ADD COLUMN IF NOT EXISTS dispatch_mode text,
   ADD COLUMN IF NOT EXISTS flight_number text,
-  ADD COLUMN IF NOT EXISTS company_name text;
+  ADD COLUMN IF NOT EXISTS company_name text,
+  ADD COLUMN IF NOT EXISTS extras text;
+
+-- Commenter la colonne extras
+COMMENT ON COLUMN public.courses.extras IS
+  'Équipements spéciaux demandés: siège bébé, rehausseur, cosy, etc.';
 
 -- ============================================================================
 -- PARTIE 8B: TABLE COURSES - TIMESTAMPS DE PROGRESSION

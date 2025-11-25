@@ -26,7 +26,9 @@ import {
   ChevronRight,
   Plane,
   FileText,
-  Car
+  Car,
+  Baby,
+  AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -356,12 +358,30 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             </div>
           </div>
 
-          {/* NOTES / EXTRAS si disponibles */}
-          {course.notes && (
+          {/* EXTRAS - ÉQUIPEMENTS SPÉCIAUX */}
+          {(course.extras || (course.notes && /siège|rehausseur|cosy|bébé|baby/i.test(course.notes))) && (
+            <div className="flex items-start gap-3 p-4 bg-pink-100 dark:bg-pink-950/50 rounded-lg border-2 border-pink-400 dark:border-pink-800 shadow-md">
+              <div className="bg-pink-500 dark:bg-pink-600 p-2 rounded-full flex-shrink-0">
+                <Baby className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-extrabold text-pink-800 dark:text-pink-200 uppercase tracking-wider flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Équipements spéciaux requis
+                </p>
+                <p className="text-lg font-bold text-pink-900 dark:text-pink-100 mt-2 whitespace-pre-wrap leading-relaxed">
+                  {course.extras || course.notes}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* NOTES si disponibles et différentes des extras */}
+          {course.notes && !course.extras && !/siège|rehausseur|cosy|bébé|baby/i.test(course.notes) && (
             <div className="flex items-start gap-2 p-3 bg-amber-100 dark:bg-amber-950/50 rounded-lg border-2 border-amber-300 dark:border-amber-800">
               <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Notes / Extras</p>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Notes</p>
                 <p className="text-base font-medium text-amber-900 dark:text-amber-100 mt-1 whitespace-pre-wrap">{course.notes}</p>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Course } from '@/lib/supabase';
 import { translateCourseStatus } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
-import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle } from 'lucide-react';
+import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Baby, AlertCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -154,13 +154,33 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
             </div>
           </Card>
 
-          {/* Notes / Extras */}
-          {course.notes && (
+          {/* EXTRAS - ÉQUIPEMENTS SPÉCIAUX */}
+          {(course.extras || (course.notes && /siège|rehausseur|cosy|bébé|baby/i.test(course.notes))) && (
+            <Card className="p-4 bg-pink-100 dark:bg-pink-950/50 border-2 border-pink-400 dark:border-pink-800">
+              <div className="flex items-start gap-3">
+                <div className="bg-pink-500 dark:bg-pink-600 p-2 rounded-full flex-shrink-0">
+                  <Baby className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-pink-800 dark:text-pink-200 uppercase tracking-wider flex items-center gap-2 mb-1">
+                    <AlertCircle className="w-4 h-4" />
+                    Équipements spéciaux requis
+                  </p>
+                  <p className="text-base font-bold text-pink-900 dark:text-pink-100 whitespace-pre-wrap leading-relaxed">
+                    {course.extras || course.notes}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* NOTES si disponibles et différentes des extras */}
+          {course.notes && !course.extras && !/siège|rehausseur|cosy|bébé|baby/i.test(course.notes) && (
             <Card className="p-4 bg-amber-100 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-800">
               <div className="flex items-start gap-2">
-                <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide mb-1">Notes / Extras</p>
+                  <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide mb-1">Notes</p>
                   <p className="text-base font-medium text-amber-900 dark:text-amber-100 whitespace-pre-wrap">{course.notes}</p>
                 </div>
               </div>

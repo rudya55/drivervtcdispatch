@@ -57,6 +57,7 @@ export type Course = {
   luggage_count: number;
   vehicle_type: string;
   notes: string | null;
+  extras: string | null;
   dispatch_mode: string | null;
   flight_number: string | null;
   company_name: string | null;
