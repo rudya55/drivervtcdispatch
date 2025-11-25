@@ -15,7 +15,8 @@ import {
   CheckCircle,
   Star,
   Lock,
-  Info
+  Info,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -47,13 +48,21 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const startX = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Determine current step (1-5) for progress indicator
+  const getCurrentStep = (): number => {
+    if (course.status === 'accepted') return 1;
+    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) return 2;
+    if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) return 3;
+    if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) return 4;
+    if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) return 5;
+    return 1;
+  };
+
   // Determine available actions based on course status
   const getAvailableActions = (): SwipeAction[] => {
+    // Étape 1 : Démarrer la course
     if (course.status === 'accepted') {
-      // Bloquer l'action start si canStart est false
-      if (!canStart) {
-        return [];
-      }
+      if (!canStart) return [];
       return [{
         id: 'start',
         label: 'Démarrer la course',
@@ -64,7 +73,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    if (course.status === 'in_progress' && !course.arrived_at) {
+    // Étape 2 : Arrivé sur place (reconnaît 'started' OU 'in_progress' sans arrived_at)
+    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) {
       return [{
         id: 'arrived',
         label: 'Je suis sur place',
@@ -75,7 +85,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    if (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at) {
+    // Étape 3 : Client à bord (reconnaît 'arrived' OU 'in_progress' avec arrived_at sans picked_up_at)
+    if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) {
       return [{
         id: 'pickup',
         label: 'Client à bord',
@@ -86,7 +97,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    if (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at) {
+    // Étape 4 : Client déposé (reconnaît 'picked_up' OU 'in_progress' avec picked_up_at sans dropped_off_at)
+    if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) {
       return [{
         id: 'dropoff',
         label: 'Client déposé',
@@ -97,7 +109,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    if (course.status === 'in_progress' && course.dropped_off_at) {
+    // Étape 5 : Terminer (reconnaît 'dropped_off' OU 'in_progress' avec dropped_off_at)
+    if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) {
       return [{
         id: 'complete',
         label: 'Terminer la course',
@@ -113,6 +126,15 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
   const actions = getAvailableActions();
   const currentAction = actions[0];
+  const currentStep = getCurrentStep();
+
+  const steps = [
+    { num: 1, label: 'Démarrer', icon: Navigation },
+    { num: 2, label: 'Arrivé', icon: MapPin },
+    { num: 3, label: 'À bord', icon: UserCheck },
+    { num: 4, label: 'Déposé', icon: MapPinOff },
+    { num: 5, label: 'Terminer', icon: CheckCircle }
+  ];
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -195,6 +217,47 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   return (
     <>
       <div className="relative overflow-hidden">
+        {/* Progress Indicator - 5 Steps */}
+        <div className="mb-4 px-2">
+          <div className="flex items-center justify-between relative">
+            {steps.map((step, idx) => (
+              <div key={step.num} className="flex flex-col items-center relative z-10">
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                    step.num < currentStep
+                      ? "bg-success border-success"
+                      : step.num === currentStep
+                      ? "bg-primary border-primary scale-110 shadow-lg"
+                      : "bg-background border-muted-foreground/30"
+                  )}
+                >
+                  <step.icon
+                    className={cn(
+                      "w-5 h-5",
+                      step.num <= currentStep ? "text-white" : "text-muted-foreground"
+                    )}
+                  />
+                </div>
+                <span
+                  className={cn(
+                    "text-[10px] mt-1 font-medium",
+                    step.num === currentStep ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {step.label}
+                </span>
+              </div>
+            ))}
+            {/* Connecting lines */}
+            <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted-foreground/20 -z-0" />
+            <div
+              className="absolute top-5 left-0 h-0.5 bg-success transition-all duration-500 -z-0"
+              style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
+            />
+          </div>
+        </div>
+
         {/* Swipe background indicator */}
         <div
           className={cn(
@@ -227,13 +290,19 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Swipe hint */}
-          <div className="flex items-center justify-between">
-            <Badge variant="secondary">{course.company_name || 'VTC'}</Badge>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Glissez →</span>
-              <currentAction.icon className={cn("w-4 h-4", currentAction.color)} />
+          {/* Swipe hint with animated arrow */}
+          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="flex items-center gap-2">
+              <div className="animate-pulse">
+                <ChevronRight className={cn("w-5 h-5", currentAction.color)} />
+              </div>
+              <span className="text-sm font-semibold">
+                Glissez pour : {currentAction.label}
+              </span>
             </div>
+            <Badge variant="secondary" className="text-xs">
+              {course.company_name || 'VTC'}
+            </Badge>
           </div>
 
           {/* Pickup Date/Time */}

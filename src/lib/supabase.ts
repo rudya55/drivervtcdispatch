@@ -49,7 +49,7 @@ export type Course = {
   departure_location: string;
   destination_location: string;
   pickup_date: string;
-  status: 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'dispatched' | 'accepted' | 'started' | 'arrived' | 'picked_up' | 'dropped_off' | 'in_progress' | 'completed' | 'cancelled';
   client_price: number;
   commission: number | null;
   net_driver: number | null;
