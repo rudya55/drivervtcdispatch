@@ -22,16 +22,34 @@ Deno.serve(async (req) => {
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('Authentication error:', authError);
+      console.error('❌ Authentication error:', authError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse request body
-    const { course_id, action, latitude, longitude, rating, comment, final_price } = await req.json();
-    console.log(`📍 Action received: ${action} for course ${course_id}`);
+    // Parse request body with better error handling
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { course_id, action, latitude, longitude, rating, comment, final_price } = requestBody;
+    console.log(`📍 Action received: "${action}" for course ${course_id}`, {
+      course_id,
+      action,
+      hasLocation: !!(latitude && longitude),
+      rating,
+      comment,
+      final_price
+    });
 
     if (!course_id || !action) {
       return new Response(
@@ -169,8 +187,13 @@ Deno.serve(async (req) => {
         break;
 
       default:
+        console.error(`❌ Invalid action received: "${action}"`);
+        console.error('Valid actions are: accept, refuse, start, arrived, pickup, dropoff, complete, cancel');
         return new Response(
-          JSON.stringify({ error: 'Invalid action' }),
+          JSON.stringify({ 
+            error: `Invalid action: "${action}"`,
+            validActions: ['accept', 'refuse', 'start', 'arrived', 'pickup', 'dropoff', 'complete', 'cancel']
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
@@ -341,10 +364,23 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error('Unexpected error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.name : 'Error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('❌ Unexpected error in driver-update-course-status:', error);
+    console.error('Error details:', {
+      name: errorName,
+      message: errorMessage,
+      stack: errorStack
+    });
+    
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: errorMessage
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
