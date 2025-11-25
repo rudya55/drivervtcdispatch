@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Course } from '@/lib/supabase';
 import { GPSSelector } from '@/components/GPSSelector';
 import { BonDeCommandeModal } from '@/components/BonDeCommandeModal';
+import { CourseMap } from '@/components/CourseMap';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import {
@@ -335,6 +336,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
               <ChevronRight className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
             </button>
           </div>
+
+          {/* CARTE AVEC ITINÉRAIRE ET POSITION */}
+          <CourseMap
+            departureLocation={course.departure_location}
+            destinationLocation={course.destination_location}
+            driverLocation={currentLocation}
+          />
 
           {/* DÉTAILS DE LA COURSE */}
           <div className="flex items-center justify-between pt-2 border-t">

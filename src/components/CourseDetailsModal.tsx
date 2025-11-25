@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Course } from '@/lib/supabase';
 import { translateCourseStatus } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
+import { CourseMap } from '@/components/CourseMap';
 import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Baby, AlertCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -17,9 +18,10 @@ interface CourseDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenSignBoard?: () => void;
+  driverLocation?: { lat: number; lng: number } | null;
 }
 
-export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard }: CourseDetailsModalProps) => {
+export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard, driverLocation }: CourseDetailsModalProps) => {
   const navigate = useNavigate();
   const { driver } = useAuth();
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
@@ -132,6 +134,13 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
               </div>
             </button>
           </Card>
+
+          {/* CARTE AVEC ITINÉRAIRE ET POSITION */}
+          <CourseMap
+            departureLocation={course.departure_location}
+            destinationLocation={course.destination_location}
+            driverLocation={driverLocation}
+          />
 
           {/* Détails de la course */}
           <Card className="p-4">
