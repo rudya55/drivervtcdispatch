@@ -184,7 +184,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         setShowRatingModal(true);
       } else {
         const actionData: any = { 
-          courseId: course.id,
+          course_id: course.id,
           action: currentAction.action 
         };
         if (currentLocation) {
@@ -204,7 +204,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       return;
     }
     onAction('complete', {
-      courseId: course.id,
+      course_id: course.id,
       rating,
       comment,
       latitude: currentLocation?.lat,
