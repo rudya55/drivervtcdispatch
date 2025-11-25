@@ -1,7 +1,11 @@
 import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Course } from '@/lib/supabase';
+import { GPSSelector } from '@/components/GPSSelector';
 import { toast } from 'sonner';
 import {
   MapPin,
@@ -17,7 +21,10 @@ import {
   Lock,
   Unlock,
   Info,
-  ChevronRight
+  ChevronRight,
+  Plane,
+  FileText,
+  Car
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -46,6 +53,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [showDepartureGPS, setShowDepartureGPS] = useState(false);
+  const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const startX = useRef(0);
 
   // Determine current step (1-5) for progress indicator
@@ -267,59 +276,91 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
         {/* Main card with course info */}
         <Card className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
+          {/* DATE ET HEURE EN HAUT */}
+          <div className="flex items-center justify-between pb-3 border-b">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Prise en charge</p>
+                <p className="font-bold text-base">
+                  {format(new Date(course.pickup_date), "dd MMM yyyy, HH:mm", { locale: fr })}
+                </p>
+              </div>
+            </div>
             <Badge variant="secondary" className="text-xs">
               {course.company_name || 'VTC'}
             </Badge>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="w-4 h-4" />
-              <span className="font-medium">
-                {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
-              </span>
-            </div>
           </div>
 
-          {/* Locations */}
+          {/* NUMÉRO DE VOL si disponible */}
+          {course.flight_number && (
+            <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+              <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">Vol</p>
+                <p className="font-semibold">{course.flight_number}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ADRESSES CLIQUABLES avec GPS Selector */}
           <div className="space-y-2">
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-              <div className="flex-1">
+            <button
+              onClick={() => setShowDepartureGPS(true)}
+              className="flex items-start gap-2 w-full text-left p-2 hover:bg-accent/50 rounded-lg transition-colors"
+            >
+              <MapPin className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">Départ</p>
-                <p className="text-sm font-medium">{course.departure_location}</p>
+                <p className="text-sm font-medium truncate">{course.departure_location}</p>
               </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
-              <div className="flex-1">
+              <ChevronRight className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
+            </button>
+
+            <button
+              onClick={() => setShowDestinationGPS(true)}
+              className="flex items-start gap-2 w-full text-left p-2 hover:bg-accent/50 rounded-lg transition-colors"
+            >
+              <MapPin className="w-4 h-4 text-red-600 mt-1 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">Destination</p>
-                <p className="text-sm font-medium">{course.destination_location}</p>
+                <p className="text-sm font-medium truncate">{course.destination_location}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
+            </button>
+          </div>
+
+          {/* DÉTAILS DE LA COURSE */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{course.passengers_count}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Briefcase className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{course.luggage_count}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Car className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">{course.vehicle_type}</span>
               </div>
             </div>
-          </div>
-
-          {/* Details */}
-          <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span>{course.passengers_count}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Briefcase className="w-4 h-4 text-muted-foreground" />
-              <span>{course.luggage_count}</span>
-            </div>
-            <div className="flex items-center gap-1 ml-auto">
-              <Euro className="w-4 h-4 text-success" />
-              <span className="font-semibold text-success">
-                {course.net_driver ? course.net_driver.toFixed(2) : course.client_price.toFixed(2)}€
-              </span>
+              <Euro className="w-5 h-5 text-primary" />
+              <span className="font-bold text-xl">{course.client_price}€</span>
             </div>
           </div>
 
-          {/* Notes */}
+          {/* NOTES / EXTRAS si disponibles */}
           {course.notes && (
-            <p className="text-sm text-muted-foreground border-l-2 border-primary pl-3">
-              {course.notes}
-            </p>
+            <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg">
+              <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">Notes</p>
+                <p className="text-sm">{course.notes}</p>
+              </div>
+            </div>
           )}
 
           {/* View Details Button */}
@@ -329,7 +370,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
               className="w-full p-2 border border-border rounded-lg flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               <Info className="w-4 h-4" />
-              <span>Voir détails complets</span>
+              <span>Voir tous les détails</span>
             </button>
           )}
         </Card>
@@ -429,6 +470,22 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           </Card>
         </div>
       )}
+
+      {/* GPS Selector pour Départ */}
+      <GPSSelector
+        address={course.departure_location}
+        open={showDepartureGPS}
+        onOpenChange={setShowDepartureGPS}
+        label="Adresse de départ"
+      />
+
+      {/* GPS Selector pour Destination */}
+      <GPSSelector
+        address={course.destination_location}
+        open={showDestinationGPS}
+        onOpenChange={setShowDestinationGPS}
+        label="Adresse de destination"
+      />
     </>
   );
 };

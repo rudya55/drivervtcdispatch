@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Course } from '@/lib/supabase';
-import { MapPin, Plane, User, Briefcase, Users, Car, Clock, Navigation, MessageCircle } from 'lucide-react';
+import { translateCourseStatus } from '@/lib/utils';
+import { GPSSelector } from '@/components/GPSSelector';
+import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -17,13 +21,11 @@ interface CourseDetailsModalProps {
 
 export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard }: CourseDetailsModalProps) => {
   const navigate = useNavigate();
+  const { driver } = useAuth();
+  const [showDepartureGPS, setShowDepartureGPS] = useState(false);
+  const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   
   if (!course) return null;
-
-  const openNavigation = (address: string) => {
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-    window.open(url, '_blank');
-  };
 
   const openFlightTracking = (flightNumber: string) => {
     const url = `https://www.google.com/search?q=${encodeURIComponent(flightNumber + ' statut vol')}`;
@@ -43,10 +45,16 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Badge de statut */}
+          {/* Badge de statut + Logo flotte */}
           <div className="flex items-center justify-between">
-            <Badge variant="secondary">{course.status}</Badge>
-            {course.company_name && (
+            <Badge variant="secondary">{translateCourseStatus(course.status)}</Badge>
+            {driver?.company_logo_url ? (
+              <img 
+                src={driver.company_logo_url} 
+                alt="Logo" 
+                className="h-8 w-auto object-contain"
+              />
+            ) : course.company_name && (
               <span className="text-sm text-muted-foreground flex items-center gap-1">
                 <Briefcase className="w-4 h-4" />
                 {course.company_name}
@@ -103,7 +111,7 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
           {/* Adresses */}
           <Card className="p-4 space-y-3">
             <button
-              onClick={() => openNavigation(course.departure_location)}
+              onClick={() => setShowDepartureGPS(true)}
               className="flex items-start gap-2 w-full text-left hover:bg-accent/50 p-2 rounded-lg transition-colors"
             >
               <MapPin className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
@@ -111,11 +119,10 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
                 <p className="text-sm text-muted-foreground">Départ</p>
                 <p className="font-medium">{course.departure_location}</p>
               </div>
-              <Navigation className="w-4 h-4 text-muted-foreground mt-1" />
             </button>
             
             <button
-              onClick={() => openNavigation(course.destination_location)}
+              onClick={() => setShowDestinationGPS(true)}
               className="flex items-start gap-2 w-full text-left hover:bg-accent/50 p-2 rounded-lg transition-colors"
             >
               <MapPin className="w-4 h-4 text-red-600 mt-1 flex-shrink-0" />
@@ -123,7 +130,6 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
                 <p className="text-sm text-muted-foreground">Destination</p>
                 <p className="font-medium">{course.destination_location}</p>
               </div>
-              <Navigation className="w-4 h-4 text-muted-foreground mt-1" />
             </button>
           </Card>
 
@@ -167,6 +173,22 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
           </Button>
         </div>
       </DialogContent>
+
+      {/* GPS Selector pour Départ */}
+      <GPSSelector
+        address={course.departure_location}
+        open={showDepartureGPS}
+        onOpenChange={setShowDepartureGPS}
+        label="Adresse de départ"
+      />
+
+      {/* GPS Selector pour Destination */}
+      <GPSSelector
+        address={course.destination_location}
+        open={showDestinationGPS}
+        onOpenChange={setShowDestinationGPS}
+        label="Adresse de destination"
+      />
     </Dialog>
   );
 };
