@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Star,
   Lock,
+  Unlock,
   Info,
   ChevronRight
 } from 'lucide-react';
@@ -46,7 +47,6 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const startX = useRef(0);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   // Determine current step (1-5) for progress indicator
   const getCurrentStep = (): number => {
@@ -136,6 +136,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     { num: 5, label: 'Terminer', icon: CheckCircle }
   ];
 
+  const maxSwipeDistance = 260; // Distance max pour le knob
+  const threshold = maxSwipeDistance * 0.8; // 80% de la distance
+
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
   };
@@ -147,9 +150,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     const diff = currentX - startX.current;
 
     // Only allow right swipe
-    if (diff > 0 && diff < 200) {
+    if (diff > 0 && diff < maxSwipeDistance) {
       setSwipeX(diff);
-      if (diff > 150) {
+      if (diff > threshold) {
         setActiveAction(currentAction.id);
       } else {
         setActiveAction(null);
@@ -158,8 +161,12 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleTouchEnd = () => {
-    if (swipeX > 150 && currentAction) {
-      // Action triggered
+    if (swipeX > threshold && currentAction) {
+      // Action triggered - vibration feedback if supported
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
       if (currentAction.action === 'complete') {
         setShowRatingModal(true);
       } else {
@@ -216,11 +223,11 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
   return (
     <>
-      <div className="relative overflow-hidden">
+      <div className="space-y-4">
         {/* Progress Indicator - 5 Steps */}
-        <div className="mb-4 px-2">
+        <div className="px-2">
           <div className="flex items-center justify-between relative">
-            {steps.map((step, idx) => (
+            {steps.map((step) => (
               <div key={step.num} className="flex flex-col items-center relative z-10">
                 <div
                   className={cn(
@@ -258,59 +265,18 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           </div>
         </div>
 
-        {/* Swipe background indicator */}
-        <div
-          className={cn(
-            "absolute inset-0 flex items-center justify-start pl-8 rounded-lg transition-opacity",
-            currentAction.bgColor,
-            swipeX > 0 ? "opacity-100" : "opacity-0"
-          )}
-          style={{
-            transform: `scaleX(${Math.min(swipeX / 200, 1)})`,
-            transformOrigin: 'left',
-          }}
-        >
-          <currentAction.icon className="w-8 h-8 text-white" />
-          <span className="ml-3 text-white font-semibold text-lg">
-            {swipeX > 150 ? 'Relâchez pour confirmer' : currentAction.label}
-          </span>
-        </div>
-
-        {/* Main card */}
-        <Card
-          ref={cardRef}
-          className={cn(
-            "p-4 space-y-4 cursor-grab active:cursor-grabbing transition-transform touch-none",
-            activeAction && "shadow-lg"
-          )}
-          style={{
-            transform: `translateX(${swipeX}px)`,
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Swipe hint with animated arrow */}
-          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
-            <div className="flex items-center gap-2">
-              <div className="animate-pulse">
-                <ChevronRight className={cn("w-5 h-5", currentAction.color)} />
-              </div>
-              <span className="text-sm font-semibold">
-                Glissez pour : {currentAction.label}
-              </span>
-            </div>
+        {/* Main card with course info */}
+        <Card className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
             <Badge variant="secondary" className="text-xs">
               {course.company_name || 'VTC'}
             </Badge>
-          </div>
-
-          {/* Pickup Date/Time */}
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium">
-              {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
-            </span>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span className="font-medium">
+                {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
+              </span>
+            </div>
           </div>
 
           {/* Locations */}
@@ -359,17 +325,52 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           {/* View Details Button */}
           {onViewDetails && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewDetails();
-              }}
-              className="w-full mt-2 p-2 border border-border rounded-lg flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+              onClick={onViewDetails}
+              className="w-full p-2 border border-border rounded-lg flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               <Info className="w-4 h-4" />
-              <span>Voir détails complets (client, vol, carte)</span>
+              <span>Voir détails complets</span>
             </button>
           )}
         </Card>
+
+        {/* Compact Swipe Slider */}
+        <div className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg">
+          {/* Knob draggable (cadenas) */}
+          <div 
+            className={cn(
+              "absolute left-1 top-1 bottom-1 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10 transition-transform",
+              swipeX > 0 ? "cursor-grabbing" : "cursor-grab"
+            )}
+            style={{ 
+              transform: `translateX(${swipeX}px)`,
+              touchAction: 'none'
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {swipeX > threshold ? (
+              <Unlock className="w-6 h-6 text-blue-600" />
+            ) : (
+              <Lock className="w-6 h-6 text-blue-600" />
+            )}
+          </div>
+          
+          {/* Texte central */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-white font-bold text-sm uppercase tracking-wide">
+              {swipeX > threshold ? '✓ RELÂCHEZ' : currentAction.label.toUpperCase()}
+            </span>
+          </div>
+          
+          {/* Flèches animées */}
+          <div className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none">
+            <ChevronRight className="w-5 h-5 text-white/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+            <ChevronRight className="w-5 h-5 text-white/60 animate-pulse -ml-2" style={{ animationDelay: '150ms' }} />
+            <ChevronRight className="w-5 h-5 text-white animate-pulse -ml-2" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
       </div>
 
       {/* Rating Modal */}
