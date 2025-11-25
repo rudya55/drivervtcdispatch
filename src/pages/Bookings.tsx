@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
+import { translateCourseStatus } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -380,7 +381,7 @@ const Bookings = () => {
             )}
           </div>
           <Badge variant={course.status === 'completed' ? 'default' : 'secondary'}>
-            {course.status}
+            {translateCourseStatus(course.status)}
           </Badge>
         </div>
 
