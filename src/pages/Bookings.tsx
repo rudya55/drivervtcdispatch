@@ -288,7 +288,7 @@ const Bookings = () => {
   const handleCourseAction = async (action: string, data?: any) => {
     if (!driver) return;
 
-    const courseId = data?.courseId || activeCourses[0]?.id;
+    const courseId = data?.course_id || activeCourses[0]?.id;
     if (!courseId) return;
 
     setProcessing(courseId);
