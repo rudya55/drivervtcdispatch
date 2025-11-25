@@ -271,8 +271,8 @@ CREATE POLICY "Drivers can view own accounting entries"
 
 -- Commentaires
 COMMENT ON TABLE public.accounting_entries IS 'Entrées comptables pour les courses terminées';
-COMMENT ON COLUMN public.accounting_entries.driver_amount IS 'Montant revenant au chauffeur';
-COMMENT ON COLUMN public.accounting_entries.fleet_amount IS 'Montant revenant à la flotte';
+COMMENT ON COLUMN public.accounting_entries.driver_amount IS 'Montant revenant au chauffeur (courses.net_driver)';
+COMMENT ON COLUMN public.accounting_entries.fleet_amount IS 'Montant revenant à la flotte/dispatch (courses.commission)';
 COMMENT ON COLUMN public.accounting_entries.payment_status IS 'Statut du paiement: pending, paid, cancelled';
 
 -- ============================================================================
@@ -290,9 +290,9 @@ BEGIN
   RAISE NOTICE '✅ Bucket driver-documents créé avec policies RLS';
   RAISE NOTICE '✅ Tous les chauffeurs existants ont été approuvés automatiquement';
   RAISE NOTICE '';
-  RAISE NOTICE '💰 COMPTABILITÉ:';
-  RAISE NOTICE '   ✅ Les courses terminées vont automatiquement dans la comptabilité';
-  RAISE NOTICE '   ✅ Les chauffeurs peuvent voir leur comptabilité dans l''app';
-  RAISE NOTICE '   ✅ Les flottes peuvent voir toutes les factures dans l''admin';
-  RAISE NOTICE '   ✅ Le système calcule automatiquement le montant chauffeur (80%) et flotte (20%)';
+  RAISE NOTICE '💰 COMPTABILITÉ (IMPORTANT):';
+  RAISE NOTICE '   ✅ driver_amount = courses.net_driver (montant CHAUFFEUR)';
+  RAISE NOTICE '   ✅ fleet_amount = courses.commission (montant FLOTTE/DISPATCH)';
+  RAISE NOTICE '   ✅ Les courses terminées créent automatiquement une entrée comptable';
+  RAISE NOTICE '   ✅ Chauffeurs voient leur compta dans l''app, flottes dans l''admin';
 END $$;

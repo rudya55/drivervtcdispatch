@@ -358,16 +358,28 @@ Deno.serve(async (req) => {
     // Si la course est terminée, créer une entrée comptable
     if (action === 'complete') {
       try {
-        const netDriver = course.net_driver || course.client_price * 0.8;
-        const netFleet = course.client_price - netDriver;
+        // IMPORTANT:
+        // - net_driver = montant pour le CHAUFFEUR
+        // - commission = montant pour la FLOTTE/DISPATCH
+        const driverAmount = course.net_driver || course.client_price * 0.8;
+        const fleetAmount = course.commission || (course.client_price - driverAmount);
+
+        console.log('💰 Création entrée comptable:', {
+          course_id,
+          client_price: course.client_price,
+          driver_amount: driverAmount,
+          fleet_amount: fleetAmount,
+          net_driver_from_db: course.net_driver,
+          commission_from_db: course.commission
+        });
 
         const { error: accountingError } = await supabase
           .from('accounting_entries')
           .insert({
             course_id,
             driver_id: driver.id,
-            driver_amount: netDriver,
-            fleet_amount: netFleet,
+            driver_amount: driverAmount,
+            fleet_amount: fleetAmount,
             total_amount: course.client_price,
             rating: rating || null,
             comment: comment || null,
@@ -376,9 +388,10 @@ Deno.serve(async (req) => {
           });
 
         if (accountingError) {
-          console.error('Failed to create accounting entry:', accountingError);
+          console.error('❌ Failed to create accounting entry:', accountingError);
         } else {
           console.log('✅ Entrée comptable créée automatiquement');
+          console.log(`   Chauffeur: ${driverAmount}€ | Flotte: ${fleetAmount}€ | Total: ${course.client_price}€`);
         }
       } catch (accountingError) {
         console.error('Accounting error:', accountingError);
