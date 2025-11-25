@@ -298,11 +298,11 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
           {/* NUMÉRO DE VOL si disponible */}
           {course.flight_number && (
-            <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-              <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <div className="flex items-center gap-2 p-3 bg-blue-100 dark:bg-blue-950/50 rounded-lg border-2 border-blue-300 dark:border-blue-800">
+              <Plane className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               <div className="flex-1">
-                <p className="text-xs text-muted-foreground">Vol</p>
-                <p className="font-semibold">{course.flight_number}</p>
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Numéro de vol</p>
+                <p className="font-bold text-lg text-blue-900 dark:text-blue-100">{course.flight_number}</p>
               </div>
             </div>
           )}
@@ -358,11 +358,11 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
           {/* NOTES / EXTRAS si disponibles */}
           {course.notes && (
-            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-              <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="flex items-start gap-2 p-3 bg-amber-100 dark:bg-amber-950/50 rounded-lg border-2 border-amber-300 dark:border-amber-800">
+              <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Notes / Extras</p>
-                <p className="text-sm text-amber-900 dark:text-amber-100">{course.notes}</p>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Notes / Extras</p>
+                <p className="text-base font-medium text-amber-900 dark:text-amber-100 mt-1 whitespace-pre-wrap">{course.notes}</p>
               </div>
             </div>
           )}

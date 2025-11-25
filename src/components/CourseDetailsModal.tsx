@@ -81,15 +81,15 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
 
           {/* Numéro de vol */}
           {course.flight_number && (
-            <Card className="p-4 bg-blue-50 dark:bg-blue-950">
+            <Card className="p-4 bg-blue-100 dark:bg-blue-950/50 border-2 border-blue-300 dark:border-blue-800">
               <button
                 onClick={() => openFlightTracking(course.flight_number!)}
-                className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
+                className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
               >
-                <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <Plane className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Numéro de vol (cliquez pour suivi)</p>
-                  <p className="font-semibold text-lg">{course.flight_number}</p>
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Numéro de vol (cliquez pour suivi)</p>
+                  <p className="font-bold text-xl text-blue-900 dark:text-blue-100">{course.flight_number}</p>
                 </div>
               </button>
             </Card>
@@ -154,11 +154,16 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
             </div>
           </Card>
 
-          {/* Notes */}
+          {/* Notes / Extras */}
           {course.notes && (
-            <Card className="p-4">
-              <p className="text-sm text-muted-foreground mb-1">Notes</p>
-              <p className="text-sm">{course.notes}</p>
+            <Card className="p-4 bg-amber-100 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-800">
+              <div className="flex items-start gap-2">
+                <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide mb-1">Notes / Extras</p>
+                  <p className="text-base font-medium text-amber-900 dark:text-amber-100 whitespace-pre-wrap">{course.notes}</p>
+                </div>
+              </div>
             </Card>
           )}
 

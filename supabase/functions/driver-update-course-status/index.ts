@@ -158,23 +158,41 @@ Deno.serve(async (req) => {
         break;
 
       case 'complete':
+        // Validate that previous steps are completed
+        if (!course.picked_up_at) {
+          return new Response(
+            JSON.stringify({
+              error: 'Vous devez d\'abord confirmer que le client est à bord avant de terminer la course'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (!course.dropped_off_at) {
+          return new Response(
+            JSON.stringify({
+              error: 'Vous devez d\'abord confirmer que le client a été déposé avant de terminer la course'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         updateData = {
           status: 'completed',
           completed_at: now,
         };
-        
+
         // Add rating and comment if provided
-        if (rating !== undefined) {
+        if (rating !== undefined && rating > 0) {
           updateData.rating = rating;
         }
         if (comment) {
-          updateData.notes = (course.notes ? course.notes + '\n\n' : '') + 
+          updateData.notes = (course.notes ? course.notes + '\n\n' : '') +
                             `Commentaire chauffeur: ${comment}`;
         }
         if (final_price !== undefined) {
           updateData.client_price = final_price;
         }
-        
+
         trackingNotes = 'Course terminée';
         if (rating) trackingNotes += ` - Note: ${rating}/5`;
         break;
@@ -206,8 +224,27 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error('Error updating course:', updateError);
+      console.error('Update data:', updateData);
+      console.error('Course ID:', course_id);
+
+      // Provide more detailed error messages
+      let errorMessage = 'Erreur lors de la mise à jour de la course';
+      if (updateError.message) {
+        errorMessage += `: ${updateError.message}`;
+      }
+      if (updateError.code === 'PGRST116') {
+        errorMessage = 'Course non trouvée ou vous n\'avez pas la permission de la modifier';
+      }
+      if (updateError.code === '42501') {
+        errorMessage = 'Vous n\'avez pas la permission de modifier cette course';
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Failed to update course' }),
+        JSON.stringify({
+          error: errorMessage,
+          code: updateError.code,
+          details: updateError.details
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
