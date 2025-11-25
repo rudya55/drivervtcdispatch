@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Course } from '@/lib/supabase';
 import { GPSSelector } from '@/components/GPSSelector';
+import { BonDeCommandeModal } from '@/components/BonDeCommandeModal';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import {
   MapPin,
@@ -55,7 +57,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [comment, setComment] = useState('');
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
+  const [showBonDeCommande, setShowBonDeCommande] = useState(false);
   const startX = useRef(0);
+  const { driver } = useAuth();
 
   // Determine current step (1-5) for progress indicator
   const getCurrentStep = (): number => {
@@ -354,14 +358,24 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
           {/* NOTES / EXTRAS si disponibles */}
           {course.notes && (
-            <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg">
-              <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+              <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Notes</p>
-                <p className="text-sm">{course.notes}</p>
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Notes / Extras</p>
+                <p className="text-sm text-amber-900 dark:text-amber-100">{course.notes}</p>
               </div>
             </div>
           )}
+
+          {/* BOUTON ROUGE BON DE COMMANDE */}
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={() => setShowBonDeCommande(true)}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Bon de Commande
+          </Button>
 
           {/* View Details Button */}
           {onViewDetails && (
@@ -485,6 +499,14 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         open={showDestinationGPS}
         onOpenChange={setShowDestinationGPS}
         label="Adresse de destination"
+      />
+
+      {/* Bon de Commande Modal */}
+      <BonDeCommandeModal
+        course={course}
+        driver={driver}
+        open={showBonDeCommande}
+        onOpenChange={setShowBonDeCommande}
       />
     </>
   );
