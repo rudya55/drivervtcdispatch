@@ -232,6 +232,50 @@ BEGIN
 END $$;
 
 -- ============================================================================
+-- PARTIE 11: TABLE ACCOUNTING_ENTRIES - COMPTABILITÉ
+-- ============================================================================
+
+-- Créer la table accounting_entries pour la gestion comptable
+CREATE TABLE IF NOT EXISTS public.accounting_entries (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  course_id uuid REFERENCES public.courses(id) ON DELETE CASCADE,
+  driver_id uuid REFERENCES public.drivers(id) ON DELETE CASCADE,
+  driver_amount numeric NOT NULL,
+  fleet_amount numeric NOT NULL,
+  total_amount numeric NOT NULL,
+  rating integer,
+  comment text,
+  payment_status text DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'cancelled')),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_accounting_course ON public.accounting_entries(course_id);
+CREATE INDEX IF NOT EXISTS idx_accounting_driver ON public.accounting_entries(driver_id);
+CREATE INDEX IF NOT EXISTS idx_accounting_status ON public.accounting_entries(payment_status);
+CREATE INDEX IF NOT EXISTS idx_accounting_created ON public.accounting_entries(created_at DESC);
+
+-- Activer RLS
+ALTER TABLE public.accounting_entries ENABLE ROW LEVEL SECURITY;
+
+-- Politique: Les chauffeurs peuvent voir leurs propres entrées comptables
+DROP POLICY IF EXISTS "Drivers can view own accounting entries" ON public.accounting_entries;
+CREATE POLICY "Drivers can view own accounting entries"
+  ON public.accounting_entries FOR SELECT
+  USING (
+    driver_id IN (
+      SELECT id FROM public.drivers WHERE user_id = auth.uid()
+    )
+  );
+
+-- Commentaires
+COMMENT ON TABLE public.accounting_entries IS 'Entrées comptables pour les courses terminées';
+COMMENT ON COLUMN public.accounting_entries.driver_amount IS 'Montant revenant au chauffeur';
+COMMENT ON COLUMN public.accounting_entries.fleet_amount IS 'Montant revenant à la flotte';
+COMMENT ON COLUMN public.accounting_entries.payment_status IS 'Statut du paiement: pending, paid, cancelled';
+
+-- ============================================================================
 -- FINALISATION
 -- ============================================================================
 
@@ -240,16 +284,15 @@ DO $$
 BEGIN
   RAISE NOTICE '✅ Migration terminée avec succès !';
   RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule (+ icône personnalisable), banque, notifications, approbation';
-  RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name, timestamps de progression';
+  RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name, extras, timestamps de progression';
+  RAISE NOTICE '✅ Table accounting_entries créée pour la comptabilité chauffeur et flotte';
   RAISE NOTICE '✅ Index créés pour améliorer les performances des Analytics';
   RAISE NOTICE '✅ Bucket driver-documents créé avec policies RLS';
   RAISE NOTICE '✅ Tous les chauffeurs existants ont été approuvés automatiquement';
   RAISE NOTICE '';
-  RAISE NOTICE '🎯 Prochaines étapes:';
-  RAISE NOTICE '   1. Aller sur /settings/profile';
-  RAISE NOTICE '   2. Upload une photo de profil';
-  RAISE NOTICE '   3. Remplir les infos société (nom, adresse, SIRET)';
-  RAISE NOTICE '   4. Cliquer sur Sauvegarder';
-  RAISE NOTICE '   5. Retourner sur /settings → la photo doit apparaître dans l''avatar ! ✅';
-  RAISE NOTICE '   6. Tester /analytics → les statistiques du mois doivent s''afficher correctement ! 📊';
+  RAISE NOTICE '💰 COMPTABILITÉ:';
+  RAISE NOTICE '   ✅ Les courses terminées vont automatiquement dans la comptabilité';
+  RAISE NOTICE '   ✅ Les chauffeurs peuvent voir leur comptabilité dans l''app';
+  RAISE NOTICE '   ✅ Les flottes peuvent voir toutes les factures dans l''admin';
+  RAISE NOTICE '   ✅ Le système calcule automatiquement le montant chauffeur (80%) et flotte (20%)';
 END $$;

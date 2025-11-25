@@ -158,28 +158,23 @@ Deno.serve(async (req) => {
         break;
 
       case 'complete':
-        // Validate that previous steps are completed
-        if (!course.picked_up_at) {
-          return new Response(
-            JSON.stringify({
-              error: 'Vous devez d\'abord confirmer que le client est à bord avant de terminer la course'
-            }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        if (!course.dropped_off_at) {
-          return new Response(
-            JSON.stringify({
-              error: 'Vous devez d\'abord confirmer que le client a été déposé avant de terminer la course'
-            }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
+        // Permettre la terminaison même si les étapes intermédiaires n'ont pas été validées
+        // Marquer automatiquement les étapes manquantes
         updateData = {
           status: 'completed',
           completed_at: now,
         };
+
+        // Si les timestamps intermédiaires manquent, les remplir maintenant
+        if (!course.arrived_at) {
+          updateData.arrived_at = now;
+        }
+        if (!course.picked_up_at) {
+          updateData.picked_up_at = now;
+        }
+        if (!course.dropped_off_at) {
+          updateData.dropped_off_at = now;
+        }
 
         // Add rating and comment if provided
         if (rating !== undefined && rating > 0) {
