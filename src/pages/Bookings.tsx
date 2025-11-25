@@ -17,6 +17,7 @@ import { CourseTimer } from '@/components/CourseTimer';
 import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { SignBoardModal } from '@/components/SignBoardModal';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
+import { CompletedCourseCard } from '@/components/CompletedCourseCard';
 import { Info } from 'lucide-react';
 import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 
@@ -583,24 +584,7 @@ const Bookings = () => {
               </Card>
             ) : (
               completedCourses.map(course => (
-                <Card 
-                  key={course.id} 
-                  className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
-                  onClick={() => setSelectedCourse(course)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="default" className="bg-success text-white">Terminée</Badge>
-                    <span className="font-bold text-success">
-                      {(course.net_driver || course.client_price).toFixed(2)}€
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <p className="font-medium">{course.client_name}</p>
-                    <p className="text-muted-foreground text-xs mt-1">
-                      {format(new Date(course.completed_at!), 'PPp', { locale: fr })}
-                    </p>
-                  </div>
-                </Card>
+                <CompletedCourseCard key={course.id} course={course} />
               ))
             )}
           </TabsContent>
