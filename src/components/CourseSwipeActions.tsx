@@ -152,6 +152,25 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const maxSwipeDistance = 260; // Distance max pour le knob
   const threshold = maxSwipeDistance * 0.8; // 80% de la distance
 
+  // Parser les extras depuis les notes
+  const parseExtras = (notes: string | null): string[] => {
+    if (!notes) return [];
+    const lowerNotes = notes.toLowerCase();
+    const extras: string[] = [];
+    
+    if (lowerNotes.includes('rehausseur')) extras.push('Rehausseur');
+    if (lowerNotes.includes('siège auto') || lowerNotes.includes('siege auto')) extras.push('Siège auto');
+    if (lowerNotes.includes('siège bébé') || lowerNotes.includes('siege bebe')) extras.push('Siège bébé');
+    if (lowerNotes.includes('fauteuil roulant')) extras.push('Fauteuil roulant');
+    if (lowerNotes.includes('animaux') || lowerNotes.includes('animal')) extras.push('Animaux acceptés');
+    
+    return extras;
+  };
+
+  // Séparer les extras des notes générales
+  const detectedExtras = parseExtras(course.notes);
+  const generalNotes = course.notes?.replace(/rehausseur|siège auto|siege auto|siège bébé|siege bebe|fauteuil roulant|animaux|animal/gi, '').trim() || '';
+
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
     setSwipeX(0);
@@ -300,13 +319,15 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             </Badge>
           </div>
 
-          {/* NUMÉRO DE VOL si disponible */}
+          {/* NUMÉRO DE VOL si disponible - TRÈS VISIBLE */}
           {course.flight_number && (
-            <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-              <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md">
+              <div className="bg-white/20 p-2 rounded-full">
+                <Plane className="w-6 h-6 text-white" />
+              </div>
               <div className="flex-1">
-                <p className="text-xs text-muted-foreground">Vol</p>
-                <p className="font-semibold">{course.flight_number}</p>
+                <p className="text-xs text-white/80 font-medium">Vol</p>
+                <p className="font-bold text-lg text-white">{course.flight_number}</p>
               </div>
             </div>
           )}
@@ -360,13 +381,31 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             </div>
           </div>
 
-          {/* NOTES / EXTRAS si disponibles */}
-          {course.notes && (
-            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+          {/* EXTRAS DÉTECTÉS (équipements) */}
+          {detectedExtras.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">Équipements requis</p>
+              <div className="flex flex-wrap gap-2">
+                {detectedExtras.map((extra, idx) => (
+                  <Badge 
+                    key={idx} 
+                    variant="secondary"
+                    className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-300 dark:border-purple-700"
+                  >
+                    {extra}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NOTES GÉNÉRALES si disponibles */}
+          {generalNotes && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
               <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Notes / Extras</p>
-                <p className="text-sm text-amber-900 dark:text-amber-100">{course.notes}</p>
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">Notes du dispatcher</p>
+                <p className="text-sm text-amber-900 dark:text-amber-100">{generalNotes}</p>
               </div>
             </div>
           )}
@@ -395,16 +434,21 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
         {/* Compact Swipe Slider - Toute la barre est touchable */}
         <div 
-          className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg cursor-grab active:cursor-grabbing"
-          style={{ touchAction: 'pan-y', willChange: 'transform' }}
+          className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg select-none"
+          style={{ 
+            touchAction: 'none', 
+            willChange: 'transform',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Knob draggable (cadenas) */}
+          {/* Knob draggable (cadenas) - TOUCHABLE */}
           <div 
             className={cn(
-              "absolute left-1 top-1 bottom-1 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10 pointer-events-none",
+              "absolute left-1 top-1 bottom-1 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10",
               swipeX > 0 && "scale-110"
             )}
             style={{ 
