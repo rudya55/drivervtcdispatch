@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { StatusToggle } from '@/components/StatusToggle';
+import { DailyEarningsWidget } from '@/components/DailyEarningsWidget';
 import { toast } from 'sonner';
 import {
   MapPin,
@@ -255,6 +256,9 @@ const Home = () => {
       </div>
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
+        {/* Widget Gains du jour */}
+        {driver && <DailyEarningsWidget driverId={driver.id} dailyTarget={200} />}
+
         {/* Map avec indicateur de statut */}
         <Card className="p-0 overflow-hidden">
           <div className="h-96">

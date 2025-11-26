@@ -1,9 +1,11 @@
 import { Bell, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { SOSButton } from './SOSButton';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
+import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 
 interface HeaderProps {
   title: string;
@@ -14,6 +16,7 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
   const { driver } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const locationState = useNativeGeolocation(driver?.status === 'active');
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -31,6 +34,15 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
         <h1 className="text-xl font-bold text-foreground flex-1 text-center pl-12">{title}</h1>
 
         <div className="flex items-center gap-2">
+          {/* Bouton SOS (uniquement si chauffeur connecté) */}
+          {driver && (
+            <SOSButton
+              driverId={driver.id}
+              driverName={driver.name}
+              currentLocation={locationState.coordinates}
+            />
+          )}
+
           <Button
             variant="ghost"
             size="icon"

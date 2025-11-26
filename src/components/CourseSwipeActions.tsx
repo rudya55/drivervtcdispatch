@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Course } from '@/lib/supabase';
 import { GPSSelector } from '@/components/GPSSelector';
+import { NavigationSelector } from '@/components/NavigationSelector';
 import { BonDeCommandeModal } from '@/components/BonDeCommandeModal';
 import { CourseMap } from '@/components/CourseMap';
 import { useAuth } from '@/hooks/useAuth';
@@ -513,20 +514,19 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         </div>
       )}
 
-      {/* GPS Selector pour Départ */}
-      <GPSSelector
-        address={course.departure_location}
+      {/* Navigation Selector pour Départ */}
+      <NavigationSelector
+        destination={course.departure_location}
         open={showDepartureGPS}
         onOpenChange={setShowDepartureGPS}
-        label="Adresse de départ"
       />
 
-      {/* GPS Selector pour Destination */}
-      <GPSSelector
-        address={course.destination_location}
+      {/* Navigation Selector pour Destination */}
+      <NavigationSelector
+        destination={course.destination_location}
+        departureLocation={course.departure_location}
         open={showDestinationGPS}
         onOpenChange={setShowDestinationGPS}
-        label="Adresse de destination"
       />
 
       {/* Bon de Commande Modal */}
