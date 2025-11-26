@@ -326,10 +326,27 @@ Deno.serve(async (req) => {
     // Si la course est terminée, créer une entrée comptable
     if (action === 'complete') {
       try {
+        console.log('💰 Création de l\'entrée comptable...');
+        
+        // Utiliser Service Role pour contourner RLS
+        const supabaseServiceRole = createClient(
+          supabaseUrl,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+
         const netDriver = course.net_driver || course.client_price * 0.8;
         const netFleet = course.client_price - netDriver;
 
-        const { error: accountingError } = await supabase
+        console.log('💰 Données comptables:', {
+          course_id,
+          driver_id: driver.id,
+          driver_amount: netDriver,
+          fleet_amount: netFleet,
+          total_amount: course.client_price,
+          rating: rating || null,
+        });
+
+        const { data: accountingData, error: accountingError } = await supabaseServiceRole
           .from('accounting_entries')
           .insert({
             course_id,
@@ -341,16 +358,21 @@ Deno.serve(async (req) => {
             comment: comment || null,
             payment_status: 'pending',
             created_at: new Date().toISOString(),
-          });
+          })
+          .select()
+          .single();
 
         if (accountingError) {
-          console.error('Failed to create accounting entry:', accountingError);
+          console.error('❌ Erreur création entrée comptable:', accountingError);
+          console.error('❌ Code erreur:', accountingError.code);
+          console.error('❌ Message:', accountingError.message);
+          console.error('❌ Détails:', accountingError.details);
         } else {
-          console.log('✅ Entrée comptable créée automatiquement');
+          console.log('✅ Entrée comptable créée automatiquement:', accountingData);
         }
       } catch (accountingError) {
-        console.error('Accounting error:', accountingError);
-        // Ne pas faire échouer la requête si la table n'existe pas encore
+        console.error('❌ Exception comptabilité:', accountingError);
+        // Ne pas faire échouer la requête si erreur comptable
       }
     }
 

@@ -154,10 +154,14 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
+    setSwipeX(0);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!currentAction) return;
+    
+    // Empêcher le scroll pendant le swipe
+    e.preventDefault();
 
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
@@ -389,21 +393,25 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           )}
         </Card>
 
-        {/* Compact Swipe Slider */}
-        <div className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg">
+        {/* Compact Swipe Slider - Toute la barre est touchable */}
+        <div 
+          className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg cursor-grab active:cursor-grabbing"
+          style={{ touchAction: 'pan-y', willChange: 'transform' }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {/* Knob draggable (cadenas) */}
           <div 
             className={cn(
-              "absolute left-1 top-1 bottom-1 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10 transition-transform",
-              swipeX > 0 ? "cursor-grabbing" : "cursor-grab"
+              "absolute left-1 top-1 bottom-1 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10 pointer-events-none",
+              swipeX > 0 && "scale-110"
             )}
             style={{ 
               transform: `translateX(${swipeX}px)`,
-              touchAction: 'none'
+              transition: swipeX === 0 ? 'transform 0.3s ease-out, scale 0.2s ease' : 'scale 0.2s ease',
+              willChange: 'transform'
             }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
           >
             {swipeX > threshold ? (
               <Unlock className="w-6 h-6 text-blue-600" />
@@ -414,7 +422,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           
           {/* Texte central */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-white font-bold text-sm uppercase tracking-wide">
+            <span 
+              className="text-white font-bold text-sm uppercase tracking-wide transition-all"
+              style={{ 
+                opacity: swipeX > threshold ? 1 : 0.9,
+                transform: swipeX > threshold ? 'scale(1.05)' : 'scale(1)'
+              }}
+            >
               {swipeX > threshold ? '✓ RELÂCHEZ' : currentAction.label.toUpperCase()}
             </span>
           </div>
@@ -425,6 +439,12 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             <ChevronRight className="w-5 h-5 text-white/60 animate-pulse -ml-2" style={{ animationDelay: '150ms' }} />
             <ChevronRight className="w-5 h-5 text-white animate-pulse -ml-2" style={{ animationDelay: '300ms' }} />
           </div>
+          
+          {/* Barre de progression visuelle */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 bg-white/10 pointer-events-none transition-all"
+            style={{ width: `${(swipeX / maxSwipeDistance) * 100}%` }}
+          />
         </div>
       </div>
 
