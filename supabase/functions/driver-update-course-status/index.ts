@@ -6,14 +6,32 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log('🚀 driver-update-course-status called');
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const authHeader = req.headers.get('Authorization')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const authHeader = req.headers.get('Authorization');
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!authHeader) {
+      console.error('❌ Missing Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
@@ -29,10 +47,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('✅ User authenticated:', user.id);
+
     // Parse request body with better error handling
     let requestBody;
     try {
-      requestBody = await req.json();
+      const bodyText = await req.text();
+      console.log('📦 Raw body received:', bodyText);
+      requestBody = JSON.parse(bodyText);
     } catch (parseError) {
       console.error('❌ Failed to parse request body:', parseError);
       return new Response(
@@ -51,9 +73,18 @@ Deno.serve(async (req) => {
       final_price
     });
 
-    if (!course_id || !action) {
+    if (!course_id) {
+      console.error('❌ Missing course_id');
       return new Response(
-        JSON.stringify({ error: 'Missing course_id or action' }),
+        JSON.stringify({ error: 'Missing course_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!action) {
+      console.error('❌ Missing action');
+      return new Response(
+        JSON.stringify({ error: 'Missing action' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -63,33 +94,53 @@ Deno.serve(async (req) => {
       .from('drivers')
       .select('id, name')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (driverError || !driver) {
-      console.error('Driver not found:', driverError);
+    if (driverError) {
+      console.error('❌ Driver query error:', driverError);
+      return new Response(
+        JSON.stringify({ error: 'Driver lookup failed', details: driverError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!driver) {
+      console.error('❌ Driver not found for user:', user.id);
       return new Response(
         JSON.stringify({ error: 'Driver not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('✅ Driver found:', driver.id, driver.name);
+
     // Get current course data
     const { data: course, error: courseError } = await supabase
       .from('courses')
       .select('*')
       .eq('id', course_id)
-      .single();
+      .maybeSingle();
 
-    if (courseError || !course) {
-      console.error('Course not found:', courseError);
+    if (courseError) {
+      console.error('❌ Course query error:', courseError);
+      return new Response(
+        JSON.stringify({ error: 'Course lookup failed', details: courseError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!course) {
+      console.error('❌ Course not found:', course_id);
       return new Response(
         JSON.stringify({ error: 'Course not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('✅ Course found:', course.id, 'status:', course.status);
+
     const now = new Date().toISOString();
-    let updateData: any = {};
+    let updateData: Record<string, unknown> = {};
     let trackingNotes = '';
 
     // Handle different actions
@@ -118,6 +169,7 @@ Deno.serve(async (req) => {
         const oneHourBefore = pickupTime - 60 * 60 * 1000;
 
         if (currentTime < oneHourBefore) {
+          console.log('⏰ Course locked - too early to start');
           return new Response(
             JSON.stringify({ 
               error: 'Vous ne pouvez démarrer la course qu\'une heure avant l\'heure de prise en charge' 
@@ -134,7 +186,6 @@ Deno.serve(async (req) => {
         break;
 
       case 'arrived':
-        // Driver arrived at pickup location
         updateData = {
           arrived_at: now,
         };
@@ -142,7 +193,6 @@ Deno.serve(async (req) => {
         break;
 
       case 'pickup':
-        // Client is on board
         updateData = {
           picked_up_at: now,
         };
@@ -150,7 +200,6 @@ Deno.serve(async (req) => {
         break;
 
       case 'dropoff':
-        // Client dropped off
         updateData = {
           dropped_off_at: now,
         };
@@ -163,7 +212,6 @@ Deno.serve(async (req) => {
           completed_at: now,
         };
         
-        // Add rating and comment if provided
         if (rating !== undefined) {
           updateData.rating = rating;
         }
@@ -188,7 +236,6 @@ Deno.serve(async (req) => {
 
       default:
         console.error(`❌ Invalid action received: "${action}"`);
-        console.error('Valid actions are: accept, refuse, start, arrived, pickup, dropoff, complete, cancel');
         return new Response(
           JSON.stringify({ 
             error: `Invalid action: "${action}"`,
@@ -198,6 +245,8 @@ Deno.serve(async (req) => {
         );
     }
 
+    console.log('📝 Updating course with:', updateData);
+
     // Update course
     const { error: updateError } = await supabase
       .from('courses')
@@ -205,12 +254,14 @@ Deno.serve(async (req) => {
       .eq('id', course_id);
 
     if (updateError) {
-      console.error('Error updating course:', updateError);
+      console.error('❌ Error updating course:', updateError);
       return new Response(
-        JSON.stringify({ error: 'Failed to update course' }),
+        JSON.stringify({ error: 'Failed to update course', details: updateError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('✅ Course updated successfully');
 
     // Map action to status for tracking
     const statusMapping: Record<string, string> = {
@@ -237,7 +288,7 @@ Deno.serve(async (req) => {
 
     // Insert tracking notification into driver_notifications
     try {
-      const notificationData: any = {
+      const notificationData = {
         driver_id: driver.id,
         course_id,
         type: 'course_status',
@@ -254,19 +305,22 @@ Deno.serve(async (req) => {
         },
       };
 
-      await supabase
+      const { error: notifError } = await supabase
         .from('driver_notifications')
         .insert(notificationData);
       
-      console.log('Tracking notification inserted successfully');
+      if (notifError) {
+        console.log('⚠️ Notification insert warning:', notifError.message);
+      } else {
+        console.log('✅ Tracking notification inserted');
+      }
     } catch (notificationError) {
-      console.error('Failed to insert tracking notification:', notificationError);
-      // Don't fail the request if notification fails
+      console.error('⚠️ Failed to insert tracking notification:', notificationError);
     }
 
     // Notify admin/dispatch of status changes
     try {
-      const { data: adminUsers, error: adminError } = await supabase
+      const { data: adminUsers } = await supabase
         .from('user_roles')
         .select('user_id, role')
         .in('role', ['admin', 'fleet_manager']);
@@ -299,12 +353,12 @@ Deno.serve(async (req) => {
         console.log(`✅ ${adminNotifications.length} notification(s) envoyée(s) au dispatch`);
       }
     } catch (adminNotificationError) {
-      console.error('Failed to send admin notifications:', adminNotificationError);
+      console.error('⚠️ Failed to send admin notifications:', adminNotificationError);
     }
 
-    // Add tracking entry with location if provided (optional, table may not exist yet)
+    // Add tracking entry with location if provided
     try {
-      const trackingData: any = {
+      const trackingData: Record<string, unknown> = {
         course_id,
         status: updateData.status || course.status,
         notes: trackingNotes,
@@ -319,8 +373,7 @@ Deno.serve(async (req) => {
         .from('course_tracking')
         .insert(trackingData);
     } catch (trackingError) {
-      console.log('Tracking insert failed (table may not exist yet):', trackingError);
-      // Don't fail the request if tracking fails
+      console.log('⚠️ Tracking insert skipped (table may not exist)');
     }
 
     // Si la course est terminée, créer une entrée comptable
@@ -328,53 +381,52 @@ Deno.serve(async (req) => {
       try {
         console.log('💰 Création de l\'entrée comptable...');
         
-        // Utiliser Service Role pour contourner RLS
-        const supabaseServiceRole = createClient(
-          supabaseUrl,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        );
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (!serviceRoleKey) {
+          console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY');
+        } else {
+          const supabaseServiceRole = createClient(supabaseUrl, serviceRoleKey);
 
-        const netDriver = course.net_driver || course.client_price * 0.8;
-        const netFleet = course.client_price - netDriver;
+          const clientPrice = course.client_price || 0;
+          const netDriver = course.net_driver || clientPrice * 0.8;
+          const netFleet = clientPrice - netDriver;
 
-        console.log('💰 Données comptables:', {
-          course_id,
-          driver_id: driver.id,
-          driver_amount: netDriver,
-          fleet_amount: netFleet,
-          total_amount: course.client_price,
-          rating: rating || null,
-        });
-
-        const { data: accountingData, error: accountingError } = await supabaseServiceRole
-          .from('accounting_entries')
-          .insert({
+          console.log('💰 Données comptables:', {
             course_id,
             driver_id: driver.id,
             driver_amount: netDriver,
             fleet_amount: netFleet,
-            total_amount: course.client_price,
-            rating: rating || null,
-            comment: comment || null,
-            payment_status: 'pending',
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
+            total_amount: clientPrice,
+          });
 
-        if (accountingError) {
-          console.error('❌ Erreur création entrée comptable:', accountingError);
-          console.error('❌ Code erreur:', accountingError.code);
-          console.error('❌ Message:', accountingError.message);
-          console.error('❌ Détails:', accountingError.details);
-        } else {
-          console.log('✅ Entrée comptable créée automatiquement:', accountingData);
+          const { data: accountingData, error: accountingError } = await supabaseServiceRole
+            .from('accounting_entries')
+            .insert({
+              course_id,
+              driver_id: driver.id,
+              driver_amount: netDriver,
+              fleet_amount: netFleet,
+              total_amount: clientPrice,
+              rating: rating || null,
+              comment: comment || null,
+              payment_status: 'pending',
+              created_at: new Date().toISOString(),
+            })
+            .select()
+            .maybeSingle();
+
+          if (accountingError) {
+            console.error('⚠️ Erreur création entrée comptable:', accountingError.message);
+          } else if (accountingData) {
+            console.log('✅ Entrée comptable créée:', accountingData.id);
+          }
         }
       } catch (accountingError) {
-        console.error('❌ Exception comptabilité:', accountingError);
-        // Ne pas faire échouer la requête si erreur comptable
+        console.error('⚠️ Exception comptabilité:', accountingError);
       }
     }
+
+    console.log('🎉 Action completed successfully:', action);
 
     return new Response(
       JSON.stringify({ 
@@ -387,21 +439,27 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorName = error instanceof Error ? error.name : 'Error';
-    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('❌ Unexpected error in driver-update-course-status:');
+    console.error('Error type:', typeof error);
+    console.error('Error:', error);
     
-    console.error('❌ Unexpected error in driver-update-course-status:', error);
-    console.error('Error details:', {
-      name: errorName,
-      message: errorMessage,
-      stack: errorStack
-    });
+    let errorMessage = 'Internal server error';
+    let errorDetails = 'Unknown error';
+    
+    if (error instanceof Error) {
+      errorMessage = error.name;
+      errorDetails = error.message;
+      console.error('Stack:', error.stack);
+    } else if (typeof error === 'string') {
+      errorDetails = error;
+    } else if (error && typeof error === 'object') {
+      errorDetails = JSON.stringify(error);
+    }
     
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error',
-        details: errorMessage
+        error: errorMessage,
+        details: errorDetails
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
