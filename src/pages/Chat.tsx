@@ -54,12 +54,10 @@ export default function Chat() {
           console.log('💬 New message received:', payload);
           const newMsg = payload.new as Message;
           setMessages((current) => {
-            // Avoid duplicates
             if (current.some(m => m.id === newMsg.id)) return current;
             return [...current, newMsg];
           });
           
-          // Show toast for fleet/admin messages
           if (newMsg.sender_role !== 'driver') {
             toast.success('Nouveau message du dispatch !');
           }
@@ -73,11 +71,10 @@ export default function Chat() {
   }, [driver, courseId]);
 
   useEffect(() => {
-    // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Mark messages as read by driver
+  // Mark messages as read via Edge Function
   useEffect(() => {
     if (!courseId || !driver || messages.length === 0) return;
     
@@ -86,15 +83,9 @@ export default function Chat() {
     );
     
     if (unreadMessages.length > 0) {
-      supabase
-        .from('messages')
-        .update({ read_by_driver: true })
-        .eq('course_id', courseId)
-        .eq('read_by_driver', false)
-        .neq('sender_role', 'driver')
-        .then(({ error }) => {
-          if (error) console.error('Error marking messages as read:', error);
-        });
+      supabase.functions.invoke('chat-messages', {
+        body: { action: 'mark_read', course_id: courseId }
+      }).catch(err => console.error('Error marking as read:', err));
     }
   }, [messages, courseId, driver]);
 
@@ -102,24 +93,52 @@ export default function Chat() {
     if (!courseId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('course_id', courseId)
-        .order('created_at', { ascending: true });
+      // Try Edge Function first
+      const { data, error } = await supabase.functions.invoke('chat-messages', {
+        body: { action: 'get_messages', course_id: courseId }
+      });
 
       if (error) throw error;
 
-      setMessages(data || []);
+      if (data?.error) {
+        console.error('Edge function error:', data.error);
+        // If table doesn't exist, show appropriate message
+        if (data.error.includes('does not exist') || data.error.includes('42P01')) {
+          setTableExists(false);
+          return;
+        }
+      }
+
+      setMessages(data?.messages || []);
       setTableExists(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching messages:', error);
-      if (error.message?.includes('relation "public.messages" does not exist') ||
-          error.code === '42P01') {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('does not exist') || errorMessage.includes('42P01')) {
         setTableExists(false);
-        toast.error('La table messages n\'existe pas encore. Veuillez patienter quelques minutes pendant le déploiement.');
+        toast.error('La table messages n\'existe pas encore.');
       } else {
-        toast.error('Erreur lors du chargement des messages');
+        // Try fallback to direct query
+        try {
+          const { data: directData, error: directError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('created_at', { ascending: true });
+
+          if (directError) throw directError;
+          setMessages(directData || []);
+          setTableExists(true);
+        } catch (fallbackError: unknown) {
+          console.error('Fallback error:', fallbackError);
+          const fbErrorMsg = fallbackError instanceof Error ? fallbackError.message : '';
+          if (fbErrorMsg.includes('does not exist') || fbErrorMsg.includes('42P01')) {
+            setTableExists(false);
+          } else {
+            toast.error('Erreur lors du chargement des messages');
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -131,37 +150,39 @@ export default function Chat() {
 
     setSending(true);
     const messageContent = newMessage.trim();
-    setNewMessage(''); // Clear input immediately for better UX
+    setNewMessage('');
 
     try {
-      const { data, error } = await supabase.from('messages').insert({
-        course_id: courseId,
-        driver_id: driver.id,
-        sender_role: 'driver',
-        sender_user_id: session.user.id,
-        content: messageContent,
-        read_by_driver: true,
-        read_by_fleet: false,
-      }).select().single();
+      const { data, error } = await supabase.functions.invoke('chat-messages', {
+        body: {
+          action: 'send_message',
+          course_id: courseId,
+          driver_id: driver.id,
+          content: messageContent
+        }
+      });
 
       if (error) throw error;
 
-      // Add message optimistically if realtime didn't catch it
-      if (data) {
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.message) {
         setMessages((current) => {
-          if (current.some(m => m.id === data.id)) return current;
-          return [...current, data];
+          if (current.some(m => m.id === data.message.id)) return current;
+          return [...current, data.message];
         });
       }
 
       toast.success('Message envoyé', { duration: 2000 });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
-      setNewMessage(messageContent); // Restore message on error
+      setNewMessage(messageContent);
       
-      if (error.message?.includes('relation "public.messages" does not exist') ||
-          error.code === '42P01') {
-        toast.error('La table messages n\'existe pas encore. Veuillez patienter.');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('does not exist') || errorMessage.includes('42P01')) {
+        toast.error('La table messages n\'existe pas encore.');
         setTableExists(false);
       } else {
         toast.error('Erreur lors de l\'envoi du message');
@@ -273,7 +294,6 @@ export default function Chat() {
                     >
                       {format(new Date(message.created_at), 'HH:mm', { locale: fr })}
                     </span>
-                    {/* Read indicators for driver messages */}
                     {isDriver && (
                       <span className="text-primary-foreground/70">
                         {message.read_by_fleet ? (
