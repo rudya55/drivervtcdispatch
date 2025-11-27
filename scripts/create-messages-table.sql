@@ -17,9 +17,9 @@ create table if not exists public.messages (
 alter table public.messages enable row level security;
 
 -- Create indexes
-create index idx_messages_course_id on public.messages(course_id);
-create index idx_messages_driver_id on public.messages(driver_id);
-create index idx_messages_created_at on public.messages(created_at desc);
+create index if not exists idx_messages_course_id on public.messages(course_id);
+create index if not exists idx_messages_driver_id on public.messages(driver_id);
+create index if not exists idx_messages_created_at on public.messages(created_at desc);
 
 -- RLS policies for drivers
 create policy "Drivers can view their own messages"
@@ -48,7 +48,7 @@ create policy "Drivers can insert their own messages"
     )
   );
 
--- RLS policies for admin/fleet (will be managed via security definer functions or similar)
+-- RLS policies for admin/fleet
 create policy "Admins can view all messages"
   on public.messages
   for select
@@ -77,3 +77,49 @@ create policy "Admins can insert messages"
 
 -- Enable Realtime
 alter publication supabase_realtime add table public.messages;
+
+-- ============================================
+-- TRIGGER: Notify dispatcher when driver sends a message
+-- ============================================
+
+-- Function to notify dispatcher of new driver message
+create or replace function public.notify_dispatcher_new_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_course record;
+  v_driver record;
+  v_fleet_user_id uuid;
+begin
+  -- Only trigger for driver messages
+  if NEW.sender_role != 'driver' then
+    return NEW;
+  end if;
+
+  -- Get course info
+  select * into v_course from public.courses where id = NEW.course_id;
+  
+  -- Get driver info
+  select * into v_driver from public.drivers where id = NEW.driver_id;
+
+  -- Find fleet managers to notify (those with admin or fleet_manager role)
+  for v_fleet_user_id in 
+    select user_id from public.user_roles 
+    where role in ('admin', 'fleet_manager')
+  loop
+    raise notice 'New chat message from driver % for course %', v_driver.name, v_course.id;
+  end loop;
+
+  return NEW;
+end;
+$$;
+
+-- Create trigger for new messages
+drop trigger if exists trigger_notify_dispatcher_new_message on public.messages;
+create trigger trigger_notify_dispatcher_new_message
+  after insert on public.messages
+  for each row
+  execute function public.notify_dispatcher_new_message();
