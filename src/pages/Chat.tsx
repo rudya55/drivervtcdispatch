@@ -6,7 +6,7 @@ import { Header } from '@/components/Header';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -31,6 +31,7 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [tableExists, setTableExists] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +52,17 @@ export default function Chat() {
         },
         (payload) => {
           console.log('💬 New message received:', payload);
-          setMessages((current) => [...current, payload.new as Message]);
+          const newMsg = payload.new as Message;
+          setMessages((current) => {
+            // Avoid duplicates
+            if (current.some(m => m.id === newMsg.id)) return current;
+            return [...current, newMsg];
+          });
+          
+          // Show toast for fleet/admin messages
+          if (newMsg.sender_role !== 'driver') {
+            toast.success('Nouveau message du dispatch !');
+          }
         }
       )
       .subscribe();
@@ -66,6 +77,27 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Mark messages as read by driver
+  useEffect(() => {
+    if (!courseId || !driver || messages.length === 0) return;
+    
+    const unreadMessages = messages.filter(
+      m => m.sender_role !== 'driver' && !m.read_by_driver
+    );
+    
+    if (unreadMessages.length > 0) {
+      supabase
+        .from('messages')
+        .update({ read_by_driver: true })
+        .eq('course_id', courseId)
+        .eq('read_by_driver', false)
+        .neq('sender_role', 'driver')
+        .then(({ error }) => {
+          if (error) console.error('Error marking messages as read:', error);
+        });
+    }
+  }, [messages, courseId, driver]);
+
   const fetchMessages = async () => {
     if (!courseId) return;
 
@@ -79,10 +111,13 @@ export default function Chat() {
       if (error) throw error;
 
       setMessages(data || []);
+      setTableExists(true);
     } catch (error: any) {
       console.error('Error fetching messages:', error);
-      if (error.message?.includes('relation "public.messages" does not exist')) {
-        toast.error('La table des messages n\'existe pas. Veuillez exécuter le script SQL create-messages-table.sql dans Supabase.');
+      if (error.message?.includes('relation "public.messages" does not exist') ||
+          error.code === '42P01') {
+        setTableExists(false);
+        toast.error('La table messages n\'existe pas encore. Veuillez patienter quelques minutes pendant le déploiement.');
       } else {
         toast.error('Erreur lors du chargement des messages');
       }
@@ -95,23 +130,42 @@ export default function Chat() {
     if (!newMessage.trim() || !driver || !session || !courseId) return;
 
     setSending(true);
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
+
     try {
-      const { error } = await supabase.from('messages').insert({
+      const { data, error } = await supabase.from('messages').insert({
         course_id: courseId,
         driver_id: driver.id,
         sender_role: 'driver',
         sender_user_id: session.user.id,
-        content: newMessage.trim(),
+        content: messageContent,
         read_by_driver: true,
         read_by_fleet: false,
-      });
+      }).select().single();
 
       if (error) throw error;
 
-      setNewMessage('');
+      // Add message optimistically if realtime didn't catch it
+      if (data) {
+        setMessages((current) => {
+          if (current.some(m => m.id === data.id)) return current;
+          return [...current, data];
+        });
+      }
+
+      toast.success('Message envoyé', { duration: 2000 });
     } catch (error: any) {
       console.error('Error sending message:', error);
-      toast.error('Erreur lors de l\'envoi du message');
+      setNewMessage(messageContent); // Restore message on error
+      
+      if (error.message?.includes('relation "public.messages" does not exist') ||
+          error.code === '42P01') {
+        toast.error('La table messages n\'existe pas encore. Veuillez patienter.');
+        setTableExists(false);
+      } else {
+        toast.error('Erreur lors de l\'envoi du message');
+      }
     } finally {
       setSending(false);
     }
@@ -121,8 +175,33 @@ export default function Chat() {
     return (
       <div className="min-h-screen bg-background">
         <Header title="Chat" />
+        <div className="p-4 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Chargement...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tableExists) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header title="Chat" />
         <div className="p-4">
-          <p className="text-center text-muted-foreground">Chargement...</p>
+          <Card className="p-6 text-center">
+            <p className="text-destructive font-medium">Chat non disponible</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              La fonctionnalité de chat est en cours de déploiement.
+              Veuillez patienter quelques minutes et réessayer.
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => navigate('/bookings')}
+            >
+              Retour aux courses
+            </Button>
+          </Card>
         </div>
       </div>
     );
@@ -180,14 +259,31 @@ export default function Chat() {
                       : 'bg-muted'
                   }`}
                 >
+                  {!isDriver && (
+                    <p className="text-xs font-medium mb-1 opacity-70">
+                      {message.sender_role === 'fleet' ? 'Dispatch' : 'Admin'}
+                    </p>
+                  )}
                   <p className="text-sm break-words">{message.content}</p>
-                  <p
-                    className={`text-xs mt-1 ${
-                      isDriver ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {format(new Date(message.created_at), 'HH:mm', { locale: fr })}
-                  </p>
+                  <div className={`flex items-center justify-end gap-1 mt-1`}>
+                    <span
+                      className={`text-xs ${
+                        isDriver ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {format(new Date(message.created_at), 'HH:mm', { locale: fr })}
+                    </span>
+                    {/* Read indicators for driver messages */}
+                    {isDriver && (
+                      <span className="text-primary-foreground/70">
+                        {message.read_by_fleet ? (
+                          <CheckCheck className="w-4 h-4" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </Card>
               </div>
             );
@@ -218,7 +314,11 @@ export default function Chat() {
             size="icon"
             className="h-[60px] w-[60px]"
           >
-            <Send className="w-5 h-5" />
+            {sending ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </Button>
         </div>
       </div>
