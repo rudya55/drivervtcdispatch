@@ -109,9 +109,23 @@ CREATE INDEX IF NOT EXISTS idx_drivers_approved_created ON public.drivers(approv
 
 -- Ajout des colonnes courses pour le dispatch et les infos vol
 ALTER TABLE public.courses
-  ADD COLUMN IF NOT EXISTS dispatch_mode text,
+  ADD COLUMN IF NOT EXISTS dispatch_mode text DEFAULT 'auto',
   ADD COLUMN IF NOT EXISTS flight_number text,
   ADD COLUMN IF NOT EXISTS company_name text;
+
+-- Index pour filtrage par dispatch_mode
+CREATE INDEX IF NOT EXISTS idx_courses_dispatch_mode 
+  ON public.courses (dispatch_mode);
+
+-- ⚡ INITIALISATION: Mettre dispatch_mode = 'auto' pour les courses dispatchées sans chauffeur assigné
+UPDATE public.courses 
+SET dispatch_mode = 'auto'
+WHERE dispatch_mode IS NULL AND status = 'dispatched' AND driver_id IS NULL;
+
+-- ⚡ INITIALISATION: Mettre dispatch_mode = 'manual' pour les courses assignées directement
+UPDATE public.courses 
+SET dispatch_mode = 'manual'
+WHERE dispatch_mode IS NULL AND driver_id IS NOT NULL;
 
 -- ============================================================================
 -- PARTIE 8B: TABLE COURSES - TIMESTAMPS DE PROGRESSION
