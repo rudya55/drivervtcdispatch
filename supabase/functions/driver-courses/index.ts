@@ -40,127 +40,142 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
+    console.log('🚗 User ID:', user.id);
+    console.log('🚗 Driver found:', driver ? 'Yes' : 'No');
     console.log('🚗 Driver ID:', driver?.id);
+    console.log('🚗 Driver status:', driver?.status);
     console.log('🚗 Driver vehicle_types_accepted:', driver?.vehicle_types_accepted);
 
-    if (driverError || !driver) {
+    if (driverError) {
+      console.error('❌ Driver error:', driverError);
+      return new Response(JSON.stringify({ error: 'Chauffeur non trouvé', details: driverError.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 404,
+      });
+    }
+
+    if (!driver) {
       return new Response(JSON.stringify({ error: 'Chauffeur non trouvé' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       });
     }
 
-    console.log('Fetching courses for driver:', driver.id);
-    console.log('Driver accepts vehicle types:', driver.vehicle_types_accepted);
-
-    // Simplified fetch: get all relevant courses without vehicle_type filtering in SQL
-    // We'll filter by vehicle_type in JavaScript for more robustness
-    
     const driverId = driver.id;
+    // If vehicle_types_accepted is null/undefined/empty, accept ALL vehicle types
     const acceptedTypes = driver.vehicle_types_accepted || [];
+    const acceptsAllTypes = !acceptedTypes || acceptedTypes.length === 0;
     
     console.log('🔍 Driver ID:', driverId);
     console.log('🔍 Accepted types:', acceptedTypes);
-    
-    // Simple SQL query: get courses based on driver_id, status, dispatch_mode
-    let query = supabase
+    console.log('🔍 Accepts all types:', acceptsAllTypes);
+
+    // Fetch ALL courses that are not cancelled - we'll filter in JavaScript for robustness
+    const { data: courses, error: coursesError } = await supabase
       .from('courses')
       .select('*')
       .neq('status', 'cancelled')
-      .order('pickup_date', { ascending: true })
-      .or(
-        `driver_id.eq.${driverId},` + // My assigned courses
-        `and(status.eq.dispatched,dispatch_mode.eq.auto),` + // Auto-dispatch courses
-        `and(status.eq.dispatched,dispatch_mode.eq.manual,driver_id.eq.${driverId}),` + // Manual-dispatch assigned to me
-        `status.eq.pending` // Pending courses
-      );
-
-    const { data: courses, error: coursesError } = await query;
+      .order('pickup_date', { ascending: true });
 
     if (coursesError) {
-      console.error('Courses error:', coursesError);
+      console.error('❌ Courses error:', coursesError);
       return new Response(JSON.stringify({ error: coursesError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
     }
 
-    console.log(`📊 Raw courses fetched: ${courses?.length || 0}`);
+    console.log(`📊 Total courses in database (non-cancelled): ${courses?.length || 0}`);
+    
+    // Log first few courses for debugging
+    if (courses && courses.length > 0) {
+      console.log('📋 Sample courses:');
+      courses.slice(0, 3).forEach((c, i) => {
+        console.log(`  Course ${i+1}: id=${c.id}, status=${c.status}, dispatch_mode=${c.dispatch_mode}, driver_id=${c.driver_id}, vehicle_type=${c.vehicle_type}`);
+      });
+    }
 
-    // Filter by vehicle_type in JavaScript (more robust than SQL OR clause)
+    // Filter courses based on visibility rules
     const filteredCourses = (courses || []).filter((course) => {
-      // Always show all my assigned courses (regardless of vehicle type)
+      // Rule 1: Always show courses assigned to this driver
       if (course.driver_id === driverId) {
-        console.log(`✅ Keeping assigned course ${course.id} (driver_id match)`);
+        console.log(`✅ Course ${course.id}: Assigned to this driver`);
         return true;
       }
 
-      // If driver accepts all types (empty array), show everything
-      if (acceptedTypes.length === 0) {
-        console.log(`✅ Keeping course ${course.id} (driver accepts all types)`);
-        return true;
+      // Rule 2: Show dispatched courses based on dispatch_mode
+      if (course.status === 'dispatched') {
+        // If dispatch_mode is 'auto' OR null/undefined (treat null as 'auto' for backwards compatibility)
+        const isAutoDispatch = !course.dispatch_mode || course.dispatch_mode === 'auto';
+        
+        if (isAutoDispatch) {
+          // Auto-dispatch: show to all drivers, but filter by vehicle type if driver has preferences
+          if (acceptsAllTypes) {
+            console.log(`✅ Course ${course.id}: Auto-dispatch, driver accepts all types`);
+            return true;
+          }
+          const vehicleMatch = acceptedTypes.includes(course.vehicle_type);
+          console.log(`${vehicleMatch ? '✅' : '❌'} Course ${course.id}: Auto-dispatch, vehicle_type=${course.vehicle_type}, match=${vehicleMatch}`);
+          return vehicleMatch;
+        }
+        
+        // Manual dispatch: only show to assigned driver (already handled in Rule 1)
+        console.log(`❌ Course ${course.id}: Manual dispatch, not assigned to this driver`);
+        return false;
       }
 
-      // For auto-dispatch courses, filter by vehicle_type
-      if (course.status === 'dispatched' && course.dispatch_mode === 'auto') {
-        const match = acceptedTypes.includes(course.vehicle_type);
-        console.log(`${match ? '✅' : '❌'} Auto-dispatch course ${course.id}, vehicle_type: ${course.vehicle_type}, accepted: ${match}`);
-        return match;
-      }
-
-      // For manual-dispatch courses not yet assigned, filter by vehicle_type
-      if (course.status === 'dispatched' && course.dispatch_mode === 'manual' && !course.driver_id) {
-        const match = acceptedTypes.includes(course.vehicle_type);
-        console.log(`${match ? '✅' : '❌'} Manual-dispatch course ${course.id}, vehicle_type: ${course.vehicle_type}, accepted: ${match}`);
-        return match;
-      }
-
-      // For pending courses, filter by vehicle_type
+      // Rule 3: Show pending courses (filter by vehicle type if driver has preferences)
       if (course.status === 'pending') {
-        const match = acceptedTypes.includes(course.vehicle_type);
-        console.log(`${match ? '✅' : '❌'} Pending course ${course.id}, vehicle_type: ${course.vehicle_type}, accepted: ${match}`);
-        return match;
+        if (acceptsAllTypes) {
+          console.log(`✅ Course ${course.id}: Pending, driver accepts all types`);
+          return true;
+        }
+        const vehicleMatch = acceptedTypes.includes(course.vehicle_type);
+        console.log(`${vehicleMatch ? '✅' : '❌'} Course ${course.id}: Pending, vehicle_type=${course.vehicle_type}, match=${vehicleMatch}`);
+        return vehicleMatch;
       }
 
-      // Default: include the course
-      console.log(`✅ Keeping course ${course.id} (default)`);
-      return true;
+      // Default: don't show (completed courses not assigned to this driver, etc.)
+      console.log(`❌ Course ${course.id}: Not matching any rule (status=${course.status})`);
+      return false;
     });
 
-    console.log(`📊 Filtered courses: ${filteredCourses.length}`);
+    console.log(`📊 Filtered courses for driver: ${filteredCourses.length}`);
 
-    // Sort courses by priority:
-    // 1. Accepted/In Progress/Completed courses for this driver (my courses)
-    // 2. Auto-dispatched courses (available to all)
-    // 3. Manual-dispatched courses assigned to me
-    // 4. Pending courses
+    // Sort courses by priority
     const sortedCourses = filteredCourses.sort((a, b) => {
-      // My active courses first
-      if (a.driver_id === driver.id && ['accepted', 'in_progress', 'completed'].includes(a.status)) {
-        return -1;
-      }
-      if (b.driver_id === driver.id && ['accepted', 'in_progress', 'completed'].includes(b.status)) {
-        return 1;
-      }
+      // Priority 1: My active courses (accepted, in_progress, started, arrived, picked_up, dropped_off)
+      const activeStatuses = ['accepted', 'in_progress', 'started', 'arrived', 'picked_up', 'dropped_off'];
+      const aIsMyActive = a.driver_id === driverId && activeStatuses.includes(a.status);
+      const bIsMyActive = b.driver_id === driverId && activeStatuses.includes(b.status);
+      if (aIsMyActive && !bIsMyActive) return -1;
+      if (!aIsMyActive && bIsMyActive) return 1;
       
-      // Then auto-dispatch courses
-      if (a.dispatch_mode === 'auto' && a.status === 'dispatched') return -1;
-      if (b.dispatch_mode === 'auto' && b.status === 'dispatched') return 1;
+      // Priority 2: Dispatched courses (new courses to accept)
+      if (a.status === 'dispatched' && b.status !== 'dispatched') return -1;
+      if (a.status !== 'dispatched' && b.status === 'dispatched') return 1;
       
-      // Then manual-dispatch assigned to me
-      if (a.dispatch_mode === 'manual' && a.status === 'dispatched' && a.driver_id === driver.id) return -1;
-      if (b.dispatch_mode === 'manual' && b.status === 'dispatched' && b.driver_id === driver.id) return 1;
+      // Priority 3: Pending courses
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (a.status !== 'pending' && b.status === 'pending') return 1;
       
-      // Then pending
-      return 0;
+      // Default: sort by pickup_date
+      return new Date(a.pickup_date).getTime() - new Date(b.pickup_date).getTime();
     });
 
-    console.log(`Found ${sortedCourses.length} courses`);
+    console.log(`✅ Returning ${sortedCourses.length} courses to driver`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        courses: sortedCourses
+        courses: sortedCourses,
+        debug: {
+          driverId,
+          acceptedTypes,
+          acceptsAllTypes,
+          totalCourses: courses?.length || 0,
+          filteredCount: filteredCourses.length
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -168,7 +183,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Error:', error);
+    console.error('❌ Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
