@@ -53,6 +53,16 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+      - name: Validate Java version
+        run: |
+          echo "🔍 Validating Java version..."
+          JAVA_VERSION=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | cut -d'.' -f1)
+          if [ "$JAVA_VERSION" != "17" ]; then
+            echo "❌ Expected Java 17, but found version $JAVA_VERSION"
+            exit 1
+          fi
+          echo "✅ Java 17 validated: $(java -version 2>&1 | head -1)"
+
       - name: Install dependencies
         run: |
           echo "📦 Installing npm dependencies..."

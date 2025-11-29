@@ -107,6 +107,8 @@ elif [ -n "$ANDROID_SDK_ROOT" ]; then
 fi
 
 # Build APKs
+# Note: key.properties is expected in android/ directory (current working directory)
+# This matches the Gradle configuration: rootProject.file("key.properties")
 if [ "$BUILD_TYPE" = "debug" ] || [ "$BUILD_TYPE" = "both" ]; then
     echo -e "${YELLOW}🏗️ Building debug APK...${NC}"
     ./gradlew assembleDebug --no-daemon

@@ -162,8 +162,11 @@
 # App-Specific Rules
 # ==========================================
 
-# Keep the main activity
--keep class com.lovable.drivervtcdispatch.MainActivity { *; }
+# Keep the main activity (using wildcard to match any package)
+-keep class **.MainActivity { *; }
 
 # Keep any custom Application class
 -keep class * extends android.app.Application { *; }
+
+# Keep Driver VTC Dispatch specific classes
+-keep class com.lovable.drivervtcdispatch.** { *; }
