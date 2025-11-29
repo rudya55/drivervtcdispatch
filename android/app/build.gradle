@@ -1,14 +1,14 @@
 apply plugin: 'com.android.application'
 
 // Load keystore properties
-def keystorePropertiesFile = rootProject.file("android/key.properties")
+def keystorePropertiesFile = rootProject.file("key.properties")
 def keystoreProperties = new Properties()
 
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-    logger.lifecycle("✅ Keystore properties loaded")
+    logger.lifecycle("✅ Keystore properties loaded from key.properties")
 } else {
-    logger.warn("⚠️ key.properties not found - using debug signing for release")
+    logger.warn("⚠️ key.properties not found - using debug signing for release builds")
 }
 
 android {
@@ -24,9 +24,9 @@ android {
                     storePassword keystoreProperties['storePassword']
                     keyAlias keystoreProperties['keyAlias']
                     keyPassword keystoreProperties['keyPassword']
-                    logger.lifecycle("✅ Release signing configured with keystore")
+                    logger.lifecycle("✅ Release signing configured with keystore: ${keystoreFile.name}")
                 } else {
-                    logger.error("❌ Keystore file not found: ${keystoreFile.absolutePath}")
+                    logger.warn("⚠️ Keystore file not found: ${keystoreProperties['storeFile']}")
                 }
             }
         }
@@ -36,29 +36,73 @@ android {
         applicationId "com.lovable.drivervtcdispatch"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 2
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Enable multidex for large apps
+        multiDexEnabled true
+        
         aaptOptions {
-             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
-             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+            // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    
+    // Enable ABI splits to reduce APK size
+    splits {
+        abi {
+            enable true
+            reset()
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            universalApk true
         }
     }
     
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            debuggable true
+            minifyEnabled false
+            shrinkResources false
         }
         release {
             if (signingConfigs.release.storeFile?.exists()) {
                 signingConfig signingConfigs.release
+                logger.lifecycle("✅ Using release keystore for signing")
             } else {
                 signingConfig signingConfigs.debug
-                logger.warn("⚠️ Using debug signing for release build")
+                logger.warn("⚠️ Using debug signing for release build - configure key.properties for production")
             }
-            minifyEnabled false
-            shrinkResources false
+            
+            // Enable minification and resource shrinking for release
+            minifyEnabled true
+            shrinkResources true
+            
+            // ProGuard configuration
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            debuggable false
+        }
+    }
+    
+    // Java compatibility
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    // Lint options
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+    
+    // Packaging options to avoid conflicts
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/NOTICE.md', 'META-INF/LICENSE.md', 'META-INF/DEPENDENCIES']
         }
     }
 }
@@ -74,6 +118,7 @@ dependencies {
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "androidx.multidex:multidex:2.0.1"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
@@ -87,7 +132,8 @@ try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
+        logger.lifecycle("✅ Google Services plugin applied")
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("ℹ️ google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }

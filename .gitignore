@@ -22,7 +22,35 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android SDK and Gradle
 android-sdk/
 android/.gradle/
 android/**/build/
+android/local.properties
+
+# Android signing - DO NOT COMMIT THESE
+android/key.properties
+android/app/upload-keystore.jks
+android/app/*.jks
+*.jks
+*.keystore
+
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# Build outputs
+*.apk
+*.aab
+
+# Keep specific APKs that are intentionally committed
+!driver-vtc-dispatch-debug.apk
+!drivervtcdispatch.apk
+
+# Capacitor generated files (keep for reference)
+# android/capacitor-cordova-android-plugins/
+
+# Vite temp files
+*.timestamp-*.mjs

@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Build type (debug/release)'
+        description: 'Build type (debug/release/both)'
         required: false
-        default: 'release'
+        default: 'both'
         type: choice
         options:
           - debug
           - release
+          - both
   push:
     branches:
       - main
@@ -26,11 +27,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: --max_old_space_size=4096
-      BUILD_TYPE: ${{ inputs.build_type || 'release' }}
-      HAS_SIGNING_SECRETS: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+      BUILD_TYPE: ${{ inputs.build_type || 'both' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build info
+        run: |
+          echo "🚀 Starting Android Build"
+          echo "Build type: ${{ env.BUILD_TYPE }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,23 +46,32 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Setup Java
+      - name: Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
           cache: 'gradle'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          echo "📦 Installing npm dependencies..."
+          npm ci --legacy-peer-deps
+          echo "✅ Dependencies installed"
 
       - name: Build web app
-        run: npm run build
+        run: |
+          echo "🔨 Building web application..."
+          npm run build
+          echo "✅ Web build complete"
         env:
           NODE_ENV: production
 
       - name: Sync Capacitor
-        run: npx cap sync android
+        run: |
+          echo "🔄 Syncing with Capacitor..."
+          npx cap sync android
+          echo "✅ Capacitor sync complete"
 
       - name: Grant Gradle permissions
         working-directory: android
@@ -62,6 +79,7 @@ jobs:
 
       - name: Setup Android SDK
         run: |
+          echo "📱 Setting up Android SDK..."
           ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           cd "$RUNNER_TEMP"
@@ -72,36 +90,59 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "✅ Android SDK setup complete"
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses
 
       - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          echo "📥 Installing SDK packages..."
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "✅ SDK packages installed"
 
       - name: Configure SDK location
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
+      - name: Check signing secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && \
+             [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ] && \
+             [ -n "${{ secrets.KEY_ALIAS }}" ] && \
+             [ -n "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+            echo "✅ Signing secrets found"
+          else
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Signing secrets not configured - release will use debug signing"
+          fi
+
       - name: Decode keystore
-        if: env.BUILD_TYPE == 'release' && env.HAS_SIGNING_SECRETS == 'true'
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+        if: steps.check_secrets.outputs.has_secrets == 'true'
+        run: |
+          echo "🔐 Decoding keystore..."
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+          echo "✅ Keystore decoded"
 
       - name: Create key.properties
-        if: env.BUILD_TYPE == 'release' && env.HAS_SIGNING_SECRETS == 'true'
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         working-directory: android
         run: |
+          echo "📝 Creating key.properties..."
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> key.properties
           echo "storeFile=upload-keystore.jks" >> key.properties
-          echo "✅ Keystore configured"
+          echo "✅ key.properties created"
 
       - name: Validate keystore
-        if: env.BUILD_TYPE == 'release' && env.HAS_SIGNING_SECRETS == 'true'
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         working-directory: android/app
         run: |
+          echo "🔍 Validating keystore..."
           if [ ! -f "upload-keystore.jks" ]; then
-            echo "❌ Keystore not found"
+            echo "❌ Keystore file not found"
             exit 1
           fi
           
@@ -111,56 +152,110 @@ jobs:
             -alias "${{ secrets.KEY_ALIAS }}" > /dev/null 2>&1
           
           if [ $? -eq 0 ]; then
-            echo "✅ Keystore validated"
+            echo "✅ Keystore validated successfully"
           else
             echo "❌ Invalid keystore, password, or alias"
             exit 1
           fi
 
       - name: Build debug APK
-        if: env.BUILD_TYPE == 'debug'
+        if: env.BUILD_TYPE == 'debug' || env.BUILD_TYPE == 'both'
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          echo "🏗️ Building debug APK..."
+          ./gradlew assembleDebug --no-daemon --info
+          echo "✅ Debug APK built"
+          ls -la app/build/outputs/apk/debug/ || echo "Debug output directory not found"
 
       - name: Build release APK
-        if: env.BUILD_TYPE == 'release'
+        if: env.BUILD_TYPE == 'release' || env.BUILD_TYPE == 'both'
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: |
+          echo "🏗️ Building release APK..."
+          ./gradlew assembleRelease --no-daemon --info
+          echo "✅ Release APK built"
+          ls -la app/build/outputs/apk/release/ || echo "Release output directory not found"
 
-      - name: Build release AAB
-        if: env.BUILD_TYPE == 'release'
+      - name: Build release AAB (App Bundle)
+        if: env.BUILD_TYPE == 'release' || env.BUILD_TYPE == 'both'
         working-directory: android
-        run: ./gradlew bundleRelease --no-daemon
+        run: |
+          echo "🏗️ Building release AAB (App Bundle)..."
+          ./gradlew bundleRelease --no-daemon --info
+          echo "✅ Release AAB built"
+          ls -la app/build/outputs/bundle/release/ || echo "Bundle output directory not found"
 
       - name: Upload debug APK
-        if: env.BUILD_TYPE == 'debug'
+        if: env.BUILD_TYPE == 'debug' || env.BUILD_TYPE == 'both'
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: driver-vtc-dispatch-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
 
       - name: Upload release APK
-        if: env.BUILD_TYPE == 'release'
+        if: env.BUILD_TYPE == 'release' || env.BUILD_TYPE == 'both'
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: driver-vtc-dispatch-release
           path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
 
       - name: Upload release AAB
-        if: env.BUILD_TYPE == 'release'
+        if: env.BUILD_TYPE == 'release' || env.BUILD_TYPE == 'both'
         uses: actions/upload-artifact@v4
         with:
-          name: app-bundle
+          name: driver-vtc-dispatch-bundle
           path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
 
       - name: Build summary
         if: always()
         run: |
-          echo "## Build Complete" >> $GITHUB_STEP_SUMMARY
-          echo "Build type: ${{ env.BUILD_TYPE }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 📱 Android Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Type | ${{ env.BUILD_TYPE }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Signing Configured | ${{ steps.check_secrets.outputs.has_secrets }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Java Version | 17 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node.js Version | 20 |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ env.BUILD_TYPE }}" == "release" ]; then
-            echo "✅ APK and AAB available in artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Generated Artifacts" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ env.BUILD_TYPE }}" == "debug" ] || [ "${{ env.BUILD_TYPE }}" == "both" ]; then
+            if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+              DEBUG_SIZE=$(du -h android/app/build/outputs/apk/debug/app-debug.apk | cut -f1)
+              echo "- ✅ Debug APK: $DEBUG_SIZE" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ Debug APK: Not generated" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          if [ "${{ env.BUILD_TYPE }}" == "release" ] || [ "${{ env.BUILD_TYPE }}" == "both" ]; then
+            if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+              RELEASE_SIZE=$(du -h android/app/build/outputs/apk/release/app-release.apk | cut -f1)
+              echo "- ✅ Release APK: $RELEASE_SIZE" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ Release APK: Not generated" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            if [ -f "android/app/build/outputs/bundle/release/app-release.aab" ]; then
+              AAB_SIZE=$(du -h android/app/build/outputs/bundle/release/app-release.aab | cut -f1)
+              echo "- ✅ Release AAB: $AAB_SIZE" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ Release AAB: Not generated" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Next Steps" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_secrets.outputs.has_secrets }}" != "true" ]; then
+            echo "⚠️ **Signing not configured.** To publish to Google Play Store:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Generate a keystore: \`keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Encode it: \`base64 -i upload-keystore.jks | tr -d '\\n'\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Add GitHub Secrets: \`KEYSTORE_BASE64\`, \`KEYSTORE_PASSWORD\`, \`KEY_ALIAS\`, \`KEY_PASSWORD\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ Debug APK available in artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Signing configured. APK/AAB ready for Google Play Store upload." >> $GITHUB_STEP_SUMMARY
           fi
