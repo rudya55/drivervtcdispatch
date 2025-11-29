@@ -103,25 +103,24 @@ Deno.serve(async (req) => {
         return true;
       }
 
-      // Rule 2: Show dispatched courses based on dispatch_mode
+      // Rule 2: Show dispatched courses
       if (course.status === 'dispatched') {
-        // If dispatch_mode is 'auto' OR null/undefined (treat null as 'auto' for backwards compatibility)
-        const isAutoDispatch = !course.dispatch_mode || course.dispatch_mode === 'auto';
-        
-        if (isAutoDispatch) {
-          // Auto-dispatch: show to all drivers, but filter by vehicle type if driver has preferences
-          if (acceptsAllTypes) {
-            console.log(`✅ Course ${course.id}: Auto-dispatch, driver accepts all types`);
-            return true;
-          }
-          const vehicleMatch = acceptedTypes.includes(course.vehicle_type);
-          console.log(`${vehicleMatch ? '✅' : '❌'} Course ${course.id}: Auto-dispatch, vehicle_type=${course.vehicle_type}, match=${vehicleMatch}`);
-          return vehicleMatch;
+        // If course has a specific driver_id assigned and it's NOT me → not visible
+        if (course.driver_id && course.driver_id !== driverId) {
+          console.log(`❌ Course ${course.id}: Assigned to another driver`);
+          return false;
         }
         
-        // Manual dispatch: only show to assigned driver (already handled in Rule 1)
-        console.log(`❌ Course ${course.id}: Manual dispatch, not assigned to this driver`);
-        return false;
+        // Course is dispatched without specific driver OR dispatch_mode is auto → visible to all
+        // Apply vehicle type filter if driver has preferences
+        if (acceptsAllTypes) {
+          console.log(`✅ Course ${course.id}: Dispatched, driver accepts all types`);
+          return true;
+        }
+        
+        const vehicleMatch = acceptedTypes.includes(course.vehicle_type);
+        console.log(`${vehicleMatch ? '✅' : '❌'} Course ${course.id}: Dispatched, vehicle_type=${course.vehicle_type}, match=${vehicleMatch}`);
+        return vehicleMatch;
       }
 
       // Rule 3: Show pending courses (filter by vehicle type if driver has preferences)
