@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -59,7 +59,24 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const [showBonDeCommande, setShowBonDeCommande] = useState(false);
   const startX = useRef(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [sliderWidth, setSliderWidth] = useState(260);
   const { driver } = useAuth();
+
+  // Calculer la largeur dynamique du slider
+  useEffect(() => {
+    const updateSliderWidth = () => {
+      if (sliderRef.current) {
+        const containerWidth = sliderRef.current.offsetWidth;
+        // Largeur disponible = largeur container - largeur knob (48px) - margins (8px)
+        setSliderWidth(containerWidth - 56);
+      }
+    };
+    
+    updateSliderWidth();
+    window.addEventListener('resize', updateSliderWidth);
+    return () => window.removeEventListener('resize', updateSliderWidth);
+  }, []);
 
   // Determine current step (1-5) for progress indicator
   const getCurrentStep = (): number => {
@@ -149,8 +166,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     { num: 5, label: 'Terminer', icon: CheckCircle }
   ];
 
-  const maxSwipeDistance = 260; // Distance max pour le knob
-  const threshold = maxSwipeDistance * 0.8; // 80% de la distance
+  const maxSwipeDistance = sliderWidth; // Distance dynamique basée sur la largeur de l'écran
+  const threshold = maxSwipeDistance * 0.75; // 75% de la distance
 
   // Parser les extras depuis les notes
   const parseExtras = (notes: string | null): string[] => {
@@ -434,6 +451,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
         {/* Compact Swipe Slider - Toute la barre est touchable */}
         <div 
+          ref={sliderRef}
           className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg select-none"
           style={{ 
             touchAction: 'none', 
