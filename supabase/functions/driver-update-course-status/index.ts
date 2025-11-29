@@ -150,6 +150,12 @@ Deno.serve(async (req) => {
           status: 'accepted',
           driver_id: driver.id,
           accepted_at: now,
+          // RESET tous les timestamps de progression pour commencer à l'étape 1
+          started_at: null,
+          arrived_at: null,
+          picked_up_at: null,
+          dropped_off_at: null,
+          completed_at: null,
         };
         trackingNotes = 'Course acceptée par le chauffeur';
         break;
