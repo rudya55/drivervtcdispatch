@@ -1,4 +1,25 @@
+# ==========================================
+# Android Keystore Configuration
+# ==========================================
+# 
+# This file contains the keystore credentials for signing release APKs.
+# 
+# IMPORTANT: DO NOT commit the actual key.properties file to version control!
+# Copy this file to key.properties and fill in your actual values.
+#
+# To generate a keystore:
+# keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# ==========================================
+
+# Password for the keystore file
 storePassword=YOUR_KEYSTORE_PASSWORD
+
+# Password for the key within the keystore
 keyPassword=YOUR_KEY_PASSWORD
+
+# Alias name of the key (typically "upload" for Google Play)
 keyAlias=upload
+
+# Filename of the keystore (should be in android/app/ directory)
 storeFile=upload-keystore.jks

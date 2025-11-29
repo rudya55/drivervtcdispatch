@@ -2,35 +2,68 @@
 
 ## 📦 Prérequis
 
-- Node.js 18+ installé
-- Android Studio installé
-- JDK 17 installé
-- Git installé
+| Outil | Version Requise |
+|-------|-----------------|
+| Node.js | 18+ (recommandé: 20) |
+| Java JDK | 17 |
+| Android SDK | API 35 |
+| Git | Dernière version |
 
-## 🚀 Build APK de Test (Debug)
+## 🚀 Build via GitHub Actions (Recommandé)
 
-### Option 1 : Via GitHub Actions (Automatique) ✅ RECOMMANDÉ
+Le moyen le plus simple et fiable de générer un APK est d'utiliser GitHub Actions.
 
-1. Pushez votre code sur GitHub
-2. Allez dans l'onglet "Actions" de votre repo
-3. Lancez le workflow "Build Android APK"
-4. Téléchargez l'APK généré dans les artifacts
+### Lancer un Build
 
-### Option 2 : Build Local
+1. Allez sur votre repository GitHub
+2. Cliquez sur l'onglet **Actions**
+3. Sélectionnez **Build Android APK/AAB**
+4. Cliquez sur **Run workflow**
+5. Choisissez le type de build :
+   - `debug` : APK de test (non signé)
+   - `release` : APK de production (signé si keystore configuré)
+   - `both` : Les deux types (par défaut)
+6. Cliquez sur **Run workflow**
+7. Une fois terminé, téléchargez les artifacts
+
+### Artifacts Générés
+
+| Artifact | Description |
+|----------|-------------|
+| `driver-vtc-dispatch-debug` | APK de debug pour tests |
+| `driver-vtc-dispatch-release` | APK release signé |
+| `driver-vtc-dispatch-bundle` | AAB pour Google Play Store |
+
+## 🔧 Build Local
+
+### Option 1 : Script Automatisé
 
 ```bash
-# 1. Cloner le projet depuis GitHub
-git clone https://github.com/VOTRE_USERNAME/VOTRE_REPO.git
-cd VOTRE_REPO
+# Rendre le script exécutable
+chmod +x scripts/build-android.sh
 
-# 2. Installer les dépendances
+# Builder debug et release
+./scripts/build-android.sh
+
+# Ou builder un type spécifique
+./scripts/build-android.sh debug
+./scripts/build-android.sh release
+```
+
+### Option 2 : Commandes Manuelles
+
+```bash
+# 1. Installer les dépendances
 npm install --legacy-peer-deps
 
-# 3. Build le projet web
+# 2. Build le projet web
 npm run build
 
-# 4. Synchroniser avec Capacitor
+# 3. Synchroniser avec Capacitor
 npx cap sync android
+
+# 4. Configurer le SDK
+echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
 # 5. Builder l'APK de debug
 cd android
@@ -41,14 +74,23 @@ cd android
 
 ## 📱 Installer l'APK sur votre téléphone
 
-1. Copiez `app-debug.apk` sur votre téléphone
-2. Activez "Sources inconnues" dans les paramètres Android
+### Via ADB (Android Debug Bridge)
+
+```bash
+# Connectez votre téléphone en USB avec le débogage activé
+adb install android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Manuellement
+
+1. Copiez l'APK sur votre téléphone
+2. Activez **Sources inconnues** dans Paramètres > Sécurité
 3. Ouvrez le fichier APK pour l'installer
 4. Testez l'application !
 
-## 🏪 Build pour Google Play Store (Release Signé)
+## 🔐 Configuration du Keystore pour la Signature
 
-### Étape 1 : Créer un Keystore
+### Étape 1 : Générer un Keystore
 
 ```bash
 cd android/app
@@ -59,14 +101,15 @@ keytool -genkey -v -keystore upload-keystore.jks \
   -alias upload
 ```
 
-**⚠️ IMPORTANT** : Notez bien :
+**⚠️ IMPORTANT** : Conservez précieusement :
+- Le fichier `upload-keystore.jks`
 - Le mot de passe du keystore
 - Le mot de passe de la clé
-- Conservez le fichier `upload-keystore.jks` en sécurité (BACKUP!)
+- Faites une sauvegarde sécurisée !
 
-### Étape 2 : Configurer la signature
+### Étape 2 : Configuration Locale
 
-Créez le fichier `android/key.properties` :
+Créez `android/key.properties` (ne sera pas commité) :
 
 ```properties
 storePassword=VOTRE_MOT_DE_PASSE_KEYSTORE
@@ -75,74 +118,68 @@ keyAlias=upload
 storeFile=upload-keystore.jks
 ```
 
-### Étape 3 : Builder l'APK de Release
+### Étape 3 : Configuration GitHub Actions
+
+Pour les builds automatiques, configurez les secrets GitHub :
+
+#### Encoder le keystore en Base64
 
 ```bash
-cd android
-./gradlew assembleRelease
+# Sur macOS/Linux
+base64 -i android/app/upload-keystore.jks | tr -d '\n' > keystore_base64.txt
 
-# L'APK signé sera dans :
-# android/app/build/outputs/apk/release/app-release.apk
+# Sur Windows (PowerShell)
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("android\app\upload-keystore.jks")) > keystore_base64.txt
 ```
 
-### Étape 4 : Builder un AAB pour Google Play
+#### Ajouter les Secrets GitHub
+
+1. Allez dans votre repo GitHub
+2. Settings > Secrets and variables > Actions
+3. Cliquez **New repository secret** pour chaque secret :
+
+| Secret | Valeur |
+|--------|--------|
+| `KEYSTORE_BASE64` | Contenu de keystore_base64.txt |
+| `KEYSTORE_PASSWORD` | Mot de passe du keystore |
+| `KEY_ALIAS` | `upload` (ou votre alias) |
+| `KEY_PASSWORD` | Mot de passe de la clé |
+
+## 🏪 Publication sur Google Play Store
+
+### Étape 1 : Builder l'AAB
 
 ```bash
 cd android
 ./gradlew bundleRelease
 
-# Le fichier AAB sera dans :
-# android/app/build/outputs/bundle/release/app-release.aab
+# Fichier AAB : android/app/build/outputs/bundle/release/app-release.aab
 ```
 
-**📤 Uploadez `app-release.aab` sur Google Play Console**
+### Étape 2 : Créer un compte développeur
 
-## 🔧 Configuration Importante
+1. Allez sur [Google Play Console](https://play.google.com/console)
+2. Payez les frais d'inscription (25$ une fois)
+3. Complétez les informations du profil
 
-### Changer l'URL de Production
+### Étape 3 : Créer l'application
 
-Dans `capacitor.config.ts`, commentez la configuration de développement :
+1. Cliquez "Créer une application"
+2. Remplissez les informations requises
+3. Uploadez l'AAB dans Production > Releases
 
-```typescript
-const config: CapacitorConfig = {
-  appId: 'com.lovable.drivervtcdispatch',
-  appName: 'Driver VTC Dispatch',
-  webDir: 'dist',
-  // ⚠️ COMMENTEZ ces lignes pour la production :
-  // server: {
-  //   url: 'https://4abdee7f-238d-436b-9d0d-34c8665e5ddf.lovableproject.com?forceHideBadge=true',
-  //   cleartext: true
-  // },
-  plugins: {
-    SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: '#1a1f2e',
-      showSpinner: false,
-    },
-  },
-};
-```
+### Checklist avant Publication
 
-### Configurer Firebase (Notifications Push)
-
-1. Allez sur [Firebase Console](https://console.firebase.google.com)
-2. Créez un projet ou sélectionnez-en un
-3. Ajoutez une application Android
-4. Package name : `com.lovable.drivervtcdispatch`
-5. Téléchargez `google-services.json`
-6. Placez-le dans `android/app/google-services.json`
-7. Rebuild l'application
-
-## 📝 Checklist avant Publication
-
-- [ ] Version et versionCode incrémentés dans `android/app/build.gradle`
-- [ ] URL de production configurée (pas de `server.url` en dev)
-- [ ] `google-services.json` configuré
+- [ ] Version et versionCode incrémentés
+- [ ] `server.url` commenté dans `capacitor.config.ts`
+- [ ] `google-services.json` configuré (pour notifications)
 - [ ] Keystore créé et sauvegardé
-- [ ] APK/AAB testé sur plusieurs appareils
-- [ ] Permissions vérifiées dans `AndroidManifest.xml`
-- [ ] Icônes et splash screen configurés
-- [ ] Description et captures d'écran préparées pour Google Play
+- [ ] APK testé sur plusieurs appareils
+- [ ] Permissions vérifiées dans AndroidManifest.xml
+- [ ] Icônes haute résolution préparées
+- [ ] Captures d'écran préparées (min 2)
+- [ ] Description en français et anglais
+- [ ] Politique de confidentialité publiée
 
 ## 🎨 Personnalisation
 
@@ -155,36 +192,86 @@ const config: CapacitorConfig = {
 
 ### Changer l'icône
 
-Remplacez les fichiers dans :
+Remplacez les fichiers dans les dossiers :
 - `android/app/src/main/res/mipmap-hdpi/`
 - `android/app/src/main/res/mipmap-mdpi/`
 - `android/app/src/main/res/mipmap-xhdpi/`
 - `android/app/src/main/res/mipmap-xxhdpi/`
 - `android/app/src/main/res/mipmap-xxxhdpi/`
 
-Utilisez un outil comme [Icon Kitchen](https://icon.kitchen/) pour générer toutes les tailles.
+Utilisez [Icon Kitchen](https://icon.kitchen/) pour générer toutes les tailles.
 
-## 🐛 Dépannage
+### Changer le splash screen
+
+Modifiez les images dans :
+- `android/app/src/main/res/drawable-*/`
+
+## 🐛 Troubleshooting
 
 ### Erreur "SDK location not found"
+
 ```bash
+# Linux/macOS
 echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
+# Windows
+echo sdk.dir=C:\\Users\\USERNAME\\AppData\\Local\\Android\\Sdk > android\local.properties
 ```
 
 ### Erreur de build Gradle
+
 ```bash
 cd android
 ./gradlew clean
-./gradlew assembleDebug --stacktrace
+./gradlew assembleDebug --stacktrace --info
+```
+
+### Erreur "JAVA_HOME not set"
+
+```bash
+# Vérifier la version Java
+java --version
+
+# Définir JAVA_HOME (Linux/macOS)
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+
+# Windows
+set JAVA_HOME=C:\Program Files\Java\jdk-17
 ```
 
 ### APK trop lourd
-Activez la minification dans `android/app/build.gradle` :
-```gradle
-buildTypes {
-    release {
-        minifyEnabled true
-        shrinkResources true
-    }
-}
+
+La minification est activée automatiquement pour les builds release :
+- `minifyEnabled true` - Optimise le code
+- `shrinkResources true` - Supprime les ressources inutilisées
+- ABI splits - Génère des APKs par architecture
+
+### Keystore invalide
+
+```bash
+# Vérifier le contenu du keystore
+keytool -list -v -keystore android/app/upload-keystore.jks
 ```
+
+### Permissions non demandées
+
+Vérifiez que les permissions sont bien dans :
+- `android/app/src/main/AndroidManifest.xml`
+- Le code JavaScript utilise les bons plugins Capacitor
+
+## 📊 Versions
+
+| Composant | Version |
+|-----------|---------|
+| versionCode | 2 |
+| versionName | 1.0.1 |
+| minSdkVersion | 23 (Android 6.0) |
+| targetSdkVersion | 35 (Android 14) |
+| compileSdkVersion | 35 |
+
+## 📚 Ressources
+
+- [Documentation Capacitor Android](https://capacitorjs.com/docs/android)
+- [Guide de signature Android](https://developer.android.com/studio/publish/app-signing)
+- [Documentation GitHub Actions](https://docs.github.com/en/actions)
+- [Google Play Console](https://play.google.com/console)
