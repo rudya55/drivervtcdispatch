@@ -186,13 +186,20 @@ const Home = () => {
     },
   });
 
-  // Filter courses to display
+  // Filter courses to display - Include ALL active statuses
   const today = new Date().toDateString();
   const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
-  const activeCourses = courses.filter(c => 
-    c.status === 'accepted' || c.status === 'in_progress'
-  );
+  
+  // Inclure TOUS les statuts actifs possibles (started, arrived, picked_up, dropped_off)
+  const activeStatuses = ['accepted', 'in_progress', 'started', 'arrived', 'picked_up', 'dropped_off'];
+  const activeCourses = courses.filter(c => activeStatuses.includes(c.status));
   const displayedCourses = [...activeCourses, ...pendingCourses];
+
+  // Logs de diagnostic
+  console.log('🔍 [Home] Courses reçues de l\'API:', courses.length);
+  console.log('🔍 [Home] Détail des courses:', courses.map(c => ({ id: c.id, status: c.status, client: c.client_name })));
+  console.log('🔍 [Home] Courses actives:', activeCourses.length, activeCourses.map(c => c.status));
+  console.log('🔍 [Home] Courses en attente:', pendingCourses.length);
 
   // Load Google Maps script from backend secret and track readiness
   const [mapsReady, setMapsReady] = useState<boolean>(!!(window as any).google);
@@ -288,8 +295,8 @@ const Home = () => {
             </Card>
           ) : (
             displayedCourses.map((course) => {
-              // Show swipe actions for accepted/in_progress courses
-              if (course.status === 'accepted' || course.status === 'in_progress') {
+              // Show swipe actions for all active courses (any status beyond pending/dispatched)
+              if (activeStatuses.includes(course.status)) {
                 return (
                   <CourseSwipeActions
                     key={course.id}
