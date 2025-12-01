@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Clock, Timer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -10,6 +10,13 @@ interface CourseTimerProps {
 export const CourseTimer = ({ pickupDate, onUnlock }: CourseTimerProps) => {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const hasCalledUnlock = useRef(false);
+  const onUnlockRef = useRef(onUnlock);
+
+  // Mettre à jour la ref quand onUnlock change
+  useEffect(() => {
+    onUnlockRef.current = onUnlock;
+  }, [onUnlock]);
 
   useEffect(() => {
     const calculateTime = () => {
@@ -20,9 +27,10 @@ export const CourseTimer = ({ pickupDate, onUnlock }: CourseTimerProps) => {
       const diff = unlockTime.getTime() - now.getTime();
       
       if (diff <= 0) {
-        if (!isUnlocked) {
+        if (!hasCalledUnlock.current) {
+          hasCalledUnlock.current = true;
           setIsUnlocked(true);
-          onUnlock?.();
+          onUnlockRef.current?.();
         }
         setTimeRemaining(0);
       } else {
@@ -34,7 +42,7 @@ export const CourseTimer = ({ pickupDate, onUnlock }: CourseTimerProps) => {
     const interval = setInterval(calculateTime, 1000);
 
     return () => clearInterval(interval);
-  }, [pickupDate, isUnlocked, onUnlock]);
+  }, [pickupDate]);
 
   if (isUnlocked) {
     return (
