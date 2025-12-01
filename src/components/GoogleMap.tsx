@@ -12,6 +12,7 @@ interface GoogleMapProps {
     icon: 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv';
     heading?: number;
   };
+  routePoints?: Array<{ lat: number; lng: number }>;
   className?: string;
 }
 
@@ -31,6 +32,7 @@ const GoogleMap = ({
   zoom = 12,
   markers = [],
   driverMarker,
+  routePoints = [],
   className = ''
 }: GoogleMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -173,6 +175,18 @@ const GoogleMap = ({
         driverMarkerRef.current = null;
       }
 
+      // Draw route polyline if routePoints provided
+      if (routePoints && routePoints.length > 1 && mapInstanceRef.current) {
+        new google.maps.Polyline({
+          path: routePoints,
+          geodesic: true,
+          strokeColor: '#3B82F6',
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+          map: mapInstanceRef.current
+        });
+      }
+
       if (mapInstanceRef.current) {
         mapInstanceRef.current.setCenter(center);
       }
@@ -180,7 +194,7 @@ const GoogleMap = ({
       console.error('❌ Google Maps error:', error);
       setMapError(true);
     }
-  }, [center, zoom, markers, driverMarker, apiKeyLoaded]);
+  }, [center, zoom, markers, driverMarker, routePoints, apiKeyLoaded]);
 
   // Fallback map display when Google Maps is not available
   if (mapError) {

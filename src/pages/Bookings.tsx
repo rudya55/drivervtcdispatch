@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
-import { translateCourseStatus } from '@/lib/utils';
+import { translateCourseStatus, extractCity } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import { CourseTimer } from '@/components/CourseTimer';
 import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { SignBoardModal } from '@/components/SignBoardModal';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
+import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
 import { Info } from 'lucide-react';
 import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 
@@ -29,6 +30,7 @@ const Bookings = () => {
   const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedCompletedCourse, setSelectedCompletedCourse] = useState<Course | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showSignBoard, setShowSignBoard] = useState(false);
 
@@ -586,19 +588,21 @@ const Bookings = () => {
                 <Card 
                   key={course.id} 
                   className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
-                  onClick={() => setSelectedCourse(course)}
+                  onClick={() => setSelectedCompletedCourse(course)}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="default" className="bg-success text-white">Terminée</Badge>
-                    <span className="font-bold text-success">
-                      {(course.net_driver || course.client_price).toFixed(2)}€
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <p className="font-medium">{course.client_name}</p>
-                    <p className="text-muted-foreground text-xs mt-1">
-                      {format(new Date(course.completed_at!), 'PPp', { locale: fr })}
-                    </p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">
+                        {extractCity(course.departure_location)} → {extractCity(course.destination_location)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {course.picked_up_at 
+                          ? format(new Date(course.picked_up_at), 'dd/MM/yyyy HH:mm', { locale: fr })
+                          : format(new Date(course.completed_at || course.pickup_date), 'dd/MM/yyyy HH:mm', { locale: fr })
+                        }
+                      </p>
+                    </div>
+                    <Badge className="bg-green-500">Terminée</Badge>
                   </div>
                 </Card>
               ))
@@ -612,6 +616,12 @@ const Bookings = () => {
           open={selectedCourse !== null}
           onOpenChange={(open) => !open && setSelectedCourse(null)}
           onOpenSignBoard={() => setShowSignBoard(true)}
+        />
+
+        <CompletedCourseDetails
+          course={selectedCompletedCourse}
+          open={selectedCompletedCourse !== null}
+          onOpenChange={(open) => !open && setSelectedCompletedCourse(null)}
         />
 
         <SignBoardModal
