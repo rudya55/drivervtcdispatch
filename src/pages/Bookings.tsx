@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
 import { translateCourseStatus } from '@/lib/utils';
@@ -77,6 +77,12 @@ const Bookings = () => {
     const now = new Date();
     return now >= unlockTime;
   };
+
+  // Mémoriser la callback onUnlock pour éviter les re-renders
+  const handleCourseUnlock = useCallback(() => {
+    toast.success('Course débloquée ! Vous pouvez la démarrer.');
+    // Pas de fetchCourses() ici - le realtime listener s'en charge
+  }, []);
 
   // Realtime listener for courses - Two channels for better reactivity
   useEffect(() => {
@@ -357,10 +363,7 @@ const Bookings = () => {
           <div className="flex justify-center mb-2">
             <CourseTimer 
               pickupDate={course.pickup_date}
-              onUnlock={() => {
-                toast.success('Course débloquée ! Vous pouvez la démarrer.');
-                fetchCourses();
-              }}
+              onUnlock={handleCourseUnlock}
             />
           </div>
         )}
@@ -557,10 +560,7 @@ const Bookings = () => {
                   {course.status === 'accepted' && (
                     <CourseTimer 
                       pickupDate={course.pickup_date}
-                      onUnlock={() => {
-                        toast.success('Course débloquée ! Vous pouvez la démarrer.');
-                        fetchCourses();
-                      }}
+                      onUnlock={handleCourseUnlock}
                     />
                   )}
 
