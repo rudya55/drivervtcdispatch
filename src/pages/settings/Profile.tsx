@@ -92,20 +92,26 @@ const Profile = () => {
 
   const loadVehiclePhotos = async (userId: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('driver-documents')
-        .list(`${userId}/vehicle-photos`);
+      // Charger les URLs des photos depuis la base de données
+      const { data: driverData, error } = await supabase
+        .from('drivers')
+        .select('vehicle_photos')
+        .eq('user_id', userId)
+        .maybeSingle();
 
       if (error) {
-        if (!error.message?.includes('not found')) {
-          console.error('❌ Error loading vehicle photos:', error);
-        }
+        console.error('❌ Error loading vehicle photos from DB:', error);
         return;
       }
 
+      if (!driverData?.vehicle_photos || driverData.vehicle_photos.length === 0) {
+        setVehiclePhotos([]);
+        return;
+      }
+
+      // Créer des URLs signées pour chaque photo
       const photos = await Promise.all(
-        data.map(async (file: any) => {
-          const path = `${userId}/vehicle-photos/${file.name}`;
+        driverData.vehicle_photos.map(async (path: string) => {
           const { data: signedUrlData } = await supabase.storage
             .from('driver-documents')
             .createSignedUrl(path, 3600);
@@ -113,13 +119,13 @@ const Profile = () => {
           return {
             url: signedUrlData?.signedUrl || '',
             path,
-            name: file.name,
+            name: path.split('/').pop() || '',
           };
         })
       );
 
       setVehiclePhotos(photos);
-      console.log('✅ Vehicle photos loaded:', photos.length);
+      console.log('✅ Vehicle photos loaded from DB:', photos.length);
     } catch (error) {
       console.error('❌ Error loading vehicle photos:', error);
     }
@@ -158,13 +164,33 @@ const Profile = () => {
       const userId = session.user.id;
       const photoPath = `${userId}/vehicle-photos/vehicle-${Date.now()}.${file.name.split('.').pop()}`;
 
-      const { error } = await supabase.storage
+      // 1. Upload vers Storage
+      const { error: uploadError } = await supabase.storage
         .from('driver-documents')
         .upload(photoPath, file);
 
-      if (error) throw error;
+      if (uploadError) throw uploadError;
 
-      console.log('✅ Vehicle photo uploaded');
+      // 2. Récupérer les photos actuelles de la BDD
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('vehicle_photos')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // 3. Ajouter la nouvelle photo à la liste
+      const currentPhotos = driverData?.vehicle_photos || [];
+      const updatedPhotos = [...currentPhotos, photoPath];
+
+      // 4. Sauvegarder dans la base de données
+      const { error: dbError } = await supabase
+        .from('drivers')
+        .update({ vehicle_photos: updatedPhotos })
+        .eq('user_id', userId);
+
+      if (dbError) throw dbError;
+
+      console.log('✅ Vehicle photo uploaded and saved to DB');
       toast.success('Photo du véhicule ajoutée');
 
       // Recharger les photos
@@ -184,13 +210,41 @@ const Profile = () => {
     console.log('🗑️ Deleting vehicle photo:', path);
 
     try {
-      const { error } = await supabase.storage
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expirée. Reconnectez-vous.');
+        return;
+      }
+
+      const userId = session.user.id;
+
+      // 1. Supprimer de Storage
+      const { error: storageError } = await supabase.storage
         .from('driver-documents')
         .remove([path]);
 
-      if (error) throw error;
+      if (storageError) throw storageError;
 
-      console.log('✅ Vehicle photo deleted');
+      // 2. Récupérer les photos actuelles de la BDD
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('vehicle_photos')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // 3. Retirer la photo supprimée de la liste
+      const currentPhotos = driverData?.vehicle_photos || [];
+      const updatedPhotos = currentPhotos.filter((p: string) => p !== path);
+
+      // 4. Mettre à jour la base de données
+      const { error: dbError } = await supabase
+        .from('drivers')
+        .update({ vehicle_photos: updatedPhotos })
+        .eq('user_id', userId);
+
+      if (dbError) throw dbError;
+
+      console.log('✅ Vehicle photo deleted from Storage and DB');
       toast.success('Photo du véhicule supprimée');
 
       // Update state

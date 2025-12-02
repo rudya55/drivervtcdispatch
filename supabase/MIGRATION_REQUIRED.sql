@@ -42,7 +42,8 @@ ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS vehicle_model text,
   ADD COLUMN IF NOT EXISTS vehicle_year text,
   ADD COLUMN IF NOT EXISTS vehicle_plate text,
-  ADD COLUMN IF NOT EXISTS license_number text;
+  ADD COLUMN IF NOT EXISTS license_number text,
+  ADD COLUMN IF NOT EXISTS vehicle_photos text[];
 
 -- ============================================================================
 -- PARTIE 3: TABLE DRIVERS - COORDONNÉES BANCAIRES
