@@ -20,6 +20,8 @@ const Vehicle = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [vehiclePhotos, setVehiclePhotos] = useState<string[]>([]);
+  const [photoSignedUrls, setPhotoSignedUrls] = useState<{[key: string]: string}>({});
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [formData, setFormData] = useState({
     vehicle_brand: driver?.vehicle_brand || '',
     vehicle_model: driver?.vehicle_model || '',
@@ -60,6 +62,35 @@ const Vehicle = () => {
       setVehiclePhotos(driver.vehicle_photos_urls || []);
     }
   }, [driver]);
+
+  useEffect(() => {
+    const generateSignedUrls = async () => {
+      if (vehiclePhotos.length === 0) {
+        setPhotoSignedUrls({});
+        return;
+      }
+
+      setLoadingPhotos(true);
+      try {
+        const urls: {[key: string]: string} = {};
+        for (const path of vehiclePhotos) {
+          const { data } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(path, 3600);
+          if (data?.signedUrl) {
+            urls[path] = data.signedUrl;
+          }
+        }
+        setPhotoSignedUrls(urls);
+      } catch (error) {
+        console.error('Error generating signed URLs:', error);
+      } finally {
+        setLoadingPhotos(false);
+      }
+    };
+
+    generateSignedUrls();
+  }, [vehiclePhotos]);
 
   const toggleVehicleType = (typeId: string) => {
     const currentTypes = formData.vehicle_types_accepted || [];
@@ -127,6 +158,10 @@ const Vehicle = () => {
       if (signedUrlData?.signedUrl) {
         const newPhotos = [...vehiclePhotos, filePath];
         setVehiclePhotos(newPhotos);
+        setPhotoSignedUrls(prev => ({
+          ...prev,
+          [filePath]: signedUrlData.signedUrl
+        }));
 
         await supabase
           .from('drivers')
@@ -350,11 +385,21 @@ const Vehicle = () => {
               <div className="grid grid-cols-3 gap-2">
                 {vehiclePhotos.map((photoPath, index) => (
                   <div key={index} className="relative aspect-square">
-                    <img 
-                      src={`${supabase.storage.from('driver-documents').getPublicUrl(photoPath).data.publicUrl}`}
-                      className="w-full h-full object-cover rounded-lg border border-border" 
-                      alt={`Véhicule ${index + 1}`}
-                    />
+                    {loadingPhotos ? (
+                      <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : photoSignedUrls[photoPath] ? (
+                      <img 
+                        src={photoSignedUrls[photoPath]}
+                        className="w-full h-full object-cover rounded-lg border border-border" 
+                        alt={`Véhicule ${index + 1}`}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+                        <Camera className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )}
                     <Button
                       type="button"
                       variant="destructive"
