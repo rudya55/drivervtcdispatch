@@ -23,7 +23,8 @@ import {
   Flame,
   Calendar,
   MapPin,
-  Award
+  Award,
+  Car
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -369,6 +370,58 @@ const DriverProfile = () => {
             </>
           )}
         </Card>
+
+        {/* Vehicle Section */}
+        {(driver?.vehicle_brand || driver?.vehicle_photos_urls?.length) && (
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Car className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Mon Véhicule</h3>
+            </div>
+            
+            {driver?.vehicle_photos_urls && driver.vehicle_photos_urls.length > 0 && (
+              <div className="mb-4">
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {driver.vehicle_photos_urls.map((photoPath, index) => (
+                    <img 
+                      key={index}
+                      src={`${supabase.storage.from('driver-documents').getPublicUrl(photoPath).data.publicUrl}`}
+                      className="w-32 h-24 object-cover rounded-lg flex-shrink-0 border border-border"
+                      alt={`Véhicule photo ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {driver?.vehicle_brand && (
+                <div>
+                  <p className="text-muted-foreground">Marque</p>
+                  <p className="font-medium">{driver.vehicle_brand}</p>
+                </div>
+              )}
+              {driver?.vehicle_model && (
+                <div>
+                  <p className="text-muted-foreground">Modèle</p>
+                  <p className="font-medium">{driver.vehicle_model}</p>
+                </div>
+              )}
+              {driver?.vehicle_year && (
+                <div>
+                  <p className="text-muted-foreground">Année</p>
+                  <p className="font-medium">{driver.vehicle_year}</p>
+                </div>
+              )}
+              {driver?.vehicle_plate && (
+                <div>
+                  <p className="text-muted-foreground">Plaque</p>
+                  <p className="font-medium">{driver.vehicle_plate}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Statistics Section */}
         <Card className="p-4">

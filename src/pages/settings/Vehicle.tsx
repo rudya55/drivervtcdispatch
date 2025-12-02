@@ -11,13 +11,15 @@ import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Camera, X } from 'lucide-react';
 
 const Vehicle = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [vehiclePhotos, setVehiclePhotos] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     vehicle_brand: driver?.vehicle_brand || '',
     vehicle_model: driver?.vehicle_model || '',
@@ -55,6 +57,7 @@ const Vehicle = () => {
         vehicle_icon: (driver.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car',
         vehicle_types_accepted: driver.vehicle_types_accepted || ['Standard', 'Berline', 'Van', 'Minibus', 'First Class'],
       });
+      setVehiclePhotos(driver.vehicle_photos_urls || []);
     }
   }, [driver]);
 
@@ -77,6 +80,91 @@ const Vehicle = () => {
         ...formData,
         vehicle_types_accepted: [...currentTypes, typeId]
       });
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (vehiclePhotos.length >= 5) {
+      toast.error('Maximum 5 photos autorisées');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Seules les images sont autorisées');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('La photo ne doit pas dépasser 10 MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expirée');
+        return;
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `vehicle-${Date.now()}.${fileExt}`;
+      const filePath = `${session.user.id}/vehicle/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('driver-documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: signedUrlData } = await supabase.storage
+        .from('driver-documents')
+        .createSignedUrl(filePath, 604800);
+
+      if (signedUrlData?.signedUrl) {
+        const newPhotos = [...vehiclePhotos, filePath];
+        setVehiclePhotos(newPhotos);
+
+        await supabase
+          .from('drivers')
+          .update({ vehicle_photos_urls: newPhotos })
+          .eq('user_id', session.user.id);
+
+        toast.success('Photo ajoutée avec succès');
+      }
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      toast.error('Erreur lors de l\'upload de la photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async (index: number) => {
+    try {
+      const photoPath = vehiclePhotos[index];
+      const newPhotos = vehiclePhotos.filter((_, i) => i !== index);
+      
+      await supabase.storage
+        .from('driver-documents')
+        .remove([photoPath]);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase
+          .from('drivers')
+          .update({ vehicle_photos_urls: newPhotos })
+          .eq('user_id', session.user.id);
+      }
+
+      setVehiclePhotos(newPhotos);
+      toast.success('Photo supprimée');
+    } catch (error) {
+      console.error('Error removing photo:', error);
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -251,6 +339,49 @@ const Vehicle = () => {
                     )}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Photos du véhicule</Label>
+              <p className="text-sm text-muted-foreground">
+                Ajoutez jusqu'à 5 photos de votre véhicule (visibles par les dispatchers)
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {vehiclePhotos.map((photoPath, index) => (
+                  <div key={index} className="relative aspect-square">
+                    <img 
+                      src={`${supabase.storage.from('driver-documents').getPublicUrl(photoPath).data.publicUrl}`}
+                      className="w-full h-full object-cover rounded-lg border border-border" 
+                      alt={`Véhicule ${index + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6"
+                      onClick={() => handleRemovePhoto(index)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {vehiclePhotos.length < 5 && (
+                  <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted transition-colors">
+                    <Camera className="w-6 h-6 text-muted-foreground mb-1" />
+                    <span className="text-xs text-muted-foreground">
+                      {uploading ? 'Upload...' : 'Ajouter'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                )}
               </div>
             </div>
 

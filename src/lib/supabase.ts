@@ -39,6 +39,7 @@ export type Driver = {
   notification_sound?: string | null;
   rating?: number;
   bio?: string | null;
+  vehicle_photos_urls?: string[] | null;
 };
 
 export type Course = {
