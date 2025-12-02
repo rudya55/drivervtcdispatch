@@ -65,21 +65,24 @@ const Documents = () => {
         throw error;
       }
 
-      const docsWithUrls = data.map((file: any) => {
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(`${driverId}/${file.name}`);
-        
-        const category = file.name.split('_')[0];
-        
-        return {
-          name: file.name,
-          path: `${driverId}/${file.name}`,
-          url: publicUrl,
-          created_at: file.created_at,
-          category,
-        };
-      });
+      const docsWithUrls = await Promise.all(
+        data.map(async (file: any) => {
+          // Use signed URL for secure access (valid for 1 hour)
+          const { data: signedUrlData, error: urlError } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(`${driverId}/${file.name}`, 3600);
+
+          const category = file.name.split('_')[0];
+
+          return {
+            name: file.name,
+            path: `${driverId}/${file.name}`,
+            url: signedUrlData?.signedUrl || '',
+            created_at: file.created_at,
+            category,
+          };
+        })
+      );
 
       setDocuments(docsWithUrls);
       console.log(`[${new Date().toISOString()}] Fetched ${docsWithUrls.length} documents`);
@@ -119,7 +122,7 @@ const Documents = () => {
       if (error) throw error;
 
       console.log(`[${new Date().toISOString()}] ✅ Document uploaded successfully`);
-      toast.success('Document téléchargé avec succès');
+      toast.success('Document ajouté avec succès');
       fetchDocuments();
     } catch (error: any) {
       console.error(`[${new Date().toISOString()}] Upload error:`, error);
@@ -128,9 +131,45 @@ const Documents = () => {
         error.hint,
         error.code
       ].filter(Boolean).join(' - ');
-      toast.error(errorMessage || 'Erreur lors du téléchargement');
+      toast.error(errorMessage || "Erreur lors de l'ajout du document");
     } finally {
       setUploading(null);
+    }
+  };
+
+  const handleDownload = async (path: string, fileName: string) => {
+    console.log(`[${new Date().toISOString()}] Downloading document:`, path);
+
+    try {
+      // Ensure driver exists before downloading
+      await ensureDriverExists();
+
+      const { data, error } = await supabase.storage
+        .from('driver-documents')
+        .download(path);
+
+      if (error) throw error;
+
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      console.log(`[${new Date().toISOString()}] ✅ Document downloaded successfully`);
+      toast.success('Document téléchargé');
+    } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] Download error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors du téléchargement');
     }
   };
 
@@ -201,7 +240,7 @@ const Documents = () => {
                         ) : (
                           <>
                             <Upload className="w-4 h-4" />
-                            Télécharger
+                            Ajouter
                           </>
                         )}
                       </div>
@@ -238,7 +277,7 @@ const Documents = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(doc.url, '_blank')}
+                            onClick={() => handleDownload(doc.path, doc.name)}
                           >
                             <Download className="w-4 h-4" />
                           </Button>
