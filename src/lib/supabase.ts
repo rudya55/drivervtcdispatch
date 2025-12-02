@@ -38,6 +38,7 @@ export type Driver = {
   notifications_enabled?: boolean;
   notification_sound?: string | null;
   rating?: number;
+  bio?: string | null;
 };
 
 export type Course = {

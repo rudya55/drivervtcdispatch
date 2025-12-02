@@ -25,6 +25,7 @@ import Vehicle from './pages/settings/Vehicle';
 import Documents from './pages/settings/Documents';
 import BankAccount from './pages/settings/BankAccount';
 import NotificationsSettings from './pages/settings/Notifications';
+import DriverProfile from './pages/DriverProfile';
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/driver-profile"
+        element={
+          <ProtectedRoute>
+            <DriverProfile />
           </ProtectedRoute>
         }
       />
