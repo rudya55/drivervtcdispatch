@@ -92,10 +92,37 @@ const DriverProfile = () => {
   const [editingBio, setEditingBio] = useState(false);
   const [bioText, setBioText] = useState(driver?.bio || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [vehiclePhotoSignedUrls, setVehiclePhotoSignedUrls] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     setBioText(driver?.bio || '');
   }, [driver?.bio]);
+
+  useEffect(() => {
+    const generateVehiclePhotoUrls = async () => {
+      if (!driver?.vehicle_photos_urls || driver.vehicle_photos_urls.length === 0) {
+        setVehiclePhotoSignedUrls({});
+        return;
+      }
+
+      try {
+        const urls: {[key: string]: string} = {};
+        for (const path of driver.vehicle_photos_urls) {
+          const { data } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(path, 3600);
+          if (data?.signedUrl) {
+            urls[path] = data.signedUrl;
+          }
+        }
+        setVehiclePhotoSignedUrls(urls);
+      } catch (error) {
+        console.error('Error generating vehicle photo signed URLs:', error);
+      }
+    };
+
+    generateVehiclePhotoUrls();
+  }, [driver?.vehicle_photos_urls]);
 
   // Fetch driver statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -383,12 +410,18 @@ const DriverProfile = () => {
               <div className="mb-4">
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {driver.vehicle_photos_urls.map((photoPath, index) => (
-                    <img 
-                      key={index}
-                      src={`${supabase.storage.from('driver-documents').getPublicUrl(photoPath).data.publicUrl}`}
-                      className="w-32 h-24 object-cover rounded-lg flex-shrink-0 border border-border"
-                      alt={`Véhicule photo ${index + 1}`}
-                    />
+                    vehiclePhotoSignedUrls[photoPath] ? (
+                      <img 
+                        key={index}
+                        src={vehiclePhotoSignedUrls[photoPath]}
+                        className="w-32 h-24 object-cover rounded-lg flex-shrink-0 border border-border"
+                        alt={`Véhicule photo ${index + 1}`}
+                      />
+                    ) : (
+                      <div key={index} className="w-32 h-24 rounded-lg flex-shrink-0 border border-border bg-muted flex items-center justify-center">
+                        <Car className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )
                   ))}
                 </div>
               </div>
