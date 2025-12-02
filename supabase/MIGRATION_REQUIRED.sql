@@ -42,17 +42,7 @@ ALTER TABLE public.drivers
   ADD COLUMN IF NOT EXISTS vehicle_model text,
   ADD COLUMN IF NOT EXISTS vehicle_year text,
   ADD COLUMN IF NOT EXISTS vehicle_plate text,
-  ADD COLUMN IF NOT EXISTS license_number text,
-  ADD COLUMN IF NOT EXISTS vehicle_icon text DEFAULT 'car' CHECK (vehicle_icon IN ('car', 'taxi', 'van', 'motorcycle', 'suv')),
-  ADD COLUMN IF NOT EXISTS vehicle_types_accepted text[] DEFAULT ARRAY['Standard', 'Berline', 'Van', 'Minibus', 'First Class'];
-
--- Index pour améliorer les performances de recherche par type de véhicule
-CREATE INDEX IF NOT EXISTS idx_drivers_vehicle_types 
-  ON public.drivers USING GIN (vehicle_types_accepted);
-
--- Commenter la colonne
-COMMENT ON COLUMN public.drivers.vehicle_types_accepted IS 
-  'Types de véhicules que le chauffeur accepte de conduire (filtre pour les courses)';
+  ADD COLUMN IF NOT EXISTS license_number text;
 
 -- ============================================================================
 -- PARTIE 3: TABLE DRIVERS - COORDONNÉES BANCAIRES
@@ -109,23 +99,9 @@ CREATE INDEX IF NOT EXISTS idx_drivers_approved_created ON public.drivers(approv
 
 -- Ajout des colonnes courses pour le dispatch et les infos vol
 ALTER TABLE public.courses
-  ADD COLUMN IF NOT EXISTS dispatch_mode text DEFAULT 'auto',
+  ADD COLUMN IF NOT EXISTS dispatch_mode text,
   ADD COLUMN IF NOT EXISTS flight_number text,
   ADD COLUMN IF NOT EXISTS company_name text;
-
--- Index pour filtrage par dispatch_mode
-CREATE INDEX IF NOT EXISTS idx_courses_dispatch_mode 
-  ON public.courses (dispatch_mode);
-
--- ⚡ INITIALISATION: Mettre dispatch_mode = 'auto' pour les courses dispatchées sans chauffeur assigné
-UPDATE public.courses 
-SET dispatch_mode = 'auto'
-WHERE dispatch_mode IS NULL AND status = 'dispatched' AND driver_id IS NULL;
-
--- ⚡ INITIALISATION: Mettre dispatch_mode = 'manual' pour les courses assignées directement
-UPDATE public.courses 
-SET dispatch_mode = 'manual'
-WHERE dispatch_mode IS NULL AND driver_id IS NOT NULL;
 
 -- ============================================================================
 -- PARTIE 8B: TABLE COURSES - TIMESTAMPS DE PROGRESSION
@@ -248,7 +224,7 @@ END $$;
 DO $$
 BEGIN
   RAISE NOTICE '✅ Migration terminée avec succès !';
-  RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule (+ icône personnalisable), banque, notifications, approbation';
+  RAISE NOTICE '✅ Colonnes ajoutées à drivers: profil, véhicule, banque, notifications, approbation';
   RAISE NOTICE '✅ Colonnes ajoutées à courses: dispatch_mode, flight_number, company_name, timestamps de progression';
   RAISE NOTICE '✅ Index créés pour améliorer les performances des Analytics';
   RAISE NOTICE '✅ Bucket driver-documents créé avec policies RLS';

@@ -21,7 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const Settings = () => {
-  const { driver, logout, profilePhotoSignedUrl } = useAuth();
+  const { driver, logout } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
 
@@ -80,25 +80,19 @@ const Settings = () => {
       <Header title="Paramètres" unreadCount={unreadCount} />
 
       <div className="max-w-lg mx-auto p-4 space-y-6">
-        {/* Driver Info - Clickable to view full profile */}
-        <Card 
-          className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-          onClick={() => navigate('/driver-profile')}
-        >
+        {/* Driver Info */}
+        <Card className="p-4">
           <div className="flex items-center gap-4">
             <Avatar className="w-16 h-16">
-              {profilePhotoSignedUrl ? (
+              {driver?.profile_photo_url ? (
                 <AvatarImage 
-                  src={profilePhotoSignedUrl} 
-                  alt={driver?.name || "Photo de profil"}
-                  onError={(e) => {
-                    console.error('❌ Erreur de chargement de la photo:', profilePhotoSignedUrl);
-                    e.currentTarget.style.display = 'none';
-                  }}
+                  src={driver.profile_photo_url} 
+                  alt={driver.name || "Photo de profil"}
+                  onError={() => console.error('❌ Avatar image failed to load')}
                 />
               ) : null}
               <AvatarFallback className="bg-primary text-primary-foreground">
-                <User className="w-12 h-12" />
+                <User className="w-8 h-8" />
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
@@ -106,7 +100,6 @@ const Settings = () => {
               <p className="text-sm text-muted-foreground">{driver?.email}</p>
               {renderStars(driver?.rating || 0)}
             </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
         </Card>
 

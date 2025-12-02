@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { Loader2, ArrowLeft, User, Building2 } from 'lucide-react';
 
 const Profile = () => {
-  const { driver, profilePhotoSignedUrl, refreshDriver } = useAuth();
+  const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ const Profile = () => {
   useEffect(() => {
     const loadProfileData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-
+      
       if (!session?.user) {
         console.log('❌ No session found');
         return;
@@ -55,21 +55,6 @@ const Profile = () => {
 
       if (driverData) {
         console.log('✅ Driver data loaded:', driverData);
-        
-        // Generate signed URL for company logo only
-        let logoSignedUrl = null;
-        if (driverData.company_logo_url) {
-          const { data: logoSigned, error: logoError } = await supabase.storage
-            .from('driver-documents')
-            .createSignedUrl(driverData.company_logo_url, 60 * 60 * 24 * 7);
-          
-          if (logoError) {
-            console.error('❌ Error generating logo signed URL:', logoError);
-          } else {
-            logoSignedUrl = logoSigned?.signedUrl || null;
-          }
-        }
-
         setFormData({
           name: driverData.name || '',
           email: driverData.email || session.user.email || '',
@@ -80,10 +65,8 @@ const Profile = () => {
           profile_photo_url: driverData.profile_photo_url || '',
           company_logo_url: driverData.company_logo_url || '',
         });
-        
-        // Use profilePhotoSignedUrl from useAuth for consistency
-        setPhotoPreview(profilePhotoSignedUrl);
-        setLogoPreview(logoSignedUrl);
+        setPhotoPreview(driverData.profile_photo_url || null);
+        setLogoPreview(driverData.company_logo_url || null);
       } else {
         console.log('⚠️ No driver profile, showing email only');
         setFormData(prev => ({
@@ -92,7 +75,7 @@ const Profile = () => {
         }));
       }
     };
-
+    
     loadProfileData();
   }, []);
 
@@ -119,7 +102,7 @@ const Profile = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-
+      
       if (!session) {
         toast.error('Session expirée. Reconnectez-vous.');
         setLoading(false);
@@ -132,26 +115,10 @@ const Profile = () => {
 
       // Upload profile photo if changed
       if (profilePhoto) {
-        // Validation: max 5MB
-        if (profilePhoto.size > 5 * 1024 * 1024) {
-          toast.error("La photo ne doit pas dépasser 5MB");
-          setLoading(false);
-          return;
-        }
-
-        // Validation: must be an image
-        if (!profilePhoto.type.startsWith('image/')) {
-          toast.error("Le fichier doit être une image");
-          setLoading(false);
-          return;
-        }
-
-        const fileExt = profilePhoto.name.split('.').pop();
-        const photoPath = `${userId}/profile-photo-${Date.now()}.${fileExt}`;
-        
+        const photoPath = `${userId}/profile-photo-${Date.now()}`;
         const { error: photoError } = await supabase.storage
           .from('driver-documents')
-          .upload(photoPath, profilePhoto, { upsert: true });
+          .upload(photoPath, profilePhoto);
 
         if (photoError) {
           console.error('❌ Photo upload failed:', photoError);
@@ -160,33 +127,19 @@ const Profile = () => {
           return;
         }
 
-        // ✅ Store PATH, not public URL
-        profile_photo_url = photoPath;
-        console.log('✅ Photo uploaded, path saved:', photoPath);
+        const { data: { publicUrl } } = supabase.storage
+          .from('driver-documents')
+          .getPublicUrl(photoPath);
+        profile_photo_url = publicUrl;
+        console.log('✅ Photo uploaded successfully:', publicUrl);
       }
 
       // Upload company logo if changed
       if (companyLogo) {
-        // Validation: max 5MB
-        if (companyLogo.size > 5 * 1024 * 1024) {
-          toast.error("Le logo ne doit pas dépasser 5MB");
-          setLoading(false);
-          return;
-        }
-
-        // Validation: must be an image
-        if (!companyLogo.type.startsWith('image/')) {
-          toast.error("Le fichier doit être une image");
-          setLoading(false);
-          return;
-        }
-
-        const fileExt = companyLogo.name.split('.').pop();
-        const logoPath = `${userId}/company-logo-${Date.now()}.${fileExt}`;
-        
+        const logoPath = `${userId}/company-logo-${Date.now()}`;
         const { error: logoError } = await supabase.storage
           .from('driver-documents')
-          .upload(logoPath, companyLogo, { upsert: true });
+          .upload(logoPath, companyLogo);
 
         if (logoError) {
           console.error('❌ Logo upload failed:', logoError);
@@ -195,9 +148,11 @@ const Profile = () => {
           return;
         }
 
-        // ✅ Store PATH, not public URL
-        company_logo_url = logoPath;
-        console.log('✅ Logo uploaded, path saved:', logoPath);
+        const { data: { publicUrl } } = supabase.storage
+          .from('driver-documents')
+          .getPublicUrl(logoPath);
+        company_logo_url = publicUrl;
+        console.log('✅ Logo uploaded successfully:', publicUrl);
       }
 
       // Ensure driver profile exists
@@ -238,7 +193,28 @@ const Profile = () => {
 
       console.log('💾 Updating profile with:', updateData);
 
-      // Direct UPDATE to database (simplified, no Edge Function)
+      // Triple fallback for maximum reliability:
+      // 1. Try Edge Function (bypass RLS, auto-create profile)
+      // 2. Try direct UPDATE
+      // 3. Handle missing columns gracefully
+      
+      console.log('💾 Tentative 1: Edge Function driver-update-profile');
+      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke(
+        'driver-update-profile',
+        { body: updateData }
+      );
+
+      if (!edgeFunctionError && edgeFunctionData?.driver) {
+        console.log('✅ Profil sauvegardé via Edge Function');
+        toast.success('Profil mis à jour avec succès');
+        setTimeout(() => window.location.reload(), 500);
+        return;
+      }
+
+      console.warn('⚠️ Edge Function failed, trying direct update:', edgeFunctionError);
+
+      // Fallback 2: Direct UPDATE
+      console.log('💾 Tentative 2: UPDATE direct');
       const { error: updateError } = await supabase
         .from('drivers')
         .update(updateData)
@@ -246,7 +222,7 @@ const Profile = () => {
 
       if (updateError) {
         console.error('❌ Update error:', updateError);
-
+        
         const msg = updateError.message || '';
         const isMissingColumns =
           msg.includes('profile_photo_url') ||
@@ -280,26 +256,17 @@ const Profile = () => {
           console.error('❌ Basic update error:', basicError);
           throw new Error(`Erreur de mise à jour: ${basicError.message}`);
         }
-
-        if (updateError.message?.includes('permission')) {
-          throw new Error('Permissions insuffisantes. Reconnectez-vous.');
-        }
-
-        throw new Error(`Erreur: ${updateError.message}`);
+        
+        throw new Error(`Erreur de mise à jour: ${updateError.message}`);
       }
 
       console.log('✅ Profile updated successfully');
       toast.success('Profil mis à jour avec succès');
-
-      // Refresh driver data without full page reload
-      await refreshDriver();
       
-      // Update form data with new values
-      setFormData(prev => ({
-        ...prev,
-        profile_photo_url,
-        company_logo_url,
-      }));
+      // Recharger la page après 500ms
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
 
     } catch (error: any) {
       console.error('❌ Error saving profile:', error);
@@ -331,13 +298,9 @@ const Profile = () => {
                 <User className="w-4 h-4 text-primary" />
                 <Label className="font-semibold">Photo de profil</Label>
               </div>
-              {photoPreview ? (
+              {photoPreview && (
                 <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border">
                   <img src={photoPreview} alt="Profil" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
-                  <User className="w-8 h-8 text-muted-foreground" />
                 </div>
               )}
               <Input
@@ -346,11 +309,6 @@ const Profile = () => {
                 onChange={handlePhotoChange}
                 className="cursor-pointer"
               />
-              {!photoPreview && (
-                <p className="text-xs text-muted-foreground">
-                  Aucune photo enregistrée. Sélectionnez un fichier pour ajouter une photo.
-                </p>
-              )}
             </div>
 
             {/* Nom complet */}
@@ -398,13 +356,9 @@ const Profile = () => {
               {/* Logo société */}
               <div className="space-y-3">
                 <Label>Logo de la société</Label>
-                {logoPreview ? (
+                {logoPreview && (
                   <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-border">
                     <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center border-2 border-dashed border-border">
-                    <Building2 className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 <Input
@@ -413,11 +367,6 @@ const Profile = () => {
                   onChange={handleLogoChange}
                   className="cursor-pointer"
                 />
-                {!logoPreview && (
-                  <p className="text-xs text-muted-foreground">
-                    Aucun logo enregistré.
-                  </p>
-                )}
               </div>
 
               {/* Nom de la société */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -11,24 +11,41 @@ import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
 import { ArrowLeft, Volume2, Loader2 } from 'lucide-react';
-import { notificationSounds, playNotificationSound } from '@/lib/notificationSounds';
+
+const notificationSounds = [
+  { id: 'default', name: 'Par défaut', url: '/sounds/default.mp3' },
+  { id: 'bell', name: 'Cloche', url: '/sounds/bell.mp3' },
+  { id: 'chime', name: 'Carillon', url: '/sounds/chime.mp3' },
+  { id: 'alert', name: 'Alerte', url: '/sounds/alert.mp3' },
+  { id: 'gentle', name: 'Doux', url: '/sounds/gentle.mp3' },
+];
 
 const Notifications = () => {
-  const { driver, refreshDriver } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null, driver);
+  const { driver } = useAuth();
+  const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(driver?.notifications_enabled ?? false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(driver?.notifications_enabled ?? true);
   const [selectedSound, setSelectedSound] = useState(driver?.notification_sound || 'default');
   const [loading, setLoading] = useState(false);
 
-  // Sync UI state with driver data when it changes
-  useEffect(() => {
-    if (!driver) return;
-    
-    setNotificationsEnabled(driver.notifications_enabled ?? false);
-    setSelectedSound(driver.notification_sound || 'default');
-  }, [driver]);
-
+  const playSound = () => {
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880; // A5
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      osc.stop(ctx.currentTime + 0.36);
+    } catch (e) {
+      console.error('Audio preview error', e);
+    }
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -50,17 +67,6 @@ const Notifications = () => {
 
         if (!updateError) {
           console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 1)`);
-          
-          // Update local state immediately
-          setNotificationsEnabled(updateData.notifications_enabled);
-          setSelectedSound(updateData.notification_sound);
-          
-          // Refresh driver profile in context
-          if (refreshDriver) {
-            await refreshDriver();
-          }
-          
-          setLoading(false);
           toast.success('Préférences enregistrées');
           setTimeout(() => navigate('/settings'), 300);
           return;
@@ -83,17 +89,6 @@ const Notifications = () => {
 
       if (!retryError) {
         console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 2)`);
-        
-        // Update local state immediately
-        setNotificationsEnabled(updateData.notifications_enabled);
-        setSelectedSound(updateData.notification_sound);
-        
-        // Refresh driver profile in context
-        if (refreshDriver) {
-          await refreshDriver();
-        }
-        
-        setLoading(false);
         toast.success('Préférences enregistrées');
         setTimeout(() => navigate('/settings'), 300);
         return;
@@ -114,17 +109,6 @@ const Notifications = () => {
       }
 
       console.log(`[${new Date().toISOString()}] ✅ Notifications updated successfully (Attempt 3)`);
-      
-      // Update local state immediately
-      setNotificationsEnabled(updateData.notifications_enabled);
-      setSelectedSound(updateData.notification_sound);
-      
-      // Refresh driver profile in context
-      if (refreshDriver) {
-        await refreshDriver();
-      }
-      
-      setLoading(false);
       toast.success('Préférences enregistrées');
       setTimeout(() => navigate('/settings'), 300);
 
@@ -196,7 +180,7 @@ const Notifications = () => {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        playNotificationSound(sound.id);
+                        playSound();
                       }}
                     >
                       <Volume2 className="w-4 h-4" />

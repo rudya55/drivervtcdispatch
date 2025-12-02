@@ -6,39 +6,18 @@ interface GoogleMapProps {
   center?: { lat: number; lng: number };
   zoom?: number;
   markers?: Array<{ lat: number; lng: number; label?: string }>;
-  driverMarker?: {
-    lat: number;
-    lng: number;
-    icon: 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv';
-    heading?: number;
-  };
-  routePoints?: Array<{ lat: number; lng: number }>;
   className?: string;
-}
-
-const getVehicleIconPath = (icon: string): string => {
-  const paths = {
-    car: 'M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 15c-.83 0-1.5-.67-1.5-1.5S5.67 12 6.5 12s1.5.67 1.5 1.5S7.33 15 6.5 15zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z',
-    taxi: 'M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 15c-.83 0-1.5-.67-1.5-1.5S5.67 12 6.5 12s1.5.67 1.5 1.5S7.33 15 6.5 15zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z',
-    van: 'M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm13.5-8.5l1.96 2.5H17V9.5h2.5zm-1.5 8.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z',
-    motorcycle: 'M19.44 9.03L15.41 5H11v2h3.59l2 2H5c-2.8 0-5 2.2-5 5s2.2 5 5 5c2.46 0 4.45-1.69 4.9-4h1.65l2.77-2.77c-.21.54-.32 1.14-.32 1.77 0 2.8 2.2 5 5 5s5-2.2 5-5c0-2.65-1.97-4.77-4.56-4.97zM7.82 15C7.4 16.15 6.28 17 5 17c-1.63 0-3-1.37-3-3s1.37-3 3-3c1.28 0 2.4.85 2.82 2H5v2h2.82zM19 17c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z',
-    suv: 'M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 15c-.83 0-1.5-.67-1.5-1.5S5.67 12 6.5 12s1.5.67 1.5 1.5S7.33 15 6.5 15zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z'
-  };
-  return paths[icon as keyof typeof paths] || paths.car;
 }
 
 const GoogleMap = ({
   center = { lat: 48.8566, lng: 2.3522 },
   zoom = 12,
   markers = [],
-  driverMarker,
-  routePoints = [],
   className = ''
 }: GoogleMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
-  const driverMarkerRef = useRef<any>(null);
   const [mapError, setMapError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
@@ -149,44 +128,6 @@ const GoogleMap = ({
         markersRef.current.push(marker);
       });
 
-      // Driver marker with custom vehicle icon
-      if (driverMarker) {
-        if (driverMarkerRef.current) {
-          driverMarkerRef.current.setMap(null);
-        }
-
-        driverMarkerRef.current = new google.maps.Marker({
-          position: { lat: driverMarker.lat, lng: driverMarker.lng },
-          map: mapInstanceRef.current,
-          icon: {
-            path: getVehicleIconPath(driverMarker.icon),
-            fillColor: '#3B82F6',
-            fillOpacity: 1,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 2,
-            scale: 1.2,
-            rotation: driverMarker.heading || 0,
-            anchor: new google.maps.Point(12, 12),
-          },
-          zIndex: 1000,
-        });
-      } else if (driverMarkerRef.current) {
-        driverMarkerRef.current.setMap(null);
-        driverMarkerRef.current = null;
-      }
-
-      // Draw route polyline if routePoints provided
-      if (routePoints && routePoints.length > 1 && mapInstanceRef.current) {
-        new google.maps.Polyline({
-          path: routePoints,
-          geodesic: true,
-          strokeColor: '#3B82F6',
-          strokeOpacity: 1.0,
-          strokeWeight: 4,
-          map: mapInstanceRef.current
-        });
-      }
-
       if (mapInstanceRef.current) {
         mapInstanceRef.current.setCenter(center);
       }
@@ -194,7 +135,7 @@ const GoogleMap = ({
       console.error('❌ Google Maps error:', error);
       setMapError(true);
     }
-  }, [center, zoom, markers, driverMarker, routePoints, apiKeyLoaded]);
+  }, [center, zoom, markers, apiKeyLoaded]);
 
   // Fallback map display when Google Maps is not available
   if (mapError) {

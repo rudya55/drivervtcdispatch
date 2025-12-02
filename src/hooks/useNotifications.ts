@@ -3,9 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, DriverNotification } from '@/lib/supabase';
 import { requestNotificationPermission, onMessageListener } from '@/lib/firebase';
 import { toast } from 'sonner';
-import { playNotificationSound } from '@/lib/notificationSounds';
 
-export const useNotifications = (driverId: string | null, driver?: any) => {
+export const useNotifications = (driverId: string | null) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const queryClient = useQueryClient();
 
@@ -48,11 +47,6 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
   // Listen for foreground messages
   useEffect(() => {
     const unsubscribe = onMessageListener().then((payload: any) => {
-      // Play custom notification sound
-      if (driver?.notifications_enabled !== false) {
-        playNotificationSound(driver?.notification_sound || 'default');
-      }
-      
       toast(payload.notification?.title || 'Nouvelle notification', {
         description: payload.notification?.body,
       });
@@ -64,7 +58,7 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
     return () => {
       unsubscribe.then(() => {});
     };
-  }, [driverId, driver, queryClient]);
+  }, [driverId, queryClient]);
 
   // Subscribe to realtime notifications
   useEffect(() => {
@@ -84,17 +78,6 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
           queryClient.invalidateQueries({ queryKey: ['notifications', driverId] });
           
           const notification = payload.new as DriverNotification;
-          
-          // Dispatch reload-courses event for new_course notifications
-          if (notification.type === 'new_course') {
-            window.dispatchEvent(new CustomEvent('reload-courses'));
-          }
-          
-          // Play custom notification sound
-          if (driver?.notifications_enabled !== false) {
-            playNotificationSound(driver?.notification_sound || 'default');
-          }
-          
           toast(notification.title, {
             description: notification.message,
           });
@@ -105,7 +88,7 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [driverId, driver, queryClient]);
+  }, [driverId, queryClient]);
 
   const markAsRead = async (notificationId: string) => {
     await supabase

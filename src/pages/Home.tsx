@@ -186,20 +186,13 @@ const Home = () => {
     },
   });
 
-  // Filter courses to display - Include ALL active statuses
+  // Filter courses to display
   const today = new Date().toDateString();
   const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
-  
-  // Inclure TOUS les statuts actifs possibles (started, arrived, picked_up, dropped_off)
-  const activeStatuses = ['accepted', 'in_progress', 'started', 'arrived', 'picked_up', 'dropped_off'];
-  const activeCourses = courses.filter(c => activeStatuses.includes(c.status));
+  const activeCourses = courses.filter(c => 
+    c.status === 'accepted' || c.status === 'in_progress'
+  );
   const displayedCourses = [...activeCourses, ...pendingCourses];
-
-  // Logs de diagnostic
-  console.log('🔍 [Home] Courses reçues de l\'API:', courses.length);
-  console.log('🔍 [Home] Détail des courses:', courses.map(c => ({ id: c.id, status: c.status, client: c.client_name })));
-  console.log('🔍 [Home] Courses actives:', activeCourses.length, activeCourses.map(c => c.status));
-  console.log('🔍 [Home] Courses en attente:', pendingCourses.length);
 
   // Load Google Maps script from backend secret and track readiness
   const [mapsReady, setMapsReady] = useState<boolean>(!!(window as any).google);
@@ -237,17 +230,11 @@ const Home = () => {
 
 
   return (
-    <div 
-      className="min-h-screen bg-background pb-20"
-      style={{ paddingTop: 'var(--header-height)' }}
-    >
+    <div className="min-h-screen bg-background pb-20 pt-16">
       <Header title="Accueil" unreadCount={unreadCount} />
 
       {/* Bouton En ligne/Hors ligne - Sticky en haut au centre */}
-      <div 
-        className="sticky z-20 flex flex-col items-center px-4 py-3 bg-background/80 backdrop-blur-sm"
-        style={{ top: 'var(--header-height)' }}
-      >
+      <div className="sticky top-16 z-20 flex flex-col items-center px-4 py-3 bg-background/80 backdrop-blur-sm">
         <StatusToggle
           isOnline={isActive}
           onToggle={() => statusMutation.mutate(isActive ? 'inactive' : 'active')}
@@ -273,8 +260,6 @@ const Home = () => {
               driverStatus={driver?.status || 'inactive'}
               onStatusChange={(status) => statusMutation.mutate(status)}
               isUpdating={statusMutation.isPending}
-              driverIcon={(driver?.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car'}
-              driverHeading={locationState.heading || 0}
             />
           </div>
         </Card>
@@ -295,8 +280,8 @@ const Home = () => {
             </Card>
           ) : (
             displayedCourses.map((course) => {
-              // Show swipe actions for all active courses (any status beyond pending/dispatched)
-              if (activeStatuses.includes(course.status)) {
+              // Show swipe actions for accepted/in_progress courses
+              if (course.status === 'accepted' || course.status === 'in_progress') {
                 return (
                   <CourseSwipeActions
                     key={course.id}

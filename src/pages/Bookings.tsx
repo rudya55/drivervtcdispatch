@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
-import { translateCourseStatus, extractCity } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +13,7 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CourseTimer } from '@/components/CourseTimer';
-import { CourseDetailsModal } from '@/components/CourseDetailsModal';
-import { SignBoardModal } from '@/components/SignBoardModal';
-import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
-import { Info } from 'lucide-react';
-import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 
 const Bookings = () => {
   const { driver } = useAuth();
@@ -30,22 +24,6 @@ const Bookings = () => {
   const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [selectedCompletedCourse, setSelectedCompletedCourse] = useState<Course | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [showSignBoard, setShowSignBoard] = useState(false);
-
-  // Activer le GPS en continu quand il y a des courses actives
-  const activeCoursesList = newCourses.filter(c => 
-    c.status === 'accepted' || c.status === 'in_progress'
-  ).concat(activeCourses);
-  const gpsState = useNativeGeolocation(activeCoursesList.length > 0);
-
-  // Mettre à jour la position en temps réel
-  useEffect(() => {
-    if (gpsState.coordinates) {
-      setCurrentLocation(gpsState.coordinates);
-    }
-  }, [gpsState.coordinates]);
 
   useEffect(() => {
     if (driver) {
@@ -55,44 +33,12 @@ const Bookings = () => {
     }
   }, [driver]);
 
-  // Get GPS location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-        }
-      );
-    }
-  }, []);
-
-  // Fonction pour vérifier si une course peut être démarrée (1h avant pickup)
-  const canStartCourse = (pickupDate: string): boolean => {
-    const pickup = new Date(pickupDate);
-    const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
-    const now = new Date();
-    return now >= unlockTime;
-  };
-
-  // Mémoriser la callback onUnlock pour éviter les re-renders
-  const handleCourseUnlock = useCallback(() => {
-    toast.success('Course débloquée ! Vous pouvez la démarrer.');
-    // Pas de fetchCourses() ici - le realtime listener s'en charge
-  }, []);
-
-  // Realtime listener for courses - Two channels for better reactivity
+  // Realtime listener for courses
   useEffect(() => {
     if (!driver) return;
 
-    // Channel 1: My assigned courses
-    const myCoursesChannel = supabase
-      .channel('my-bookings-realtime')
+    const channel = supabase
+      .channel('bookings-realtime')
       .on(
         'postgres_changes',
         {
@@ -102,106 +48,46 @@ const Bookings = () => {
           filter: `driver_id=eq.${driver.id}`,
         },
         (payload) => {
-          console.log('My course update:', payload);
-          fetchCourses();
-        }
-      )
-      .subscribe();
-
-    // Channel 2: Auto-dispatched courses (visible by all active drivers)
-    const autoDispatchChannel = supabase
-      .channel('auto-dispatch-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'courses',
-          filter: `status=eq.dispatched,dispatch_mode=eq.auto`,
-        },
-        (payload) => {
-          console.log('Auto-dispatch course update:', payload);
+          console.log('Booking update:', payload);
           fetchCourses();
           
           if (payload.eventType === 'INSERT') {
-            toast.info('Nouvelle course disponible !', {
-              description: 'Une course vient d\'être publiée'
-            });
+            toast.info('Nouvelle course reçue !');
+          } else if (payload.eventType === 'UPDATE') {
+            const course = payload.new as Course;
+            if (course.status === 'dispatched') {
+              toast.info('Une course vous a été assignée !');
+            }
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(myCoursesChannel);
-      supabase.removeChannel(autoDispatchChannel);
+      supabase.removeChannel(channel);
     };
   }, [driver]);
-
-  // Synchronize with notifications system
-  useEffect(() => {
-    const handleNewCourseNotification = () => {
-      console.log('🔔 New course notification received, reloading courses...');
-      fetchCourses();
-    };
-    
-    window.addEventListener('reload-courses', handleNewCourseNotification);
-    
-    return () => {
-      window.removeEventListener('reload-courses', handleNewCourseNotification);
-    };
-  }, []);
 
   const fetchCourses = async () => {
     if (!driver) return;
 
-    console.log('📊 Fetching courses for driver:', driver.id);
-    console.log('📊 Driver accepts vehicle types:', driver.vehicle_types_accepted);
-
     setLoading(true);
     try {
-      // Use Edge Function that handles dispatch_mode and vehicle_types_accepted filtering
-      const { data, error } = await supabase.functions.invoke('driver-courses');
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .or(`driver_id.eq.${driver.id},status.eq.dispatched`)
+        .order('pickup_date', { ascending: true });
 
       if (error) throw error;
 
-      console.log('📊 Received courses:', data?.courses?.length || 0);
-      console.log('📊 Courses by status:', {
-        dispatched: data?.courses?.filter((c: Course) => c.status === 'dispatched').length,
-        pending: data?.courses?.filter((c: Course) => c.status === 'pending').length,
-        accepted: data?.courses?.filter((c: Course) => c.status === 'accepted').length,
-        in_progress: data?.courses?.filter((c: Course) => c.status === 'in_progress').length,
-        completed: data?.courses?.filter((c: Course) => c.status === 'completed').length,
-      });
-
-      if (data?.courses) {
-        // Include both 'dispatched' and 'pending' in new courses tab
-        const newCoursesFiltered = data.courses.filter((c: Course) => 
-          c.status === 'dispatched' || c.status === 'pending'
-        );
-        
-        // Active courses include all in-progress statuses
-        const activeCoursesFiltered = data.courses.filter((c: Course) => 
-          ['accepted', 'in_progress', 'started', 'arrived', 'picked_up'].includes(c.status)
-        );
-        
-        // Completed courses
-        const completedCoursesFiltered = data.courses.filter((c: Course) => 
-          ['completed', 'dropped_off'].includes(c.status)
-        );
-
-        console.log('📊 Setting state:', {
-          new: newCoursesFiltered.length,
-          active: activeCoursesFiltered.length,
-          completed: completedCoursesFiltered.length
-        });
-
-        setNewCourses(newCoursesFiltered);
-        setActiveCourses(activeCoursesFiltered);
-        setCompletedCourses(completedCoursesFiltered);
+      if (data) {
+        setNewCourses(data.filter(c => c.status === 'pending' || c.status === 'dispatched'));
+        setActiveCourses(data.filter(c => c.status === 'accepted' || c.status === 'in_progress'));
+        setCompletedCourses(data.filter(c => c.status === 'completed'));
       }
     } catch (error: any) {
-      console.error('❌ Fetch courses error:', error);
+      console.error('Fetch courses error:', error);
       toast.error('Erreur lors du chargement des courses');
     } finally {
       setLoading(false);
@@ -293,55 +179,11 @@ const Bookings = () => {
     }
   };
 
-  const handleCourseAction = async (action: string, data?: any) => {
-    if (!driver) return;
-
-    const courseId = data?.course_id || activeCourses[0]?.id;
-    if (!courseId) return;
-
-    setProcessing(courseId);
-    try {
-      console.log(`📤 Action: ${action}`, data);
-
-      const body: any = {
-        course_id: courseId,
-        action,
-      };
-
-      if (action === 'complete' && data) {
-        body.rating = data.rating;
-        body.comment = data.comment;
-        body.final_price = data.finalPrice;
-      }
-
-      if (currentLocation) {
-        body.latitude = currentLocation.lat;
-        body.longitude = currentLocation.lng;
-      }
-
-      const { error } = await supabase.functions.invoke('driver-update-course-status', {
-        body
-      });
-
-      if (error) throw error;
-
-      const successMessages: Record<string, string> = {
-        start: '🚗 Course démarrée !',
-        arrived: '📍 Arrivée confirmée !',
-        pickup: '✅ Client à bord !',
-        dropoff: '🏁 Client déposé !',
-        complete: '🎉 Course terminée !',
-      };
-
-      toast.success(successMessages[action] || 'Action effectuée !');
-      await fetchCourses();
-
-    } catch (error: any) {
-      console.error(`❌ ${action} error:`, error);
-      toast.error(`Erreur lors de l'action : ${error.message || 'Erreur inconnue'}`);
-    } finally {
-      setProcessing(null);
-    }
+  const canStartCourse = (pickupDate: string) => {
+    const pickup = new Date(pickupDate);
+    const unlockTime = new Date(pickup.getTime() - 60 * 60000);
+    const now = new Date();
+    return now >= unlockTime;
   };
 
   const CourseCard = ({ 
@@ -365,7 +207,10 @@ const Bookings = () => {
           <div className="flex justify-center mb-2">
             <CourseTimer 
               pickupDate={course.pickup_date}
-              onUnlock={handleCourseUnlock}
+              onUnlock={() => {
+                toast.success('Course débloquée ! Vous pouvez la démarrer.');
+                fetchCourses();
+              }}
             />
           </div>
         )}
@@ -386,7 +231,7 @@ const Bookings = () => {
             )}
           </div>
           <Badge variant={course.status === 'completed' ? 'default' : 'secondary'}>
-            {translateCourseStatus(course.status)}
+            {course.status}
           </Badge>
         </div>
 
@@ -522,32 +367,12 @@ const Bookings = () => {
           <TabsContent value="new" className="space-y-4 mt-4">
             {newCourses.length === 0 ? (
               <Card className="p-8 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <MapPin className="w-12 h-12 text-muted-foreground/30" />
-                  <p className="text-muted-foreground font-medium">Aucune nouvelle course disponible</p>
-                  <p className="text-xs text-muted-foreground">
-                    Les nouvelles courses apparaîtront ici dès leur publication
-                  </p>
-                </div>
+                <p className="text-muted-foreground">Aucune nouvelle course</p>
               </Card>
             ) : (
-              <>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <p className="text-sm text-muted-foreground">
-                    {newCourses.length} course{newCourses.length > 1 ? 's' : ''} disponible{newCourses.length > 1 ? 's' : ''}
-                  </p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={fetchCourses}
-                  >
-                    🔄 Actualiser
-                  </Button>
-                </div>
-                {newCourses.map(course => (
-                  <CourseCard key={course.id} course={course} showActions />
-                ))}
-              </>
+              newCourses.map(course => (
+                <CourseCard key={course.id} course={course} showActions />
+              ))
             )}
           </TabsContent>
 
@@ -558,22 +383,12 @@ const Bookings = () => {
               </Card>
             ) : (
               activeCourses.map(course => (
-                <div key={course.id} className="space-y-3">
-                  {course.status === 'accepted' && (
-                    <CourseTimer 
-                      pickupDate={course.pickup_date}
-                      onUnlock={handleCourseUnlock}
-                    />
-                  )}
-
-                  <CourseSwipeActions
-                    course={course}
-                    onAction={handleCourseAction}
-                    currentLocation={currentLocation}
-                    canStart={canStartCourse(course.pickup_date)}
-                    onViewDetails={() => setSelectedCourse(course)}
-                  />
-                </div>
+                <CourseCard 
+                  key={course.id} 
+                  course={course}
+                  showTimer={course.status === 'accepted'}
+                  showStartButton={true}
+                />
               ))
             )}
           </TabsContent>
@@ -588,21 +403,19 @@ const Bookings = () => {
                 <Card 
                   key={course.id} 
                   className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
-                  onClick={() => setSelectedCompletedCourse(course)}
+                  onClick={() => setSelectedCourse(course)}
                 >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">
-                        {extractCity(course.departure_location)} → {extractCity(course.destination_location)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {course.picked_up_at 
-                          ? format(new Date(course.picked_up_at), 'dd/MM/yyyy HH:mm', { locale: fr })
-                          : format(new Date(course.completed_at || course.pickup_date), 'dd/MM/yyyy HH:mm', { locale: fr })
-                        }
-                      </p>
-                    </div>
-                    <Badge className="bg-green-500">Terminée</Badge>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="default" className="bg-success text-white">Terminée</Badge>
+                    <span className="font-bold text-success">
+                      {(course.net_driver || course.client_price).toFixed(2)}€
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium">{course.client_name}</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      {format(new Date(course.completed_at!), 'PPp', { locale: fr })}
+                    </p>
                   </div>
                 </Card>
               ))
@@ -611,26 +424,11 @@ const Bookings = () => {
         </Tabs>
       </div>
 
-        <CourseDetailsModal
-          course={selectedCourse}
-          open={selectedCourse !== null}
-          onOpenChange={(open) => !open && setSelectedCourse(null)}
-          onOpenSignBoard={() => setShowSignBoard(true)}
-        />
-
-        <CompletedCourseDetails
-          course={selectedCompletedCourse}
-          open={selectedCompletedCourse !== null}
-          onOpenChange={(open) => !open && setSelectedCompletedCourse(null)}
-        />
-
-        <SignBoardModal
-          open={showSignBoard}
-          onOpenChange={setShowSignBoard}
-          clientName={selectedCourse?.client_name || ''}
-          companyName={driver?.company_name}
-          companyLogoUrl={driver?.company_logo_url}
-        />
+      <CompletedCourseDetails 
+        course={selectedCourse}
+        open={!!selectedCourse}
+        onOpenChange={(open) => !open && setSelectedCourse(null)}
+      />
 
       <BottomNav />
     </div>

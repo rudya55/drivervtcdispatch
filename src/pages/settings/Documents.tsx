@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload } from 'lucide-react';
 
 const documentCategories = [
   { id: 'identity', name: "Pièce d'identité", required: true },
@@ -47,12 +47,12 @@ const Documents = () => {
 
     try {
       // Ensure driver profile exists before fetching
-      const { userId } = await ensureDriverExists();
-      console.log(`[${new Date().toISOString()}] Using user ID for storage:`, userId);
+      const { driverId } = await ensureDriverExists();
+      console.log(`[${new Date().toISOString()}] Using driver ID:`, driverId);
 
       const { data, error } = await supabase.storage
         .from('driver-documents')
-        .list(userId);
+        .list(driverId);
 
       if (error) {
         console.error('Fetch documents error:', error);
@@ -68,13 +68,13 @@ const Documents = () => {
       const docsWithUrls = data.map((file: any) => {
         const { data: { publicUrl } } = supabase.storage
           .from('driver-documents')
-          .getPublicUrl(`${userId}/${file.name}`);
+          .getPublicUrl(`${driverId}/${file.name}`);
         
         const category = file.name.split('_')[0];
         
         return {
           name: file.name,
-          path: `${userId}/${file.name}`,
+          path: `${driverId}/${file.name}`,
           url: publicUrl,
           created_at: file.created_at,
           category,
@@ -102,77 +102,33 @@ const Documents = () => {
 
     setUploading(category);
     console.log(`[${new Date().toISOString()}] Uploading document for category:`, category);
-    console.log(`[${new Date().toISOString()}] File details:`, {
-      name: file.name,
-      type: file.type,
-      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
-    });
 
     try {
-      // Validation: file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('Le fichier est trop volumineux (max 10 Mo)');
-        setUploading(null);
-        return;
-      }
-
-      // Validation: file type
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-        toast.error('Format de fichier non supporté. Utilisez PDF, JPG ou PNG.');
-        setUploading(null);
-        return;
-      }
-
       // Ensure driver profile exists before uploading
-      const { userId } = await ensureDriverExists();
-      console.log(`[${new Date().toISOString()}] Using user ID for storage:`, userId);
+      const { driverId } = await ensureDriverExists();
+      console.log(`[${new Date().toISOString()}] Using driver ID:`, driverId);
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${category}_${Date.now()}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
+      const filePath = `${driverId}/${fileName}`;
       
-      console.log(`[${new Date().toISOString()}] Uploading to path:`, filePath);
-      
-      const { error, data } = await supabase.storage
+      const { error } = await supabase.storage
         .from('driver-documents')
         .upload(filePath, file);
 
-      if (error) {
-        console.error(`[${new Date().toISOString()}] ❌ Storage upload error:`, {
-          message: error.message,
-          error: error
-        });
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log(`[${new Date().toISOString()}] ✅ Document uploaded successfully:`, data);
+      console.log(`[${new Date().toISOString()}] ✅ Document uploaded successfully`);
       toast.success('Document téléchargé avec succès');
       fetchDocuments();
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Upload error details:`, {
-        message: error.message,
-        hint: error.hint,
-        code: error.code,
-        fullError: error
-      });
-      
-      // Message spécifique pour les erreurs RLS
-      if (error.message?.includes('policy') || error.message?.includes('permission') || error.message?.includes('RLS')) {
-        toast.error('Erreur de permissions. Vérifiez que le script SQL a bien été exécuté dans Supabase.');
-      } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
-        toast.error('Accès refusé. Vérifiez les permissions du bucket dans Supabase.');
-      } else {
-        const errorMessage = [
-          error.message,
-          error.hint,
-          error.code
-        ].filter(Boolean).join(' - ');
-        toast.error(errorMessage || 'Erreur lors du téléchargement');
-      }
+      console.error(`[${new Date().toISOString()}] Upload error:`, error);
+      const errorMessage = [
+        error.message,
+        error.hint,
+        error.code
+      ].filter(Boolean).join(' - ');
+      toast.error(errorMessage || 'Erreur lors du téléchargement');
     } finally {
       setUploading(null);
     }
@@ -220,35 +176,6 @@ const Documents = () => {
           Retour
         </Button>
 
-        {/* Progress Bar for Required Documents */}
-        {(() => {
-          const uploadedRequiredCount = documentCategories
-            .filter(cat => cat.required)
-            .filter(cat => documents.some(doc => doc.category === cat.id))
-            .length;
-          const totalRequired = documentCategories.filter(cat => cat.required).length;
-          const progressPercentage = (uploadedRequiredCount / totalRequired) * 100;
-
-          return (
-            <Card className="p-4 mb-4 bg-accent/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">
-                  Documents obligatoires
-                </span>
-                <span className="text-sm font-semibold text-primary">
-                  {uploadedRequiredCount} / {totalRequired}
-                </span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-            </Card>
-          );
-        })()}
-
         <div className="space-y-4">
           {documentCategories.map((category) => {
             const categoryDocs = documents.filter(doc => doc.category === category.id);
@@ -261,12 +188,6 @@ const Documents = () => {
                     <h3 className="font-semibold">{category.name}</h3>
                     {category.required && (
                       <span className="text-xs text-destructive">*</span>
-                    )}
-                    {hasDocument && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full border border-green-500/20">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Téléchargé
-                      </span>
                     )}
                   </div>
                   {!hasDocument && (
@@ -302,67 +223,35 @@ const Documents = () => {
                   </div>
                 ) : hasDocument ? (
                   <div className="space-y-2">
-                    {categoryDocs.map((doc) => {
-                      const isImage = /\.(jpg|jpeg|png)$/i.test(doc.name);
-                      const fileExt = doc.name.split('.').pop()?.toUpperCase() || 'FILE';
-                      
-                      return (
-                        <div
-                          key={doc.path}
-                          className="flex items-center gap-3 p-3 bg-muted rounded-lg"
-                        >
-                          {/* Thumbnail or icon */}
-                          {isImage ? (
-                            <img
-                              src={doc.url}
-                              alt={doc.name}
-                              className="w-12 h-12 rounded object-cover border border-border shrink-0"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                              <FileText className="w-6 h-6 text-primary" />
-                            </div>
-                          )}
-                          
-                          {/* File info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium truncate">{doc.name}</span>
-                              <span className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded shrink-0">
-                                {fileExt}
-                              </span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(doc.created_at).toLocaleDateString('fr-FR', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              })}
-                            </span>
-                          </div>
-                          
-                          {/* Actions */}
-                          <div className="flex gap-2 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(doc.url, '_blank')}
-                              title="Ouvrir le document"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(doc.path)}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
+                    {categoryDocs.map((doc) => (
+                      <div
+                        key={doc.path}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <FileText className="w-5 h-5 text-muted-foreground" />
+                          <span className="text-sm truncate">
+                            {new Date(doc.created_at).toLocaleDateString('fr-FR')}
+                          </span>
                         </div>
-                      );
-                    })}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(doc.url, '_blank')}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(doc.path)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">

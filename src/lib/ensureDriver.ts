@@ -3,22 +3,20 @@ import { supabase } from '@/lib/supabase';
 /**
  * Ensures a driver profile exists for the current user.
  * If no profile exists, creates one with minimal data.
- * Returns both the driver ID and user ID (auth.uid).
+ * Returns the driver ID.
  */
-export async function ensureDriverExists(): Promise<{ driverId: string; userId: string }> {
+export async function ensureDriverExists(): Promise<{ driverId: string }> {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
   if (sessionError || !session) {
     throw new Error('Session expirée - veuillez vous reconnecter');
   }
 
-  const userId = session.user.id; // Store user_id for storage operations
-
   // Check if driver profile already exists
   const { data: existing, error: selectError } = await supabase
     .from('drivers')
     .select('id')
-    .eq('user_id', userId)
+    .eq('user_id', session.user.id)
     .maybeSingle();
 
   if (selectError) {
@@ -26,18 +24,18 @@ export async function ensureDriverExists(): Promise<{ driverId: string; userId: 
     throw new Error('Erreur lors de la vérification du profil');
   }
 
-  // If profile exists, return both IDs
+  // If profile exists, return its ID
   if (existing?.id) {
     console.log('✅ Driver profile exists:', existing.id);
-    return { driverId: existing.id, userId };
+    return { driverId: existing.id };
   }
 
   // Create minimal driver profile
-  console.log('🆕 Creating new driver profile for user:', userId);
+  console.log('🆕 Creating new driver profile for user:', session.user.id);
   const { data: newDriver, error: insertError } = await supabase
     .from('drivers')
     .insert({
-      user_id: userId,
+      user_id: session.user.id,
       status: 'inactive',
       name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Chauffeur',
       email: session.user.email || '',
@@ -53,5 +51,5 @@ export async function ensureDriverExists(): Promise<{ driverId: string; userId: 
   }
 
   console.log('✅ Driver profile created:', newDriver.id);
-  return { driverId: newDriver.id, userId };
+  return { driverId: newDriver.id };
 }

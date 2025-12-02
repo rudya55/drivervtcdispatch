@@ -2,17 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Safe Area Support for modern devices (notch, punch-hole, etc.) */
-:root {
-  --safe-area-inset-top: env(safe-area-inset-top, 0px);
-  --safe-area-inset-right: env(safe-area-inset-right, 0px);
-  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  
-  /* Header height with safe area */
-  --header-height: calc(4rem + var(--safe-area-inset-top));
-}
-
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
@@ -123,17 +112,5 @@ All colors MUST be HSL.
   .dark h3,
   .dark .font-bold {
     font-weight: 700;
-  }
-}
-
-@layer utilities {
-  .safe-area-pt {
-    padding-top: env(safe-area-inset-top);
-  }
-  .safe-area-pb {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .min-h-screen-safe {
-    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 }

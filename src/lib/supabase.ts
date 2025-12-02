@@ -26,8 +26,6 @@ export type Driver = {
   vehicle_year?: string | null;
   vehicle_plate?: string | null;
   license_number?: string | null;
-  vehicle_icon?: string | null;
-  vehicle_types_accepted?: string[] | null;
   iban?: string | null;
   bic?: string | null;
   profile_photo_url?: string | null;
@@ -38,8 +36,6 @@ export type Driver = {
   notifications_enabled?: boolean;
   notification_sound?: string | null;
   rating?: number;
-  bio?: string | null;
-  vehicle_photos_urls?: string[] | null;
 };
 
 export type Course = {
@@ -51,7 +47,7 @@ export type Course = {
   departure_location: string;
   destination_location: string;
   pickup_date: string;
-  status: 'pending' | 'dispatched' | 'accepted' | 'started' | 'arrived' | 'picked_up' | 'dropped_off' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
   client_price: number;
   commission: number | null;
   net_driver: number | null;

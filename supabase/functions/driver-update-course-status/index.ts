@@ -6,32 +6,14 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  console.log('🚀 driver-update-course-status called');
-  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
-    const authHeader = req.headers.get('Authorization');
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Missing environment variables');
-      return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!authHeader) {
-      console.error('❌ Missing Authorization header');
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const authHeader = req.headers.get('Authorization')!;
 
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
@@ -40,107 +22,55 @@ Deno.serve(async (req) => {
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('❌ Authentication error:', authError);
+      console.error('Authentication error:', authError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('✅ User authenticated:', user.id);
+    // Parse request body
+    const { course_id, action, latitude, longitude, rating, comment, final_price } = await req.json();
 
-    // Parse request body with better error handling
-    let requestBody;
-    try {
-      const bodyText = await req.text();
-      console.log('📦 Raw body received:', bodyText);
-      requestBody = JSON.parse(bodyText);
-    } catch (parseError) {
-      console.error('❌ Failed to parse request body:', parseError);
+    if (!course_id || !action) {
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        JSON.stringify({ error: 'Missing course_id or action' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { course_id, action, latitude, longitude, rating, comment, final_price } = requestBody;
-    console.log(`📍 Action received: "${action}" for course ${course_id}`, {
-      course_id,
-      action,
-      hasLocation: !!(latitude && longitude),
-      rating,
-      comment,
-      final_price
-    });
-
-    if (!course_id) {
-      console.error('❌ Missing course_id');
-      return new Response(
-        JSON.stringify({ error: 'Missing course_id' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!action) {
-      console.error('❌ Missing action');
-      return new Response(
-        JSON.stringify({ error: 'Missing action' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get driver record with name
+    // Get driver record
     const { data: driver, error: driverError } = await supabase
       .from('drivers')
-      .select('id, name')
+      .select('id')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .single();
 
-    if (driverError) {
-      console.error('❌ Driver query error:', driverError);
-      return new Response(
-        JSON.stringify({ error: 'Driver lookup failed', details: driverError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!driver) {
-      console.error('❌ Driver not found for user:', user.id);
+    if (driverError || !driver) {
+      console.error('Driver not found:', driverError);
       return new Response(
         JSON.stringify({ error: 'Driver not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('✅ Driver found:', driver.id, driver.name);
-
     // Get current course data
     const { data: course, error: courseError } = await supabase
       .from('courses')
       .select('*')
       .eq('id', course_id)
-      .maybeSingle();
+      .single();
 
-    if (courseError) {
-      console.error('❌ Course query error:', courseError);
-      return new Response(
-        JSON.stringify({ error: 'Course lookup failed', details: courseError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!course) {
-      console.error('❌ Course not found:', course_id);
+    if (courseError || !course) {
+      console.error('Course not found:', courseError);
       return new Response(
         JSON.stringify({ error: 'Course not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('✅ Course found:', course.id, 'status:', course.status);
-
     const now = new Date().toISOString();
-    let updateData: Record<string, unknown> = {};
+    let updateData: any = {};
     let trackingNotes = '';
 
     // Handle different actions
@@ -150,12 +80,6 @@ Deno.serve(async (req) => {
           status: 'accepted',
           driver_id: driver.id,
           accepted_at: now,
-          // RESET tous les timestamps de progression pour commencer à l'étape 1
-          started_at: null,
-          arrived_at: null,
-          picked_up_at: null,
-          dropped_off_at: null,
-          completed_at: null,
         };
         trackingNotes = 'Course acceptée par le chauffeur';
         break;
@@ -175,7 +99,6 @@ Deno.serve(async (req) => {
         const oneHourBefore = pickupTime - 60 * 60 * 1000;
 
         if (currentTime < oneHourBefore) {
-          console.log('⏰ Course locked - too early to start');
           return new Response(
             JSON.stringify({ 
               error: 'Vous ne pouvez démarrer la course qu\'une heure avant l\'heure de prise en charge' 
@@ -192,6 +115,7 @@ Deno.serve(async (req) => {
         break;
 
       case 'arrived':
+        // Driver arrived at pickup location
         updateData = {
           arrived_at: now,
         };
@@ -199,6 +123,7 @@ Deno.serve(async (req) => {
         break;
 
       case 'pickup':
+        // Client is on board
         updateData = {
           picked_up_at: now,
         };
@@ -206,6 +131,7 @@ Deno.serve(async (req) => {
         break;
 
       case 'dropoff':
+        // Client dropped off
         updateData = {
           dropped_off_at: now,
         };
@@ -218,6 +144,7 @@ Deno.serve(async (req) => {
           completed_at: now,
         };
         
+        // Add rating and comment if provided
         if (rating !== undefined) {
           updateData.rating = rating;
         }
@@ -241,17 +168,11 @@ Deno.serve(async (req) => {
         break;
 
       default:
-        console.error(`❌ Invalid action received: "${action}"`);
         return new Response(
-          JSON.stringify({ 
-            error: `Invalid action: "${action}"`,
-            validActions: ['accept', 'refuse', 'start', 'arrived', 'pickup', 'dropoff', 'complete', 'cancel']
-          }),
+          JSON.stringify({ error: 'Invalid action' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
-
-    console.log('📝 Updating course with:', updateData);
 
     // Update course
     const { error: updateError } = await supabase
@@ -260,14 +181,12 @@ Deno.serve(async (req) => {
       .eq('id', course_id);
 
     if (updateError) {
-      console.error('❌ Error updating course:', updateError);
+      console.error('Error updating course:', updateError);
       return new Response(
-        JSON.stringify({ error: 'Failed to update course', details: updateError.message }),
+        JSON.stringify({ error: 'Failed to update course' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('✅ Course updated successfully');
 
     // Map action to status for tracking
     const statusMapping: Record<string, string> = {
@@ -294,7 +213,7 @@ Deno.serve(async (req) => {
 
     // Insert tracking notification into driver_notifications
     try {
-      const notificationData = {
+      const notificationData: any = {
         driver_id: driver.id,
         course_id,
         type: 'course_status',
@@ -311,60 +230,19 @@ Deno.serve(async (req) => {
         },
       };
 
-      const { error: notifError } = await supabase
+      await supabase
         .from('driver_notifications')
         .insert(notificationData);
       
-      if (notifError) {
-        console.log('⚠️ Notification insert warning:', notifError.message);
-      } else {
-        console.log('✅ Tracking notification inserted');
-      }
+      console.log('Tracking notification inserted successfully');
     } catch (notificationError) {
-      console.error('⚠️ Failed to insert tracking notification:', notificationError);
+      console.error('Failed to insert tracking notification:', notificationError);
+      // Don't fail the request if notification fails
     }
 
-    // Notify admin/dispatch of status changes
+    // Add tracking entry with location if provided (optional, table may not exist yet)
     try {
-      const { data: adminUsers } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['admin', 'fleet_manager']);
-
-      if (adminUsers && adminUsers.length > 0) {
-        const adminNotifications = adminUsers.map(admin => ({
-          driver_id: null,
-          course_id,
-          type: 'admin_course_update',
-          title: `${course.client_name} - ${titleMapping[action]}`,
-          message: `Le chauffeur a ${trackingNotes.toLowerCase()}`,
-          read: false,
-          data: {
-            action,
-            status: statusMapping[action] || course.status,
-            driver_id: driver.id,
-            driver_name: driver.name,
-            course_id,
-            client_name: course.client_name,
-            latitude: latitude || null,
-            longitude: longitude || null,
-            timestamp: new Date().toISOString(),
-          },
-        }));
-
-        await supabase
-          .from('driver_notifications')
-          .insert(adminNotifications);
-        
-        console.log(`✅ ${adminNotifications.length} notification(s) envoyée(s) au dispatch`);
-      }
-    } catch (adminNotificationError) {
-      console.error('⚠️ Failed to send admin notifications:', adminNotificationError);
-    }
-
-    // Add tracking entry with location if provided
-    try {
-      const trackingData: Record<string, unknown> = {
+      const trackingData: any = {
         course_id,
         status: updateData.status || course.status,
         notes: trackingNotes,
@@ -379,60 +257,9 @@ Deno.serve(async (req) => {
         .from('course_tracking')
         .insert(trackingData);
     } catch (trackingError) {
-      console.log('⚠️ Tracking insert skipped (table may not exist)');
+      console.log('Tracking insert failed (table may not exist yet):', trackingError);
+      // Don't fail the request if tracking fails
     }
-
-    // Si la course est terminée, créer une entrée comptable
-    if (action === 'complete') {
-      try {
-        console.log('💰 Création de l\'entrée comptable...');
-        
-        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-        if (!serviceRoleKey) {
-          console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY');
-        } else {
-          const supabaseServiceRole = createClient(supabaseUrl, serviceRoleKey);
-
-          const clientPrice = course.client_price || 0;
-          const netDriver = course.net_driver || clientPrice * 0.8;
-          const netFleet = clientPrice - netDriver;
-
-          console.log('💰 Données comptables:', {
-            course_id,
-            driver_id: driver.id,
-            driver_amount: netDriver,
-            fleet_amount: netFleet,
-            total_amount: clientPrice,
-          });
-
-          const { data: accountingData, error: accountingError } = await supabaseServiceRole
-            .from('accounting_entries')
-            .insert({
-              course_id,
-              driver_id: driver.id,
-              driver_amount: netDriver,
-              fleet_amount: netFleet,
-              total_amount: clientPrice,
-              rating: rating || null,
-              comment: comment || null,
-              payment_status: 'pending',
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .maybeSingle();
-
-          if (accountingError) {
-            console.error('⚠️ Erreur création entrée comptable:', accountingError.message);
-          } else if (accountingData) {
-            console.log('✅ Entrée comptable créée:', accountingData.id);
-          }
-        }
-      } catch (accountingError) {
-        console.error('⚠️ Exception comptabilité:', accountingError);
-      }
-    }
-
-    console.log('🎉 Action completed successfully:', action);
 
     return new Response(
       JSON.stringify({ 
@@ -444,29 +271,10 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: unknown) {
-    console.error('❌ Unexpected error in driver-update-course-status:');
-    console.error('Error type:', typeof error);
-    console.error('Error:', error);
-    
-    let errorMessage = 'Internal server error';
-    let errorDetails = 'Unknown error';
-    
-    if (error instanceof Error) {
-      errorMessage = error.name;
-      errorDetails = error.message;
-      console.error('Stack:', error.stack);
-    } else if (typeof error === 'string') {
-      errorDetails = error;
-    } else if (error && typeof error === 'object') {
-      errorDetails = JSON.stringify(error);
-    }
-    
+  } catch (error) {
+    console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: errorMessage,
-        details: errorDetails
-      }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

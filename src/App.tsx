@@ -9,7 +9,6 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import Bookings from "./pages/Bookings";
-import Chat from "./pages/Chat";
 import Planning from "./pages/Planning";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
@@ -25,13 +24,12 @@ import Vehicle from './pages/settings/Vehicle';
 import Documents from './pages/settings/Documents';
 import BankAccount from './pages/settings/BankAccount';
 import NotificationsSettings from './pages/settings/Notifications';
-import DriverProfile from './pages/DriverProfile';
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
-
+  
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -42,11 +40,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-
+  
   if (!session) {
     return <Navigate to="/login" replace />;
   }
-
+  
   return <>{children}</>;
 };
 
@@ -68,13 +66,13 @@ const AppContent = () => {
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={session ? <Navigate to="/" replace /> : <Login />}
+      <Route 
+        path="/login" 
+        element={session ? <Navigate to="/" replace /> : <Login />} 
       />
-      <Route
-        path="/reset-password"
-        element={<ResetPassword />}
+      <Route 
+        path="/reset-password" 
+        element={<ResetPassword />} 
       />
       <Route
         path="/"
@@ -93,14 +91,6 @@ const AppContent = () => {
         }
       />
       <Route
-        path="/chat/:courseId"
-        element={
-          <ProtectedRoute>
-            <Chat />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/planning"
         element={
           <ProtectedRoute>
@@ -113,14 +103,6 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <Settings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/driver-profile"
-        element={
-          <ProtectedRoute>
-            <DriverProfile />
           </ProtectedRoute>
         }
       />
@@ -215,11 +197,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex justify-center">
-          <div className="w-full max-w-lg bg-background min-h-screen shadow-2xl relative safe-area-pt safe-area-pb">
-            <AppContent />
-          </div>
-        </div>
+        <AppContent />
       </TooltipProvider>
     </BrowserRouter>
   </QueryClientProvider>
