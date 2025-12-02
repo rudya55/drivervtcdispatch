@@ -9,7 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, User, Building2 } from 'lucide-react';
+import { Loader2, ArrowLeft, User, Building2, Car, Trash2, Upload } from 'lucide-react';
+
+type VehiclePhoto = {
+  url: string;
+  path: string;
+  name: string;
+};
 
 const Profile = () => {
   const { driver } = useAuth();
@@ -30,12 +36,14 @@ const Profile = () => {
   const [companyLogo, setCompanyLogo] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [vehiclePhotos, setVehiclePhotos] = useState<VehiclePhoto[]>([]);
+  const [uploadingVehiclePhoto, setUploadingVehiclePhoto] = useState(false);
 
   // Charger les données du profil
   useEffect(() => {
     const loadProfileData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         console.log('❌ No session found');
         return;
@@ -74,10 +82,48 @@ const Profile = () => {
           email: session.user.email || ''
         }));
       }
+
+      // Charger les photos de véhicule
+      loadVehiclePhotos(session.user.id);
     };
-    
+
     loadProfileData();
   }, []);
+
+  const loadVehiclePhotos = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('driver-documents')
+        .list(`${userId}/vehicle-photos`);
+
+      if (error) {
+        if (!error.message?.includes('not found')) {
+          console.error('❌ Error loading vehicle photos:', error);
+        }
+        return;
+      }
+
+      const photos = await Promise.all(
+        data.map(async (file: any) => {
+          const path = `${userId}/vehicle-photos/${file.name}`;
+          const { data: signedUrlData } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(path, 3600);
+
+          return {
+            url: signedUrlData?.signedUrl || '',
+            path,
+            name: file.name,
+          };
+        })
+      );
+
+      setVehiclePhotos(photos);
+      console.log('✅ Vehicle photos loaded:', photos.length);
+    } catch (error) {
+      console.error('❌ Error loading vehicle photos:', error);
+    }
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,6 +138,66 @@ const Profile = () => {
     if (file) {
       setCompanyLogo(file);
       setLogoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleVehiclePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingVehiclePhoto(true);
+    console.log('📤 Uploading vehicle photo');
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expirée. Reconnectez-vous.');
+        return;
+      }
+
+      const userId = session.user.id;
+      const photoPath = `${userId}/vehicle-photos/vehicle-${Date.now()}.${file.name.split('.').pop()}`;
+
+      const { error } = await supabase.storage
+        .from('driver-documents')
+        .upload(photoPath, file);
+
+      if (error) throw error;
+
+      console.log('✅ Vehicle photo uploaded');
+      toast.success('Photo du véhicule ajoutée');
+
+      // Recharger les photos
+      await loadVehiclePhotos(userId);
+
+      // Reset file input
+      e.target.value = '';
+    } catch (error: any) {
+      console.error('❌ Error uploading vehicle photo:', error);
+      toast.error(error.message || 'Erreur lors de l\'ajout de la photo');
+    } finally {
+      setUploadingVehiclePhoto(false);
+    }
+  };
+
+  const handleVehiclePhotoDelete = async (path: string) => {
+    console.log('🗑️ Deleting vehicle photo:', path);
+
+    try {
+      const { error } = await supabase.storage
+        .from('driver-documents')
+        .remove([path]);
+
+      if (error) throw error;
+
+      console.log('✅ Vehicle photo deleted');
+      toast.success('Photo du véhicule supprimée');
+
+      // Update state
+      setVehiclePhotos(prev => prev.filter(photo => photo.path !== path));
+    } catch (error: any) {
+      console.error('❌ Error deleting vehicle photo:', error);
+      toast.error(error.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -399,6 +505,65 @@ const Profile = () => {
                   maxLength={14}
                 />
               </div>
+            </div>
+
+            {/* Photos du véhicule */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Car className="w-4 h-4 text-primary" />
+                  <Label className="font-semibold">Photos du véhicule</Label>
+                </div>
+                <Label htmlFor="vehicle-photo-upload" className="cursor-pointer">
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+                    {uploadingVehiclePhoto ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Ajouter
+                      </>
+                    )}
+                  </div>
+                  <Input
+                    id="vehicle-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleVehiclePhotoUpload}
+                    disabled={uploadingVehiclePhoto}
+                    className="hidden"
+                  />
+                </Label>
+              </div>
+
+              {vehiclePhotos.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {vehiclePhotos.map((photo) => (
+                    <div key={photo.path} className="relative group">
+                      <div className="aspect-video rounded-lg overflow-hidden border-2 border-border">
+                        <img
+                          src={photo.url}
+                          alt="Véhicule"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleVehiclePhotoDelete(photo.path)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Aucune photo de véhicule ajoutée
+                </p>
+              )}
             </div>
 
             {/* Bouton de sauvegarde */}
