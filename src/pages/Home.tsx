@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
+import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { StatusToggle } from '@/components/StatusToggle';
 import { toast } from 'sonner';
 import {
@@ -31,6 +32,8 @@ const Home = () => {
   const { driver, session } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const [isActive, setIsActive] = useState(driver?.status === 'active');
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const queryClient = useQueryClient();
 
   // Sync isActive with driver status
@@ -315,7 +318,14 @@ const Home = () => {
               
               // Show accept/refuse for pending courses
               return (
-                <Card key={course.id} className="p-4 space-y-4">
+                <Card 
+                  key={course.id} 
+                  className="p-4 space-y-4 cursor-pointer hover:border-primary/50 transition-all"
+                  onClick={() => {
+                    setSelectedCourse(course);
+                    setShowDetailsModal(true);
+                  }}
+                >
                   {/* Company & Vehicle */}
                   {course.company_name && (
                     <div className="flex items-center justify-between">
@@ -379,26 +389,38 @@ const Home = () => {
                     </p>
                   )}
 
-                  {/* Actions - Boutons petits */}
-                  <div className="flex gap-3 mt-2">
+                  {/* Actions - Boutons 3D animés avec dégradé */}
+                  <div className="flex gap-3 mt-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="outline"
-                      className="flex-1 h-10 rounded-xl border border-red-400 text-red-600 
-                                 hover:bg-red-50 font-semibold text-sm transition-all active:scale-95"
+                      className="flex-1 h-12 rounded-xl relative overflow-hidden
+                                 bg-gradient-to-r from-red-500 via-rose-500 to-red-500 
+                                 bg-[length:200%_100%] animate-gradient-x
+                                 text-white font-bold text-sm border-0
+                                 shadow-[0_4px_0_0_#991b1b,0_0_15px_rgba(239,68,68,0.4)]
+                                 hover:shadow-[0_2px_0_0_#991b1b,0_0_20px_rgba(239,68,68,0.5)] hover:translate-y-[2px]
+                                 active:shadow-[0_0_0_0_#991b1b] active:translate-y-[4px]
+                                 transition-all duration-150"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
                     >
                       <XCircle className="w-4 h-4 mr-1" />
-                      Refuser
+                      REFUSER
                     </Button>
                     <Button
-                      className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
-                                 text-white font-semibold text-sm transition-all active:scale-95"
+                      className="flex-1 h-12 rounded-xl relative overflow-hidden
+                                 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-500
+                                 bg-[length:200%_100%] animate-gradient-x
+                                 text-white font-bold text-sm border-0
+                                 shadow-[0_4px_0_0_#065f46,0_0_15px_rgba(16,185,129,0.4)]
+                                 hover:shadow-[0_2px_0_0_#065f46,0_0_20px_rgba(16,185,129,0.5)] hover:translate-y-[2px]
+                                 active:shadow-[0_0_0_0_#065f46] active:translate-y-[4px]
+                                 transition-all duration-150"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Accepter
+                      ACCEPTER
                     </Button>
                   </div>
                 </Card>
@@ -407,6 +429,13 @@ const Home = () => {
           )}
         </div>
       </div>
+
+      {/* Modal détails de la course */}
+      <CourseDetailsModal
+        course={selectedCourse}
+        open={showDetailsModal}
+        onOpenChange={setShowDetailsModal}
+      />
 
       <BottomNav />
     </div>

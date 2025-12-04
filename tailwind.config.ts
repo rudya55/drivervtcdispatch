@@ -85,10 +85,28 @@ export default {
             height: "0",
           },
         },
+        "gradient-x": {
+          "0%, 100%": {
+            "background-position": "0% 50%",
+          },
+          "50%": {
+            "background-position": "100% 50%",
+          },
+        },
+        "pulse-glow": {
+          "0%, 100%": {
+            "box-shadow": "0 4px 0 0 var(--shadow-color), 0 0 20px var(--glow-color)",
+          },
+          "50%": {
+            "box-shadow": "0 4px 0 0 var(--shadow-color), 0 0 30px var(--glow-color)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "gradient-x": "gradient-x 3s ease infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
     },
   },

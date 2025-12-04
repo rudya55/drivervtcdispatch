@@ -53,7 +53,7 @@ export const extractCity = (fullAddress: string): string => {
   return fullAddress;
 };
 
-export const formatParisAddress = (address: string): string => {
+export function formatParisAddress(address: string): string {
   if (!address) return '';
   
   const lowerAddress = address.toLowerCase();
@@ -69,31 +69,55 @@ export const formatParisAddress = (address: string): string => {
     return 'Aéroport Beauvais';
   }
   if (lowerAddress.includes('le bourget')) {
-    return 'Aéroport Le Bourget';
+    return 'Le Bourget';
   }
-  
-  // Extraire le code postal 750XX pour Paris
-  const parisMatch = address.match(/750(\d{2})/);
-  if (parisMatch) {
-    const arrondissement = parseInt(parisMatch[1]);
-    return `Paris ${arrondissement}${arrondissement === 1 ? 'er' : 'ème'}`;
+
+  // Détecter Paris avec arrondissement (code postal 750XX)
+  const arrMatch = address.match(/750(\d{2})/);
+  if (arrMatch) {
+    const arr = parseInt(arrMatch[1], 10);
+    if (arr >= 1 && arr <= 20) {
+      const suffix = arr === 1 ? 'er' : 'ème';
+      return `Paris ${arr}${suffix}`;
+    }
   }
-  
-  // Extraire "Paris Xème" ou "Paris Xer"
-  const parisArrMatch = address.match(/Paris\s+(\d+)(er|ème|e)?/i);
-  if (parisArrMatch) {
-    const num = parseInt(parisArrMatch[1]);
-    return `Paris ${num}${num === 1 ? 'er' : 'ème'}`;
+
+  // Détecter "Paris" avec numéro d'arrondissement textuel (ex: "Paris 8", "Paris 16e", "8ème arrondissement")
+  const textArrMatch = address.match(/paris\s*(\d{1,2})(?:e|ème|er|°)?/i);
+  if (textArrMatch) {
+    const arr = parseInt(textArrMatch[1], 10);
+    if (arr >= 1 && arr <= 20) {
+      const suffix = arr === 1 ? 'er' : 'ème';
+      return `Paris ${arr}${suffix}`;
+    }
   }
-  
+
+  // Détecter arrondissement mentionné (ex: "8ème arrondissement", "16e arrondissement")
+  const arrondissementMatch = address.match(/(\d{1,2})(?:e|ème|er|°)?\s*arrondissement/i);
+  if (arrondissementMatch) {
+    const arr = parseInt(arrondissementMatch[1], 10);
+    if (arr >= 1 && arr <= 20) {
+      const suffix = arr === 1 ? 'er' : 'ème';
+      return `Paris ${arr}${suffix}`;
+    }
+  }
+
+  // Détecter gares parisiennes
+  if (lowerAddress.includes('gare du nord')) return 'Gare du Nord';
+  if (lowerAddress.includes('gare de lyon')) return 'Gare de Lyon';
+  if (lowerAddress.includes('gare montparnasse')) return 'Gare Montparnasse';
+  if (lowerAddress.includes('gare de l\'est')) return 'Gare de l\'Est';
+  if (lowerAddress.includes('gare saint-lazare') || lowerAddress.includes('st-lazare')) return 'Gare St-Lazare';
+  if (lowerAddress.includes('gare d\'austerlitz')) return 'Gare d\'Austerlitz';
+
   // Sinon extraire la ville du code postal
   const cityMatch = address.match(/(\d{5})\s+([A-Za-zÀ-ÿ\s-]+)/);
   if (cityMatch) {
     return cityMatch[2].trim();
   }
-  
+
   return extractCity(address);
-};
+}
 
 export const renderTextWithLinks = (text: string): React.ReactNode => {
   if (!text) return null;
