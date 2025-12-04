@@ -121,14 +121,14 @@ export function formatParisAddress(address: string): string {
 
 export const renderTextWithLinks = (text: string): React.ReactNode => {
   if (!text) return null;
-  
+
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|fr|io|app|link|pay|me|eu|net|org)[^\s]*)/gi;
-  const parts: string[] = [];
+  const parts: (string | React.ReactElement)[] = [];
   const matches: string[] = [];
-  
+
   let lastIndex = 0;
   let match;
-  
+
   while ((match = urlRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.substring(lastIndex, match.index));
@@ -137,13 +137,13 @@ export const renderTextWithLinks = (text: string): React.ReactNode => {
     parts.push(match[0]);
     lastIndex = match.index + match[0].length;
   }
-  
+
   if (lastIndex < text.length) {
     parts.push(text.substring(lastIndex));
   }
-  
-  return parts.map((part, index) => {
-    if (matches.includes(part)) {
+
+  return React.createElement(React.Fragment, null, parts.map((part, index) => {
+    if (typeof part === 'string' && matches.includes(part)) {
       const href = part.startsWith('http') ? part : `https://${part}`;
       return React.createElement('a', {
         key: `link-${index}`,
@@ -154,6 +154,6 @@ export const renderTextWithLinks = (text: string): React.ReactNode => {
         onClick: (e: React.MouseEvent) => e.stopPropagation()
       }, part);
     }
-    return part;
-  });
+    return React.createElement('span', { key: `text-${index}` }, part);
+  }));
 };
