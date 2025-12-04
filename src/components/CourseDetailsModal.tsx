@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Course } from '@/lib/supabase';
+import { Course, supabase } from '@/lib/supabase';
 import { translateCourseStatus } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
-import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle } from 'lucide-react';
+import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navigation, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,11 +21,114 @@ interface CourseDetailsModalProps {
 
 export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard }: CourseDetailsModalProps) => {
   const navigate = useNavigate();
-  const { driver } = useAuth();
+  const { driver, session } = useAuth();
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const directionsRendererRef = useRef<any>(null);
   
   if (!course) return null;
+
+  // Load Google Maps and display route
+  useEffect(() => {
+    if (!open || !course || !mapRef.current) return;
+
+    const initMap = async () => {
+      // Check if Google Maps is loaded
+      if (!(window as any).google) {
+        // Load Google Maps script
+        try {
+          const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+          const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+          if (error || !data?.key) {
+            console.error('Maps key error:', error);
+            return;
+          }
+          
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places&loading=async`;
+          script.async = true;
+          script.defer = true;
+          script.addEventListener('load', () => {
+            createMap();
+          });
+          document.head.appendChild(script);
+        } catch (e) {
+          console.error('Maps loader error:', e);
+        }
+      } else {
+        createMap();
+      }
+    };
+
+    const createMap = () => {
+      if (!mapRef.current || !(window as any).google) return;
+
+      const google = (window as any).google;
+      
+      // Create map centered on Paris
+      const map = new google.maps.Map(mapRef.current, {
+        zoom: 12,
+        center: { lat: 48.8566, lng: 2.3522 },
+        disableDefaultUI: true,
+        zoomControl: true,
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] }
+        ]
+      });
+      mapInstanceRef.current = map;
+
+      // Create directions renderer
+      const directionsRenderer = new google.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: false,
+        polylineOptions: {
+          strokeColor: '#10b981',
+          strokeWeight: 5,
+          strokeOpacity: 0.8
+        }
+      });
+      directionsRendererRef.current = directionsRenderer;
+
+      // Calculate route
+      const directionsService = new google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: course.departure_location,
+          destination: course.destination_location,
+          travelMode: google.maps.TravelMode.DRIVING,
+        },
+        (result: any, status: string) => {
+          if (status === 'OK' && result) {
+            directionsRenderer.setDirections(result);
+            
+            // Extract distance and duration
+            const route = result.routes[0];
+            if (route && route.legs[0]) {
+              setRouteInfo({
+                distance: route.legs[0].distance?.text || '~',
+                duration: route.legs[0].duration?.text || '~'
+              });
+            }
+          } else {
+            console.error('Directions request failed:', status);
+          }
+        }
+      );
+    };
+
+    initMap();
+
+    return () => {
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+      }
+    };
+  }, [open, course, session]);
 
   const openFlightTracking = (flightNumber: string) => {
     const url = `https://www.google.com/search?q=${encodeURIComponent(flightNumber + ' statut vol')}`;
@@ -61,6 +164,34 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
               </span>
             )}
           </div>
+
+          {/* Carte Google Maps avec trajet */}
+          <Card className="p-0 overflow-hidden">
+            <div 
+              ref={mapRef}
+              className="h-48 w-full bg-muted"
+              style={{ minHeight: '192px' }}
+            />
+            {/* Distance et Durée */}
+            {routeInfo && (
+              <div className="grid grid-cols-2 divide-x border-t">
+                <div className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+                    <Navigation className="w-4 h-4" />
+                    <span className="text-xs">Distance</span>
+                  </div>
+                  <p className="font-bold text-lg">{routeInfo.distance}</p>
+                </div>
+                <div className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+                    <Timer className="w-4 h-4" />
+                    <span className="text-xs">Durée estimée</span>
+                  </div>
+                  <p className="font-bold text-lg">{routeInfo.duration}</p>
+                </div>
+              </div>
+            )}
+          </Card>
 
           {/* Informations client */}
           <Card className="p-4 space-y-2">
