@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2, Play, Flag } from 'lucide-react';
+import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2, Play, Flag, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -389,26 +389,20 @@ const Bookings = () => {
         </div>
 
         <div className="space-y-3">
-          {/* Adresses avec arrondissement */}
+          {/* Adresses simplifiées - sans doublon */}
           <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="font-semibold text-base">{formatParisAddress(course.departure_location)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground ml-6 truncate">{course.departure_location}</p>
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="font-semibold text-base">{formatParisAddress(course.departure_location)}</span>
             </div>
             <span className="text-muted-foreground font-bold">→</span>
-            <div className="flex-1 text-right">
-              <div className="flex items-center gap-2 justify-end">
-                <span className="font-semibold text-base">{formatParisAddress(course.destination_location)}</span>
-                <MapPin className="w-4 h-4 text-destructive flex-shrink-0" />
-              </div>
-              <p className="text-xs text-muted-foreground mr-6 truncate">{course.destination_location}</p>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-base">{formatParisAddress(course.destination_location)}</span>
+              <MapPin className="w-4 h-4 text-destructive flex-shrink-0" />
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-sm flex-wrap">
             <div className="flex items-center gap-1">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="font-semibold">{course.passengers_count} pers.</span>
@@ -417,6 +411,12 @@ const Bookings = () => {
               <Briefcase className="w-4 h-4 text-muted-foreground" />
               <span className="font-semibold">{course.luggage_count} bag.</span>
             </div>
+            {(course as any).distance && (
+              <div className="flex items-center gap-1">
+                <Navigation className="w-4 h-4 text-muted-foreground" />
+                <span className="font-semibold">{(course as any).distance} km</span>
+              </div>
+            )}
             <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
           </div>
 
@@ -427,47 +427,36 @@ const Bookings = () => {
             </div>
           )}
 
-          {/* Prix - Net mis en valeur */}
-          <div className="flex items-center justify-between pt-3 border-t border-border/50">
-            <div className="flex items-center gap-1">
-              <Euro className="w-4 h-4 text-muted-foreground" />
-              <span className="font-semibold text-muted-foreground">Client: {course.client_price}€</span>
+          {/* Prix - Uniquement Net Chauffeur */}
+          <div className="flex justify-end pt-3 border-t border-border/50">
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net Chauffeur</p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
+                {(course.net_driver || course.client_price || 0).toFixed(0)} €
+              </p>
             </div>
-            {course.net_driver && (
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net Chauffeur</p>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
-                  {course.net_driver.toFixed(0)} €
-                </p>
-              </div>
-            )}
           </div>
         </div>
 
         {showActions && (
-          <div className="grid grid-cols-2 gap-4 pt-3">
+          <div className="grid grid-cols-2 gap-3 pt-3">
             <Button
               variant="outline"
-              className="w-full h-16 rounded-2xl border-2 border-red-400 text-red-600 
-                         hover:bg-red-100 hover:border-red-500 hover:text-red-700 
-                         font-bold text-lg uppercase tracking-wide transition-all duration-200 shadow-md
-                         active:scale-95"
+              className="w-full h-10 rounded-xl border border-red-400 text-red-600 
+                         hover:bg-red-50 font-semibold text-sm transition-all active:scale-95"
               onClick={() => handleRefuseCourse(course.id)}
               disabled={isPending}
             >
-              {isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : <XCircle className="w-6 h-6 mr-2" />}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />}
               Refuser
             </Button>
             <Button
-              className="w-full h-16 rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 
-                         hover:from-emerald-600 hover:via-green-600 hover:to-emerald-700 
-                         text-white font-bold text-lg uppercase tracking-wide
-                         shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 
-                         transition-all duration-200 active:scale-95"
+              className="w-full h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
+                         text-white font-semibold text-sm transition-all active:scale-95"
               onClick={() => handleAcceptCourse(course.id)}
               disabled={isPending}
             >
-              {isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle className="w-6 h-6 mr-2" />}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
               Accepter
             </Button>
           </div>

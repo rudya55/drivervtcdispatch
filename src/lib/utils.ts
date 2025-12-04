@@ -56,6 +56,22 @@ export const extractCity = (fullAddress: string): string => {
 export const formatParisAddress = (address: string): string => {
   if (!address) return '';
   
+  const lowerAddress = address.toLowerCase();
+  
+  // Détecter les aéroports en priorité
+  if (lowerAddress.includes('charles de gaulle') || lowerAddress.includes('roissy') || lowerAddress.includes('cdg')) {
+    return 'Aéroport CDG';
+  }
+  if (lowerAddress.includes('orly')) {
+    return 'Aéroport Orly';
+  }
+  if (lowerAddress.includes('beauvais')) {
+    return 'Aéroport Beauvais';
+  }
+  if (lowerAddress.includes('le bourget')) {
+    return 'Aéroport Le Bourget';
+  }
+  
   // Extraire le code postal 750XX pour Paris
   const parisMatch = address.match(/750(\d{2})/);
   if (parisMatch) {
