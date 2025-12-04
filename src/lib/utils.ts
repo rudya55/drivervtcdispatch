@@ -22,6 +22,24 @@ export const translateCourseStatus = (status: string): string => {
   return translations[status] || status;
 };
 
+export const formatFullDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  };
+  
+  const datePart = date.toLocaleDateString('fr-FR', options);
+  const hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  
+  // Capitaliser la première lettre
+  const capitalizedDate = datePart.charAt(0).toUpperCase() + datePart.slice(1);
+  
+  return `${capitalizedDate} à ${hours}h${minutes}`;
+};
+
 export const extractCity = (fullAddress: string): string => {
   if (!fullAddress) return '';
   
