@@ -22,9 +22,10 @@ import {
   Euro,
   CheckCircle,
   XCircle,
-  Power
+  Power,
+  Navigation
 } from 'lucide-react';
-import { formatFullDate } from '@/lib/utils';
+import { formatFullDate, formatParisAddress } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
@@ -331,27 +332,22 @@ const Home = () => {
                     </span>
                   </div>
 
-                  {/* Locations */}
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Départ</p>
-                        <p className="text-sm font-semibold">{course.departure_location}</p>
-                      </div>
+                  {/* Locations simplifiées */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="font-semibold text-sm">{formatParisAddress(course.departure_location)}</span>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Destination</p>
-                        <p className="text-sm font-semibold">{course.destination_location}</p>
-                      </div>
+                    <span className="text-muted-foreground font-bold">→</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{formatParisAddress(course.destination_location)}</span>
+                      <MapPin className="w-4 h-4 text-destructive flex-shrink-0" />
                     </div>
                   </div>
 
-                  {/* Details + Prix Net mis en valeur */}
+                  {/* Details + Prix Net */}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm font-semibold">{course.passengers_count}</span>
@@ -360,12 +356,18 @@ const Home = () => {
                         <Briefcase className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm font-semibold">{course.luggage_count}</span>
                       </div>
+                      {(course as any).distance && (
+                        <div className="flex items-center gap-1">
+                          <Navigation className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm font-semibold">{(course as any).distance} km</span>
+                        </div>
+                      )}
                       <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
                     </div>
                     <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net Chauffeur</p>
                       <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                        {course.net_driver ? course.net_driver.toFixed(0) : course.client_price.toFixed(0)} €
+                        {(course.net_driver || course.client_price || 0).toFixed(0)} €
                       </p>
                     </div>
                   </div>
@@ -377,30 +379,25 @@ const Home = () => {
                     </p>
                   )}
 
-                  {/* Actions - Boutons plus gros et colorés */}
-                  <div className="grid grid-cols-2 gap-4 mt-2">
+                  {/* Actions - Boutons petits */}
+                  <div className="grid grid-cols-2 gap-3 mt-2">
                     <Button
                       variant="outline"
-                      className="w-full h-16 rounded-2xl border-2 border-red-400 text-red-600 
-                                 hover:bg-red-100 hover:border-red-500 hover:text-red-700 
-                                 font-bold text-lg uppercase tracking-wide transition-all duration-200 shadow-md
-                                 active:scale-95"
+                      className="w-full h-10 rounded-xl border border-red-400 text-red-600 
+                                 hover:bg-red-50 font-semibold text-sm transition-all active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <XCircle className="w-6 h-6 mr-2" />
+                      <XCircle className="w-4 h-4 mr-1" />
                       Refuser
                     </Button>
                     <Button
-                      className="w-full h-16 rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 
-                                 hover:from-emerald-600 hover:via-green-600 hover:to-emerald-700 
-                                 text-white font-bold text-lg uppercase tracking-wide
-                                 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 
-                                 transition-all duration-200 active:scale-95"
+                      className="w-full h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
+                                 text-white font-semibold text-sm transition-all active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <CheckCircle className="w-6 h-6 mr-2" />
+                      <CheckCircle className="w-4 h-4 mr-1" />
                       Accepter
                     </Button>
                   </div>
