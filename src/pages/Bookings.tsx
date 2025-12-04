@@ -439,24 +439,24 @@ const Bookings = () => {
         </div>
 
         {showActions && (
-          <div className="grid grid-cols-2 gap-3 pt-3">
+          <div className="flex gap-3 pt-3">
             <Button
               variant="outline"
-              className="w-full h-10 rounded-xl border border-red-400 text-red-600 
+              className="flex-1 h-10 rounded-xl border border-red-400 text-red-600 
                          hover:bg-red-50 font-semibold text-sm transition-all active:scale-95"
               onClick={() => handleRefuseCourse(course.id)}
               disabled={isPending}
             >
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />}
+              <XCircle className="w-4 h-4 mr-1" />
               Refuser
             </Button>
             <Button
-              className="w-full h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
+              className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
                          text-white font-semibold text-sm transition-all active:scale-95"
               onClick={() => handleAcceptCourse(course.id)}
               disabled={isPending}
             >
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+              <CheckCircle className="w-4 h-4 mr-1" />
               Accepter
             </Button>
           </div>
