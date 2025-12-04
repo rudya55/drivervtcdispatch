@@ -326,7 +326,7 @@ const Home = () => {
                   {/* Pickup Date/Time */}
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">
+                    <span className="font-semibold">
                       {formatFullDate(course.pickup_date)}
                     </span>
                   </div>
@@ -337,14 +337,14 @@ const Home = () => {
                       <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-xs text-muted-foreground">Départ</p>
-                        <p className="text-sm font-medium">{course.departure_location}</p>
+                        <p className="text-sm font-semibold">{course.departure_location}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-xs text-muted-foreground">Destination</p>
-                        <p className="text-sm font-medium">{course.destination_location}</p>
+                        <p className="text-sm font-semibold">{course.destination_location}</p>
                       </div>
                     </div>
                   </div>
@@ -354,16 +354,16 @@ const Home = () => {
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{course.passengers_count}</span>
+                        <span className="text-sm font-semibold">{course.passengers_count}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Briefcase className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{course.luggage_count}</span>
+                        <span className="text-sm font-semibold">{course.luggage_count}</span>
                       </div>
                       <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
                     </div>
                     <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium text-center">Net</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net</p>
                       <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                         {course.net_driver ? course.net_driver.toFixed(0) : course.client_price.toFixed(0)} €
                       </p>

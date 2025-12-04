@@ -394,14 +394,14 @@ const Bookings = () => {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="font-bold text-base">{formatParisAddress(course.departure_location)}</span>
+                <span className="font-semibold text-base">{formatParisAddress(course.departure_location)}</span>
               </div>
               <p className="text-xs text-muted-foreground ml-6 truncate">{course.departure_location}</p>
             </div>
             <span className="text-muted-foreground font-bold">→</span>
             <div className="flex-1 text-right">
               <div className="flex items-center gap-2 justify-end">
-                <span className="font-bold text-base">{formatParisAddress(course.destination_location)}</span>
+                <span className="font-semibold text-base">{formatParisAddress(course.destination_location)}</span>
                 <MapPin className="w-4 h-4 text-destructive flex-shrink-0" />
               </div>
               <p className="text-xs text-muted-foreground mr-6 truncate">{course.destination_location}</p>
@@ -411,11 +411,11 @@ const Bookings = () => {
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1">
               <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">{course.passengers_count} pers.</span>
+              <span className="font-semibold">{course.passengers_count} pers.</span>
             </div>
             <div className="flex items-center gap-1">
               <Briefcase className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">{course.luggage_count} bag.</span>
+              <span className="font-semibold">{course.luggage_count} bag.</span>
             </div>
             <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
           </div>
@@ -431,11 +431,11 @@ const Bookings = () => {
           <div className="flex items-center justify-between pt-3 border-t border-border/50">
             <div className="flex items-center gap-1">
               <Euro className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-muted-foreground">Client: {course.client_price}€</span>
+              <span className="font-semibold text-muted-foreground">Client: {course.client_price}€</span>
             </div>
             {course.net_driver && (
               <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium text-center">Net Chauffeur</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net Chauffeur</p>
                 <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
                   {course.net_driver.toFixed(0)} €
                 </p>
