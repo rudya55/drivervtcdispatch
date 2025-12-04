@@ -3,15 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Course, supabase } from '@/lib/supabase';
-import { translateCourseStatus } from '@/lib/utils';
+import { translateCourseStatus, formatFullDate } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
-import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navigation, Timer, Loader2, Baby } from 'lucide-react';
+import { MapPin, Plane, User, Briefcase, Users, Clock, MessageCircle, Navigation, Timer, Loader2, Baby, Euro } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 interface CourseDetailsModalProps {
   course: Course | null;
@@ -223,32 +221,111 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
     navigate(`/chat/${course.id}`);
   };
 
+  const flightNumber = course.flight_train_number || course.flight_number;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Détails de la course</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Détails de la course</span>
+            <Badge variant="secondary">{translateCourseStatus(course.status)}</Badge>
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Badge de statut + Logo flotte */}
-          <div className="flex items-center justify-between">
-            <Badge variant="secondary">{translateCourseStatus(course.status)}</Badge>
-            {driver?.company_logo_url ? (
-              <img 
-                src={driver.company_logo_url} 
-                alt="Logo" 
-                className="h-8 w-auto object-contain"
-              />
-            ) : course.company_name && (
-              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                <Briefcase className="w-4 h-4" />
-                {course.company_name}
-              </span>
-            )}
+        <div className="space-y-3">
+          {/* 1. Date/Heure */}
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{formatFullDate(course.pickup_date)}</span>
           </div>
 
-          {/* Carte Google Maps avec trajet */}
+          {/* 2. Numéro de vol/train */}
+          {flightNumber && (
+            <button
+              onClick={() => openFlightTracking(flightNumber)}
+              className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
+            >
+              <Plane className="w-4 h-4 text-blue-500" />
+              <span className="text-sm font-medium text-blue-600">{flightNumber}</span>
+            </button>
+          )}
+
+          {/* 3. Nom du client */}
+          <button
+            onClick={() => onOpenSignBoard?.()}
+            className="flex items-center gap-2 w-full text-left hover:text-primary transition-colors"
+          >
+            <User className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{course.client_name}</span>
+          </button>
+
+          {/* 4. Passagers / Bagages */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.passengers_count} pers.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.luggage_count} bag.</span>
+            </div>
+          </div>
+
+          {/* 5. Extras */}
+          {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Baby className="w-4 h-4 text-muted-foreground" />
+              {course.baby_seat && <span className="text-sm font-medium">Siège bébé</span>}
+              {course.booster_seat && <span className="text-sm font-medium">Rehausseur</span>}
+              {course.cosy_seat && <span className="text-sm font-medium">Cosy</span>}
+            </div>
+          )}
+
+          {/* 6. Départ */}
+          <button
+            onClick={() => setShowDepartureGPS(true)}
+            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors"
+          >
+            <MapPin className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium">{course.departure_location}</span>
+          </button>
+
+          {/* 7. Destination */}
+          <button
+            onClick={() => setShowDestinationGPS(true)}
+            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors"
+          >
+            <MapPin className="w-4 h-4 text-red-500" />
+            <span className="text-sm font-medium">{course.destination_location}</span>
+          </button>
+
+          {/* 8. Type de paiement */}
+          {course.payment_type && (
+            <div className="flex items-center gap-2">
+              <Euro className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.payment_type}</span>
+            </div>
+          )}
+
+          {/* 9. Prix Net Chauffeur */}
+          <div className="flex justify-end pt-2 border-t">
+            <div className="bg-emerald-50 dark:bg-emerald-950 px-4 py-2 rounded-xl">
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Net Chauffeur</p>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                {(course.net_driver || course.client_price || 0).toFixed(0)} €
+              </p>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {course.notes && (
+            <div className="pt-2 border-t">
+              <p className="text-sm text-muted-foreground">{course.notes}</p>
+            </div>
+          )}
+
+          {/* Carte Google Maps */}
           <Card className="p-0 overflow-hidden">
             {mapLoading && !mapError && (
               <div className="h-48 w-full bg-muted flex items-center justify-center absolute z-10">
@@ -285,128 +362,13 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
                 <div className="p-3 text-center">
                   <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
                     <Timer className="w-4 h-4" />
-                    <span className="text-xs">Durée estimée</span>
+                    <span className="text-xs">Durée</span>
                   </div>
                   <p className="font-bold text-lg">{routeInfo.duration}</p>
                 </div>
               </div>
             )}
           </Card>
-
-          {/* Informations client */}
-          <Card className="p-4 space-y-2">
-            <h3 className="font-semibold flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Client
-            </h3>
-            <button
-              onClick={() => onOpenSignBoard?.()}
-              className="text-lg font-medium text-left w-full hover:text-primary transition-colors"
-            >
-              {course.client_name}
-            </button>
-            <p className="text-xs text-muted-foreground">
-              Appuyez sur le nom pour afficher la pancarte
-            </p>
-          </Card>
-
-          {/* Numéro de vol/train */}
-          {(course.flight_train_number || course.flight_number) && (
-            <Card className="p-4 bg-blue-50 dark:bg-blue-950">
-              <button
-                onClick={() => openFlightTracking(course.flight_train_number || course.flight_number!)}
-                className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
-              >
-                <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Numéro de vol/train (cliquez pour suivi)</p>
-                  <p className="font-semibold text-lg">{course.flight_train_number || course.flight_number}</p>
-                </div>
-              </button>
-            </Card>
-          )}
-
-          {/* Extras - Sièges enfants */}
-          {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
-            <Card className="p-4">
-              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                <Baby className="w-4 h-4" />
-                Équipements demandés
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {course.baby_seat && <Badge variant="secondary">Siège bébé</Badge>}
-                {course.booster_seat && <Badge variant="secondary">Rehausseur</Badge>}
-                {course.cosy_seat && <Badge variant="secondary">Cosy</Badge>}
-              </div>
-            </Card>
-          )}
-
-          {/* Horaire */}
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Heure de prise en charge</p>
-                <p className="font-semibold">
-                  {format(new Date(course.pickup_date), "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr })}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Adresses */}
-          <Card className="p-4 space-y-3">
-            <button
-              onClick={() => setShowDepartureGPS(true)}
-              className="flex items-start gap-2 w-full text-left hover:bg-accent/50 p-2 rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground">Départ</p>
-                <p className="font-medium">{course.departure_location}</p>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setShowDestinationGPS(true)}
-              className="flex items-start gap-2 w-full text-left hover:bg-accent/50 p-2 rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-red-600 mt-1 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground">Destination</p>
-                <p className="font-medium">{course.destination_location}</p>
-              </div>
-            </button>
-          </Card>
-
-          {/* Détails de la course */}
-          <Card className="p-4">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Passagers</p>
-                <p className="font-semibold">{course.passengers_count}</p>
-              </div>
-              <div>
-                <Briefcase className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Bagages</p>
-                <p className="font-semibold">{course.luggage_count}</p>
-              </div>
-              <div>
-                <Car className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Type</p>
-                <p className="font-semibold text-sm">{course.vehicle_type}</p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Notes */}
-          {course.notes && (
-            <Card className="p-4">
-              <p className="text-sm text-muted-foreground mb-1">Notes</p>
-              <p className="text-sm">{course.notes}</p>
-            </Card>
-          )}
 
           {/* Bouton Chat */}
           <Button
