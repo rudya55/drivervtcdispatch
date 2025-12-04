@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
-import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { StatusToggle } from '@/components/StatusToggle';
 import { toast } from 'sonner';
 import {
@@ -32,9 +32,8 @@ const Home = () => {
   const { driver, session } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const [isActive, setIsActive] = useState(driver?.status === 'active');
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Sync isActive with driver status
   useEffect(() => {
@@ -321,10 +320,7 @@ const Home = () => {
                 <Card 
                   key={course.id} 
                   className="p-4 space-y-4 cursor-pointer hover:border-primary/50 transition-all"
-                  onClick={() => {
-                    setSelectedCourse(course);
-                    setShowDetailsModal(true);
-                  }}
+                  onClick={() => navigate('/bookings')}
                 >
                   {/* Company & Vehicle */}
                   {course.company_name && (
@@ -389,37 +385,23 @@ const Home = () => {
                     </p>
                   )}
 
-                  {/* Actions - Boutons 3D animés avec dégradé */}
+                  {/* Actions - Boutons simples et fiables */}
                   <div className="flex gap-3 mt-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="outline"
-                      className="flex-1 h-12 rounded-xl relative overflow-hidden
-                                 bg-gradient-to-r from-red-500 via-rose-500 to-red-500 
-                                 bg-[length:200%_100%] animate-gradient-x
-                                 text-white font-bold text-sm border-0
-                                 shadow-[0_4px_0_0_#991b1b,0_0_15px_rgba(239,68,68,0.4)]
-                                 hover:shadow-[0_2px_0_0_#991b1b,0_0_20px_rgba(239,68,68,0.5)] hover:translate-y-[2px]
-                                 active:shadow-[0_0_0_0_#991b1b] active:translate-y-[4px]
-                                 transition-all duration-150"
+                      className="flex-1 h-14 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-base border-0 shadow-lg active:scale-95 transition-all"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <XCircle className="w-4 h-4 mr-1" />
+                      <XCircle className="w-5 h-5 mr-2" />
                       REFUSER
                     </Button>
                     <Button
-                      className="flex-1 h-12 rounded-xl relative overflow-hidden
-                                 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-500
-                                 bg-[length:200%_100%] animate-gradient-x
-                                 text-white font-bold text-sm border-0
-                                 shadow-[0_4px_0_0_#065f46,0_0_15px_rgba(16,185,129,0.4)]
-                                 hover:shadow-[0_2px_0_0_#065f46,0_0_20px_rgba(16,185,129,0.5)] hover:translate-y-[2px]
-                                 active:shadow-[0_0_0_0_#065f46] active:translate-y-[4px]
-                                 transition-all duration-150"
+                      className="flex-1 h-14 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-base border-0 shadow-lg active:scale-95 transition-all"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <CheckCircle className="w-4 h-4 mr-1" />
+                      <CheckCircle className="w-5 h-5 mr-2" />
                       ACCEPTER
                     </Button>
                   </div>
@@ -430,12 +412,6 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Modal détails de la course */}
-      <CourseDetailsModal
-        course={selectedCourse}
-        open={showDetailsModal}
-        onOpenChange={setShowDetailsModal}
-      />
 
       <BottomNav />
     </div>
