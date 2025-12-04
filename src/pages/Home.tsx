@@ -24,7 +24,9 @@ import {
   CheckCircle,
   XCircle,
   Power,
-  Navigation
+  Navigation,
+  Plane,
+  Baby
 } from 'lucide-react';
 import { formatFullDate, formatParisAddress } from '@/lib/utils';
 
@@ -338,6 +340,14 @@ const Home = () => {
                     </span>
                   </div>
 
+                  {/* Numéro de vol/train */}
+                  {(course.flight_train_number || course.flight_number) && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Plane className="w-4 h-4 text-blue-500" />
+                      <span className="font-medium text-blue-600">{course.flight_train_number || course.flight_number}</span>
+                    </div>
+                  )}
+
                   {/* Locations simplifiées */}
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
@@ -377,6 +387,16 @@ const Home = () => {
                       </p>
                     </div>
                   </div>
+
+                  {/* Extras - Sièges enfants */}
+                  {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Baby className="w-4 h-4 text-muted-foreground" />
+                      {course.baby_seat && <Badge variant="outline" className="text-xs">Siège bébé</Badge>}
+                      {course.booster_seat && <Badge variant="outline" className="text-xs">Rehausseur</Badge>}
+                      {course.cosy_seat && <Badge variant="outline" className="text-xs">Cosy</Badge>}
+                    </div>
+                  )}
 
                   {/* Notes */}
                   {course.notes && (

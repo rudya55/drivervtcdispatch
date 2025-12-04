@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2, Play, Flag, Navigation } from 'lucide-react';
+import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2, Play, Flag, Navigation, Baby } from 'lucide-react';
 import { toast } from 'sonner';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -420,10 +420,20 @@ const Bookings = () => {
             <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
           </div>
 
-          {course.flight_number && (
+          {(course.flight_train_number || course.flight_number) && (
             <div className="flex items-center gap-2 text-sm">
-              <Plane className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">{course.flight_number}</span>
+              <Plane className="w-4 h-4 text-blue-500" />
+              <span className="font-medium text-blue-600">{course.flight_train_number || course.flight_number}</span>
+            </div>
+          )}
+
+          {/* Extras - Sièges enfants */}
+          {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Baby className="w-4 h-4 text-muted-foreground" />
+              {course.baby_seat && <Badge variant="outline" className="text-xs">Siège bébé</Badge>}
+              {course.booster_seat && <Badge variant="outline" className="text-xs">Rehausseur</Badge>}
+              {course.cosy_seat && <Badge variant="outline" className="text-xs">Cosy</Badge>}
             </div>
           )}
 
