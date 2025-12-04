@@ -442,22 +442,34 @@ const Bookings = () => {
           <div className="flex gap-3 pt-3">
             <Button
               variant="outline"
-              className="flex-1 h-10 rounded-xl border border-red-400 text-red-600 
-                         hover:bg-red-50 font-semibold text-sm transition-all active:scale-95"
+              className="flex-1 h-12 rounded-xl relative overflow-hidden
+                         bg-gradient-to-r from-red-500 via-rose-500 to-red-500 
+                         bg-[length:200%_100%] animate-gradient-x
+                         text-white font-bold text-sm border-0
+                         shadow-[0_4px_0_0_#991b1b,0_0_15px_rgba(239,68,68,0.4)]
+                         hover:shadow-[0_2px_0_0_#991b1b,0_0_20px_rgba(239,68,68,0.5)] hover:translate-y-[2px]
+                         active:shadow-[0_0_0_0_#991b1b] active:translate-y-[4px]
+                         transition-all duration-150"
               onClick={() => handleRefuseCourse(course.id)}
               disabled={isPending}
             >
               <XCircle className="w-4 h-4 mr-1" />
-              Refuser
+              REFUSER
             </Button>
             <Button
-              className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
-                         text-white font-semibold text-sm transition-all active:scale-95"
+              className="flex-1 h-12 rounded-xl relative overflow-hidden
+                         bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-500
+                         bg-[length:200%_100%] animate-gradient-x
+                         text-white font-bold text-sm border-0
+                         shadow-[0_4px_0_0_#065f46,0_0_15px_rgba(16,185,129,0.4)]
+                         hover:shadow-[0_2px_0_0_#065f46,0_0_20px_rgba(16,185,129,0.5)] hover:translate-y-[2px]
+                         active:shadow-[0_0_0_0_#065f46] active:translate-y-[4px]
+                         transition-all duration-150"
               onClick={() => handleAcceptCourse(course.id)}
               disabled={isPending}
             >
               <CheckCircle className="w-4 h-4 mr-1" />
-              Accepter
+              ACCEPTER
             </Button>
           </div>
         )}
