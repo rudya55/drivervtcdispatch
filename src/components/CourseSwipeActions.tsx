@@ -26,7 +26,8 @@ import {
   ChevronRight,
   Plane,
   FileText,
-  Car
+  Car,
+  Baby
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -319,115 +320,99 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         </div>
 
         {/* Main card with course info */}
-        <Card className="p-4 space-y-4">
-          {/* DATE ET HEURE EN HAUT */}
-          <div className="flex items-center justify-between pb-3 border-b">
+        <Card className="p-4 space-y-2">
+          {/* 1. Date/Heure */}
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">
+              {format(new Date(course.pickup_date), "dd MMM yyyy, HH:mm", { locale: fr })}
+            </span>
+          </div>
+
+          {/* 2. Numéro de vol/train */}
+          {(course.flight_train_number || course.flight_number) && (
             <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-xs text-muted-foreground">Prise en charge</p>
-                <p className="font-bold text-base">
-                  {format(new Date(course.pickup_date), "dd MMM yyyy, HH:mm", { locale: fr })}
-                </p>
-              </div>
-            </div>
-            <Badge variant="secondary" className="text-xs">
-              {course.company_name || 'VTC'}
-            </Badge>
-          </div>
-
-          {/* NUMÉRO DE VOL si disponible - TRÈS VISIBLE */}
-          {course.flight_number && (
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md">
-              <div className="bg-white/20 p-2 rounded-full">
-                <Plane className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs text-white/80 font-medium">Vol</p>
-                <p className="font-bold text-lg text-white">{course.flight_number}</p>
-              </div>
+              <Plane className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.flight_train_number || course.flight_number}</span>
             </div>
           )}
 
-          {/* ADRESSES CLIQUABLES avec GPS Selector */}
-          <div className="space-y-2">
-            <button
-              onClick={() => setShowDepartureGPS(true)}
-              className="flex items-start gap-2 w-full text-left p-2 hover:bg-accent/50 rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Départ</p>
-                <p className="text-sm font-medium truncate">{course.departure_location}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-            </button>
-
-            <button
-              onClick={() => setShowDestinationGPS(true)}
-              className="flex items-start gap-2 w-full text-left p-2 hover:bg-accent/50 rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-red-600 mt-1 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Destination</p>
-                <p className="text-sm font-medium truncate">{course.destination_location}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-            </button>
+          {/* 3. Nom du client */}
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{course.client_name}</span>
           </div>
 
-          {/* DÉTAILS DE LA COURSE */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{course.passengers_count}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Briefcase className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{course.luggage_count}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Car className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{course.vehicle_type}</span>
-              </div>
+          {/* 4. Passagers et bagages */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.passengers_count} pers.</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Euro className="w-5 h-5 text-primary" />
-              <span className="font-bold text-xl">{course.client_price}€</span>
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.luggage_count} bag.</span>
             </div>
           </div>
 
-          {/* EXTRAS DÉTECTÉS (équipements) */}
-          {detectedExtras.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">Équipements requis</p>
-              <div className="flex flex-wrap gap-2">
-                {detectedExtras.map((extra, idx) => (
-                  <Badge 
-                    key={idx} 
-                    variant="secondary"
-                    className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-300 dark:border-purple-700"
-                  >
-                    {extra}
-                  </Badge>
-                ))}
-              </div>
+          {/* 5. Extras (sièges enfants + détectés) */}
+          {(course.baby_seat || course.booster_seat || course.cosy_seat || detectedExtras.length > 0) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Baby className="w-4 h-4 text-muted-foreground" />
+              {course.baby_seat && <span className="text-sm font-medium">Siège bébé</span>}
+              {course.booster_seat && <span className="text-sm font-medium">Rehausseur</span>}
+              {course.cosy_seat && <span className="text-sm font-medium">Cosy</span>}
+              {detectedExtras.map((extra, idx) => (
+                <span key={idx} className="text-sm font-medium">{extra}</span>
+              ))}
             </div>
           )}
 
-          {/* NOTES GÉNÉRALES si disponibles */}
+          {/* 6. Départ */}
+          <button
+            onClick={() => setShowDepartureGPS(true)}
+            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors py-1"
+          >
+            <MapPin className="w-4 h-4 text-emerald-500" />
+            <span className="text-sm font-medium">{course.departure_location}</span>
+          </button>
+
+          {/* 7. Destination */}
+          <button
+            onClick={() => setShowDestinationGPS(true)}
+            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors py-1"
+          >
+            <MapPin className="w-4 h-4 text-red-500" />
+            <span className="text-sm font-medium">{course.destination_location}</span>
+          </button>
+
+          {/* 8. Type de paiement */}
+          {course.payment_type && (
+            <div className="flex items-center gap-2">
+              <Euro className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{course.payment_type}</span>
+            </div>
+          )}
+
+          {/* 9. Prix Net Chauffeur */}
+          <div className="flex justify-end pt-2 border-t border-border/50">
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Net Chauffeur</span>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
+                {(course.net_driver || course.client_price || 0).toFixed(0)} €
+              </p>
+            </div>
+          </div>
+
+          {/* Notes du dispatcher */}
           {generalNotes && (
-            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-              <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">Notes du dispatcher</p>
-                <p className="text-sm text-amber-900 dark:text-amber-100">{generalNotes}</p>
-              </div>
+            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+              <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <span className="text-sm font-medium text-amber-900 dark:text-amber-100">{generalNotes}</span>
             </div>
           )}
 
-          {/* BOUTON ROUGE BON DE COMMANDE */}
+          {/* Bouton Bon de Commande */}
           <Button
             variant="destructive"
             className="w-full"
