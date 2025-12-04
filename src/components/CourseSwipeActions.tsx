@@ -394,11 +394,20 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             </div>
           )}
 
-          {/* 9. Prix Net Chauffeur */}
-          <div className="flex justify-end pt-2 border-t border-border/50">
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
-              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Net Chauffeur</span>
-              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
+          {/* 9. Prix Client + Net Chauffeur côte à côte */}
+          <div className="flex justify-between pt-2 border-t border-border/50 gap-3">
+            {/* Prix Client */}
+            <div className="bg-blue-50 dark:bg-blue-950/30 px-4 py-2 rounded-xl flex-1 text-center">
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Prix Client</span>
+              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {(course.client_price || 0).toFixed(0)} €
+              </p>
+            </div>
+            
+            {/* Net Chauffeur */}
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl flex-1 text-center">
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Net Chauffeur</span>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                 {(course.net_driver || course.client_price || 0).toFixed(0)} €
               </p>
             </div>
