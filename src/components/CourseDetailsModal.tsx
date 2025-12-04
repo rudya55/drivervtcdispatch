@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Course, supabase } from '@/lib/supabase';
 import { translateCourseStatus } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
-import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navigation, Timer } from 'lucide-react';
+import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navigation, Timer, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,7 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [mapError, setMapError] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
@@ -40,54 +41,86 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
     if (!open || !course || !mapRef.current) return;
     
     setMapError(false);
+    setMapLoading(true);
 
     const initMap = async () => {
-      // Check if Google Maps is loaded
-      if (!(window as any).google) {
-        // Load Google Maps script
-        try {
-          console.log('[Map] Fetching API key...');
-          const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
-          const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          });
-          if (error || !data?.key) {
-            console.error('[Map] Key error:', error);
-            setMapError(true);
-            return;
-          }
-          console.log('[Map] Key obtained, loading script...');
-          
-          const script = document.createElement('script');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places&loading=async`;
-          script.async = true;
-          script.defer = true;
-          script.addEventListener('load', () => {
-            console.log('[Map] Script loaded');
-            createMap();
-          });
-          script.addEventListener('error', () => {
-            console.error('[Map] Script load error');
-            setMapError(true);
-          });
-          document.head.appendChild(script);
-        } catch (e) {
-          console.error('[Map] Loader error:', e);
-          setMapError(true);
-        }
-      } else {
+      // Check if Google Maps is ALREADY loaded (reuse existing instance)
+      if ((window as any).google?.maps) {
+        console.log('[Map Modal] Google Maps already loaded, using existing instance');
         createMap();
+        return;
+      }
+
+      // Check if script is already being loaded
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        console.log('[Map Modal] Script already exists, waiting for load...');
+        // Wait for existing script to load
+        const checkGoogle = setInterval(() => {
+          if ((window as any).google?.maps) {
+            clearInterval(checkGoogle);
+            console.log('[Map Modal] Google Maps now available');
+            createMap();
+          }
+        }, 100);
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkGoogle);
+          if (!(window as any).google?.maps) {
+            console.error('[Map Modal] Timeout waiting for Google Maps');
+            setMapError(true);
+            setMapLoading(false);
+          }
+        }, 10000);
+        return;
+      }
+
+      // Load Google Maps script
+      try {
+        console.log('[Map Modal] Fetching API key...');
+        const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+        const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (error || !data?.key) {
+          console.error('[Map Modal] Key error:', error);
+          setMapError(true);
+          setMapLoading(false);
+          return;
+        }
+        console.log('[Map Modal] Key obtained, loading script...');
+        
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places&loading=async`;
+        script.async = true;
+        script.defer = true;
+        script.addEventListener('load', () => {
+          console.log('[Map Modal] Script loaded successfully');
+          createMap();
+        });
+        script.addEventListener('error', () => {
+          console.error('[Map Modal] Script load error');
+          setMapError(true);
+          setMapLoading(false);
+        });
+        document.head.appendChild(script);
+      } catch (e) {
+        console.error('[Map Modal] Loader error:', e);
+        setMapError(true);
+        setMapLoading(false);
       }
     };
 
     const createMap = () => {
-      if (!mapRef.current || !(window as any).google) {
+      if (!mapRef.current || !(window as any).google?.maps) {
+        console.error('[Map Modal] Cannot create map - missing ref or Google Maps');
         setMapError(true);
+        setMapLoading(false);
         return;
       }
 
       const google = (window as any).google;
-      console.log('[Map] Creating map instance...');
+      console.log('[Map Modal] Creating map instance...');
       
       // Create map centered on Paris
       const map = new google.maps.Map(mapRef.current, {
@@ -154,9 +187,12 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
                 distance: route.legs[0].distance?.text || '~',
                 duration: route.legs[0].duration?.text || '~'
               });
+              console.log('[Map Modal] Directions rendered successfully');
             }
+            setMapLoading(false);
           } else {
-            console.error('[Map] Directions failed:', status);
+            console.error('[Map Modal] Directions failed:', status);
+            setMapLoading(false);
           }
         }
       );
@@ -214,6 +250,14 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
 
           {/* Carte Google Maps avec trajet */}
           <Card className="p-0 overflow-hidden">
+            {mapLoading && !mapError && (
+              <div className="h-48 w-full bg-muted flex items-center justify-center absolute z-10">
+                <div className="text-center text-muted-foreground">
+                  <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">Chargement de la carte...</p>
+                </div>
+              </div>
+            )}
             {mapError ? (
               <div className="h-48 w-full bg-muted flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
