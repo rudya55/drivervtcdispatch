@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Course, supabase } from '@/lib/supabase';
 import { translateCourseStatus } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
-import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navigation, Timer, Loader2 } from 'lucide-react';
+import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navigation, Timer, Loader2, Baby } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -310,19 +310,34 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
             </p>
           </Card>
 
-          {/* Numéro de vol */}
-          {course.flight_number && (
+          {/* Numéro de vol/train */}
+          {(course.flight_train_number || course.flight_number) && (
             <Card className="p-4 bg-blue-50 dark:bg-blue-950">
               <button
-                onClick={() => openFlightTracking(course.flight_number!)}
+                onClick={() => openFlightTracking(course.flight_train_number || course.flight_number!)}
                 className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
               >
                 <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Numéro de vol (cliquez pour suivi)</p>
-                  <p className="font-semibold text-lg">{course.flight_number}</p>
+                  <p className="text-sm text-muted-foreground">Numéro de vol/train (cliquez pour suivi)</p>
+                  <p className="font-semibold text-lg">{course.flight_train_number || course.flight_number}</p>
                 </div>
               </button>
+            </Card>
+          )}
+
+          {/* Extras - Sièges enfants */}
+          {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
+            <Card className="p-4">
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <Baby className="w-4 h-4" />
+                Équipements demandés
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {course.baby_seat && <Badge variant="secondary">Siège bébé</Badge>}
+                {course.booster_seat && <Badge variant="secondary">Rehausseur</Badge>}
+                {course.cosy_seat && <Badge variant="secondary">Cosy</Badge>}
+              </div>
             </Card>
           )}
 

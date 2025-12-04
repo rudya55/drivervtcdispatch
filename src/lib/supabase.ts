@@ -61,6 +61,7 @@ export type Course = {
   notes: string | null;
   dispatch_mode: string | null;
   flight_number: string | null;
+  flight_train_number: string | null;
   company_name: string | null;
   created_at: string;
   accepted_at: string | null;
@@ -69,6 +70,13 @@ export type Course = {
   picked_up_at: string | null;
   dropped_off_at: string | null;
   completed_at: string | null;
+  // Extras - Sièges enfants
+  baby_seat: boolean | null;
+  booster_seat: boolean | null;
+  cosy_seat: boolean | null;
+  // Paiement
+  payment_type: string | null;
+  tva: number | null;
 };
 
 export type DriverNotification = {
