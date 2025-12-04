@@ -34,15 +34,31 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
   useEffect(() => {
     if (!driverId) return;
 
-    requestNotificationPermission().then(async (token) => {
-      if (token) {
-        // Update FCM token in database
-        await supabase
-          .from('drivers')
-          .update({ fcm_token: token })
-          .eq('id', driverId);
+    const registerFCMToken = async () => {
+      console.log('📱 [FCM] Demande permission notifications pour driver:', driverId);
+      
+      const token = await requestNotificationPermission();
+      
+      if (!token) {
+        console.warn('⚠️ [FCM] Token non obtenu (navigateur non supporté ou permission refusée)');
+        return;
       }
-    });
+      
+      console.log('✅ [FCM] Token obtenu:', token.substring(0, 30) + '...');
+      
+      const { error } = await supabase
+        .from('drivers')
+        .update({ fcm_token: token })
+        .eq('id', driverId);
+      
+      if (error) {
+        console.error('❌ [FCM] Erreur sauvegarde token:', error);
+      } else {
+        console.log('✅ [FCM] Token sauvegardé en base de données');
+      }
+    };
+
+    registerFCMToken();
   }, [driverId]);
 
   // Listen for foreground messages
