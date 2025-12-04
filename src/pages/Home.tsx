@@ -24,8 +24,7 @@ import {
   XCircle,
   Power
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { formatFullDate } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
@@ -328,7 +327,7 @@ const Home = () => {
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />
                     <span className="font-medium">
-                      {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
+                      {formatFullDate(course.pickup_date)}
                     </span>
                   </div>
 
@@ -350,21 +349,24 @@ const Home = () => {
                     </div>
                   </div>
 
-                  {/* Details */}
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span>{course.passengers_count}</span>
+                  {/* Details - Design amélioré */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{course.passengers_count} pers.</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Briefcase className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{course.luggage_count} bag.</span>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Briefcase className="w-4 h-4 text-muted-foreground" />
-                      <span>{course.luggage_count}</span>
-                    </div>
-                    <div className="flex items-center gap-1 ml-auto">
-                      <Euro className="w-4 h-4 text-success" />
-                      <span className="font-semibold text-success">
-                        {course.net_driver ? course.net_driver.toFixed(2) : course.client_price.toFixed(2)}€
-                      </span>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Net Chauffeur</p>
+                      <p className="text-xl font-bold text-primary">
+                        {course.net_driver ? course.net_driver.toFixed(0) : course.client_price.toFixed(0)} €
+                      </p>
                     </div>
                   </div>
 
@@ -375,24 +377,29 @@ const Home = () => {
                     </p>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
+                  {/* Actions - Design amélioré */}
+                  <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
-                      variant="destructive"
-                      className="flex-1"
+                      variant="outline"
+                      className="w-full h-14 rounded-2xl border-2 border-red-300 text-red-600 
+                                 hover:bg-red-50 hover:border-red-400 hover:text-red-700 
+                                 font-semibold text-base transition-all duration-200 shadow-sm
+                                 active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <XCircle className="w-4 h-4 mr-2" />
+                      <XCircle className="w-5 h-5 mr-2" />
                       Refuser
                     </Button>
                     <Button
-                      variant="default"
-                      className="flex-1 bg-accent hover:bg-accent/90"
+                      className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 
+                                 hover:from-emerald-600 hover:to-green-700 text-white font-semibold text-base
+                                 shadow-lg hover:shadow-xl transition-all duration-200
+                                 active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
+                      <CheckCircle className="w-5 h-5 mr-2" />
                       Accepter
                     </Button>
                   </div>

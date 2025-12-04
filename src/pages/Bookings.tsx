@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
-import { translateCourseStatus, extractCity } from '@/lib/utils';
+import { translateCourseStatus, extractCity, formatFullDate } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, Users, Briefcase, Car, Plane, Euro, CheckCircle, XCircle, Loader2, Play, Flag } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -375,7 +373,7 @@ const Bookings = () => {
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
               <span className="font-semibold">
-                {format(pickupDate, "dd MMMM yyyy 'à' HH:mm", { locale: fr })}
+                {formatFullDate(course.pickup_date)}
               </span>
             </div>
             {course.company_name && (
@@ -435,24 +433,29 @@ const Bookings = () => {
         </div>
 
         {showActions && (
-          <div className="flex gap-2 pt-2">
+          <div className="grid grid-cols-2 gap-4 pt-2">
             <Button
-              onClick={() => handleAcceptCourse(course.id)}
-              disabled={isPending}
-              className="flex-1"
-              size="sm"
-            >
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              Accepter
-            </Button>
-            <Button
+              variant="outline"
+              className="w-full h-14 rounded-2xl border-2 border-red-300 text-red-600 
+                         hover:bg-red-50 hover:border-red-400 hover:text-red-700 
+                         font-semibold text-base transition-all duration-200 shadow-sm
+                         active:scale-95"
               onClick={() => handleRefuseCourse(course.id)}
               disabled={isPending}
-              variant="destructive"
-              size="sm"
             >
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+              {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5 mr-2" />}
               Refuser
+            </Button>
+            <Button
+              className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 
+                         hover:from-emerald-600 hover:to-green-700 text-white font-semibold text-base
+                         shadow-lg hover:shadow-xl transition-all duration-200
+                         active:scale-95"
+              onClick={() => handleAcceptCourse(course.id)}
+              disabled={isPending}
+            >
+              {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
+              Accepter
             </Button>
           </div>
         )}
@@ -597,8 +600,8 @@ const Bookings = () => {
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {course.picked_up_at 
-                          ? format(new Date(course.picked_up_at), 'dd/MM/yyyy HH:mm', { locale: fr })
-                          : format(new Date(course.completed_at || course.pickup_date), 'dd/MM/yyyy HH:mm', { locale: fr })
+                          ? new Date(course.picked_up_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : new Date(course.completed_at || course.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                         }
                       </p>
                     </div>
