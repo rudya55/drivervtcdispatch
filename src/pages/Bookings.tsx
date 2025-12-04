@@ -358,7 +358,7 @@ const Bookings = () => {
     const isUnlocked = canStartCourse(course.pickup_date);
 
     return (
-      <Card className="p-4 space-y-3">
+      <Card className="p-4 space-y-2">
         {showTimer && (
           <div className="flex justify-center mb-2">
             <CourseTimer 
@@ -368,83 +368,75 @@ const Bookings = () => {
           </div>
         )}
 
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="font-semibold">
-                {formatFullDate(course.pickup_date)}
-              </span>
-            </div>
-            {course.company_name && (
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <Briefcase className="w-4 h-4" />
-                {course.company_name}
-              </p>
-            )}
-          </div>
-          <Badge variant={course.status === 'completed' ? 'default' : 'secondary'}>
-            {translateCourseStatus(course.status)}
-          </Badge>
+        {/* 1. Date/Heure */}
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{formatFullDate(course.pickup_date)}</span>
         </div>
 
-        <div className="space-y-3">
-          {/* Adresses simplifiées - sans doublon */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-              <span className="font-semibold text-base">{formatParisAddress(course.departure_location)}</span>
-            </div>
-            <span className="text-muted-foreground font-bold">→</span>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-base">{formatParisAddress(course.destination_location)}</span>
-              <MapPin className="w-4 h-4 text-destructive flex-shrink-0" />
-            </div>
+        {/* 2. Numéro de vol/train */}
+        {(course.flight_train_number || course.flight_number) && (
+          <div className="flex items-center gap-2">
+            <Plane className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{course.flight_train_number || course.flight_number}</span>
           </div>
+        )}
 
-          <div className="flex items-center gap-4 text-sm flex-wrap">
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="font-semibold">{course.passengers_count} pers.</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Briefcase className="w-4 h-4 text-muted-foreground" />
-              <span className="font-semibold">{course.luggage_count} bag.</span>
-            </div>
-            {(course as any).distance && (
-              <div className="flex items-center gap-1">
-                <Navigation className="w-4 h-4 text-muted-foreground" />
-                <span className="font-semibold">{(course as any).distance} km</span>
-              </div>
-            )}
-            <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
+        {/* 3. Nom du client */}
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{course.client_name}</span>
+        </div>
+
+        {/* 4. Passagers et bagages */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{course.passengers_count} pers.</span>
           </div>
+          <div className="flex items-center gap-2">
+            <Briefcase className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{course.luggage_count} bag.</span>
+          </div>
+        </div>
 
-          {(course.flight_train_number || course.flight_number) && (
-            <div className="flex items-center gap-2 text-sm">
-              <Plane className="w-4 h-4 text-blue-500" />
-              <span className="font-medium text-blue-600">{course.flight_train_number || course.flight_number}</span>
-            </div>
-          )}
+        {/* 5. Extras (sièges enfants) */}
+        {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Baby className="w-4 h-4 text-muted-foreground" />
+            {course.baby_seat && <span className="text-sm font-medium">Siège bébé</span>}
+            {course.booster_seat && <span className="text-sm font-medium">Rehausseur</span>}
+            {course.cosy_seat && <span className="text-sm font-medium">Cosy</span>}
+          </div>
+        )}
 
-          {/* Extras - Sièges enfants */}
-          {(course.baby_seat || course.booster_seat || course.cosy_seat) && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Baby className="w-4 h-4 text-muted-foreground" />
-              {course.baby_seat && <Badge variant="outline" className="text-xs">Siège bébé</Badge>}
-              {course.booster_seat && <Badge variant="outline" className="text-xs">Rehausseur</Badge>}
-              {course.cosy_seat && <Badge variant="outline" className="text-xs">Cosy</Badge>}
-            </div>
-          )}
+        {/* 6. Départ */}
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-emerald-500" />
+          <span className="text-sm font-medium">{course.departure_location}</span>
+        </div>
 
-          {/* Prix - Uniquement Net Chauffeur */}
-          <div className="flex justify-end pt-3 border-t border-border/50">
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net Chauffeur</p>
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
-                {(course.net_driver || course.client_price || 0).toFixed(0)} €
-              </p>
-            </div>
+        {/* 7. Destination */}
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-red-500" />
+          <span className="text-sm font-medium">{course.destination_location}</span>
+        </div>
+
+        {/* 8. Type de paiement */}
+        {course.payment_type && (
+          <div className="flex items-center gap-2">
+            <Euro className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{course.payment_type}</span>
+          </div>
+        )}
+
+        {/* 9. Prix Net Chauffeur */}
+        <div className="flex justify-end pt-2 border-t border-border/50">
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
+            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Net Chauffeur</span>
+            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
+              {(course.net_driver || course.client_price || 0).toFixed(0)} €
+            </p>
           </div>
         </div>
 
