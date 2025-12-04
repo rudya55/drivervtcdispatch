@@ -9,6 +9,7 @@ import { MapPin, Plane, User, Briefcase, Users, Car, Clock, MessageCircle, Navig
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -28,6 +29,10 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
+  const driverMarkerRef = useRef<any>(null);
+  
+  // Get driver's current location
+  const locationState = useNativeGeolocation(open);
   
   if (!course) return null;
 
@@ -94,6 +99,28 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
       });
       directionsRendererRef.current = directionsRenderer;
 
+      // Add driver position marker if available
+      if (locationState.coordinates) {
+        const driverMarker = new google.maps.Marker({
+          position: {
+            lat: locationState.coordinates.lat,
+            lng: locationState.coordinates.lng
+          },
+          map,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#3b82f6',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 3,
+          },
+          title: 'Votre position',
+          zIndex: 1000
+        });
+        driverMarkerRef.current = driverMarker;
+      }
+
       // Calculate route
       const directionsService = new google.maps.DirectionsService();
       directionsService.route(
@@ -127,8 +154,11 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
       if (directionsRendererRef.current) {
         directionsRendererRef.current.setMap(null);
       }
+      if (driverMarkerRef.current) {
+        driverMarkerRef.current.setMap(null);
+      }
     };
-  }, [open, course, session]);
+  }, [open, course, session, locationState.coordinates]);
 
   const openFlightTracking = (flightNumber: string) => {
     const url = `https://www.google.com/search?q=${encodeURIComponent(flightNumber + ' statut vol')}`;
