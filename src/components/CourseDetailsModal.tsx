@@ -308,9 +308,18 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
             </div>
           )}
 
-          {/* 9. Prix Net Chauffeur */}
-          <div className="flex justify-end pt-2 border-t">
-            <div className="bg-emerald-50 dark:bg-emerald-950 px-4 py-2 rounded-xl">
+          {/* 9. Prix Client + Net Chauffeur côte à côte */}
+          <div className="flex justify-between pt-2 border-t gap-3">
+            {/* Prix Client */}
+            <div className="bg-blue-50 dark:bg-blue-950/30 px-4 py-2 rounded-xl flex-1 text-center">
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Prix Client</p>
+              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {(course.client_price || 0).toFixed(0)} €
+              </p>
+            </div>
+            
+            {/* Net Chauffeur */}
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl flex-1 text-center">
               <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Net Chauffeur</p>
               <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                 {(course.net_driver || course.client_price || 0).toFixed(0)} €
