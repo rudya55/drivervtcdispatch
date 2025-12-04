@@ -59,7 +59,7 @@ export const formatParisAddress = (address: string): string => {
   const lowerAddress = address.toLowerCase();
   
   // Détecter les aéroports en priorité
-  if (lowerAddress.includes('charles de gaulle') || lowerAddress.includes('roissy') || lowerAddress.includes('cdg')) {
+  if (lowerAddress.includes('charles de gaulle') || lowerAddress.includes('roissy') || lowerAddress.includes('cdg') || lowerAddress.includes('tremblay')) {
     return 'Aéroport CDG';
   }
   if (lowerAddress.includes('orly')) {

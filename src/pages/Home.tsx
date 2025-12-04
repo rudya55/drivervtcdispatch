@@ -380,10 +380,10 @@ const Home = () => {
                   )}
 
                   {/* Actions - Boutons petits */}
-                  <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="flex gap-3 mt-2">
                     <Button
                       variant="outline"
-                      className="w-full h-10 rounded-xl border border-red-400 text-red-600 
+                      className="flex-1 h-10 rounded-xl border border-red-400 text-red-600 
                                  hover:bg-red-50 font-semibold text-sm transition-all active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
@@ -392,7 +392,7 @@ const Home = () => {
                       Refuser
                     </Button>
                     <Button
-                      className="w-full h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
+                      className="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 
                                  text-white font-semibold text-sm transition-all active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
