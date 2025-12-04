@@ -53,6 +53,32 @@ export const extractCity = (fullAddress: string): string => {
   return fullAddress;
 };
 
+export const formatParisAddress = (address: string): string => {
+  if (!address) return '';
+  
+  // Extraire le code postal 750XX pour Paris
+  const parisMatch = address.match(/750(\d{2})/);
+  if (parisMatch) {
+    const arrondissement = parseInt(parisMatch[1]);
+    return `Paris ${arrondissement}${arrondissement === 1 ? 'er' : 'ème'}`;
+  }
+  
+  // Extraire "Paris Xème" ou "Paris Xer"
+  const parisArrMatch = address.match(/Paris\s+(\d+)(er|ème|e)?/i);
+  if (parisArrMatch) {
+    const num = parseInt(parisArrMatch[1]);
+    return `Paris ${num}${num === 1 ? 'er' : 'ème'}`;
+  }
+  
+  // Sinon extraire la ville du code postal
+  const cityMatch = address.match(/(\d{5})\s+([A-Za-zÀ-ÿ\s-]+)/);
+  if (cityMatch) {
+    return cityMatch[2].trim();
+  }
+  
+  return extractCity(address);
+};
+
 export const renderTextWithLinks = (text: string): React.ReactNode => {
   if (!text) return null;
   

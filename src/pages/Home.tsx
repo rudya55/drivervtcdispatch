@@ -349,22 +349,22 @@ const Home = () => {
                     </div>
                   </div>
 
-                  {/* Details - Design amélioré */}
+                  {/* Details + Prix Net mis en valeur */}
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{course.passengers_count} pers.</span>
+                        <span className="text-sm font-medium">{course.passengers_count}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Briefcase className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{course.luggage_count} bag.</span>
+                        <span className="text-sm font-medium">{course.luggage_count}</span>
                       </div>
                       <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Net Chauffeur</p>
-                      <p className="text-xl font-bold text-primary">
+                    <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium text-center">Net</p>
+                      <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                         {course.net_driver ? course.net_driver.toFixed(0) : course.client_price.toFixed(0)} €
                       </p>
                     </div>
@@ -377,29 +377,30 @@ const Home = () => {
                     </p>
                   )}
 
-                  {/* Actions - Design amélioré */}
+                  {/* Actions - Boutons plus gros et colorés */}
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
                       variant="outline"
-                      className="w-full h-14 rounded-2xl border-2 border-red-300 text-red-600 
-                                 hover:bg-red-50 hover:border-red-400 hover:text-red-700 
-                                 font-semibold text-base transition-all duration-200 shadow-sm
+                      className="w-full h-16 rounded-2xl border-2 border-red-400 text-red-600 
+                                 hover:bg-red-100 hover:border-red-500 hover:text-red-700 
+                                 font-bold text-lg uppercase tracking-wide transition-all duration-200 shadow-md
                                  active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <XCircle className="w-5 h-5 mr-2" />
+                      <XCircle className="w-6 h-6 mr-2" />
                       Refuser
                     </Button>
                     <Button
-                      className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 
-                                 hover:from-emerald-600 hover:to-green-700 text-white font-semibold text-base
-                                 shadow-lg hover:shadow-xl transition-all duration-200
-                                 active:scale-95"
+                      className="w-full h-16 rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 
+                                 hover:from-emerald-600 hover:via-green-600 hover:to-emerald-700 
+                                 text-white font-bold text-lg uppercase tracking-wide
+                                 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 
+                                 transition-all duration-200 active:scale-95"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <CheckCircle className="w-5 h-5 mr-2" />
+                      <CheckCircle className="w-6 h-6 mr-2" />
                       Accepter
                     </Button>
                   </div>
