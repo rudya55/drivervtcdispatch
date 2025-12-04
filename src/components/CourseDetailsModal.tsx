@@ -26,6 +26,7 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [mapError, setMapError] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
@@ -33,37 +34,46 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
   
   // Get driver's current location
   const locationState = useNativeGeolocation(open);
-  
-  if (!course) return null;
 
-  // Load Google Maps and display route
+  // Load Google Maps and display route - MUST be before conditional return
   useEffect(() => {
     if (!open || !course || !mapRef.current) return;
+    
+    setMapError(false);
 
     const initMap = async () => {
       // Check if Google Maps is loaded
       if (!(window as any).google) {
         // Load Google Maps script
         try {
+          console.log('[Map] Fetching API key...');
           const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
           const { data, error } = await supabase.functions.invoke('get-google-maps-key', {
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           });
           if (error || !data?.key) {
-            console.error('Maps key error:', error);
+            console.error('[Map] Key error:', error);
+            setMapError(true);
             return;
           }
+          console.log('[Map] Key obtained, loading script...');
           
           const script = document.createElement('script');
           script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=places&loading=async`;
           script.async = true;
           script.defer = true;
           script.addEventListener('load', () => {
+            console.log('[Map] Script loaded');
             createMap();
+          });
+          script.addEventListener('error', () => {
+            console.error('[Map] Script load error');
+            setMapError(true);
           });
           document.head.appendChild(script);
         } catch (e) {
-          console.error('Maps loader error:', e);
+          console.error('[Map] Loader error:', e);
+          setMapError(true);
         }
       } else {
         createMap();
@@ -71,9 +81,13 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
     };
 
     const createMap = () => {
-      if (!mapRef.current || !(window as any).google) return;
+      if (!mapRef.current || !(window as any).google) {
+        setMapError(true);
+        return;
+      }
 
       const google = (window as any).google;
+      console.log('[Map] Creating map instance...');
       
       // Create map centered on Paris
       const map = new google.maps.Map(mapRef.current, {
@@ -142,7 +156,7 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
               });
             }
           } else {
-            console.error('Directions request failed:', status);
+            console.error('[Map] Directions failed:', status);
           }
         }
       );
@@ -159,6 +173,9 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
       }
     };
   }, [open, course, session, locationState.coordinates]);
+
+  // Conditional return AFTER all hooks
+  if (!course) return null;
 
   const openFlightTracking = (flightNumber: string) => {
     const url = `https://www.google.com/search?q=${encodeURIComponent(flightNumber + ' statut vol')}`;
@@ -197,11 +214,20 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
 
           {/* Carte Google Maps avec trajet */}
           <Card className="p-0 overflow-hidden">
-            <div 
-              ref={mapRef}
-              className="h-48 w-full bg-muted"
-              style={{ minHeight: '192px' }}
-            />
+            {mapError ? (
+              <div className="h-48 w-full bg-muted flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Impossible de charger la carte</p>
+                </div>
+              </div>
+            ) : (
+              <div 
+                ref={mapRef}
+                className="h-48 w-full bg-muted"
+                style={{ minHeight: '192px' }}
+              />
+            )}
             {/* Distance et Durée */}
             {routeInfo && (
               <div className="grid grid-cols-2 divide-x border-t">
