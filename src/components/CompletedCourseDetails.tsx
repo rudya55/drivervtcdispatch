@@ -42,12 +42,22 @@ export const CompletedCourseDetails = ({
   const { data: accountingEntry } = useQuery({
     queryKey: ['accounting-entry', course.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('accounting_entries')
-        .select('rating, comment, driver_amount')
-        .eq('course_id', course.id)
-        .single();
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('accounting_entries')
+          .select('rating, comment, driver_amount')
+          .eq('course_id', course.id)
+          .single();
+        
+        if (error) {
+          console.log('accounting_entries query error (table may not exist yet):', error.message);
+          return null;
+        }
+        return data;
+      } catch (e) {
+        console.log('accounting_entries fetch failed:', e);
+        return null;
+      }
     },
     enabled: !!course.id && open
   });
@@ -182,7 +192,7 @@ export const CompletedCourseDetails = ({
                   {[1, 2, 3, 4, 5].map(star => (
                     <Star 
                       key={star}
-                      className={`w-5 h-5 ${star <= accountingEntry.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
+                      className={`w-5 h-5 ${star <= (accountingEntry.rating || 0) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
                     />
                   ))}
                 </div>
@@ -190,15 +200,15 @@ export const CompletedCourseDetails = ({
             </Card>
           )}
 
-          {/* Commentaire avec liens cliquables */}
-          {accountingEntry?.comment && (
+          {/* Commentaire avec liens cliquables - fallback depuis course.notes */}
+          {(accountingEntry?.comment || course.notes) && (
             <Card className="p-4 bg-muted/50">
               <div className="flex items-start gap-2">
                 <MessageSquare className="w-4 h-4 mt-0.5 text-muted-foreground" />
                 <div className="flex-1">
                   <p className="text-sm font-medium mb-1">Commentaire :</p>
                   <p className="text-sm text-muted-foreground">
-                    {renderTextWithLinks(accountingEntry.comment)}
+                    {renderTextWithLinks(accountingEntry?.comment || course.notes || '')}
                   </p>
                 </div>
               </div>
