@@ -147,18 +147,30 @@ export const CompletedCourseDetails = ({
             </Card>
           )}
 
-          {/* Prix */}
-          <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Euro className="w-5 h-5 text-green-600" />
-                <span className="font-medium">Net chauffeur</span>
+          {/* Prix Client + Net Chauffeur côte à côte */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Prix Client */}
+            <Card className="p-4 bg-blue-50 dark:bg-blue-950 border-blue-200">
+              <div className="flex flex-col items-center">
+                <Euro className="w-5 h-5 text-blue-600 mb-1" />
+                <span className="text-xs font-medium text-blue-600">Prix Client</span>
+                <span className="text-2xl font-bold text-blue-600">
+                  {(course.client_price || 0).toFixed(2)}€
+                </span>
               </div>
-              <span className="text-2xl font-bold text-green-600">
-                {(accountingEntry?.driver_amount || course.net_driver || course.client_price || 0).toFixed(2)}€
-              </span>
-            </div>
-          </Card>
+            </Card>
+            
+            {/* Net Chauffeur */}
+            <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-200">
+              <div className="flex flex-col items-center">
+                <Euro className="w-5 h-5 text-green-600 mb-1" />
+                <span className="text-xs font-medium text-green-600">Net Chauffeur</span>
+                <span className="text-2xl font-bold text-green-600">
+                  {(accountingEntry?.driver_amount || course.net_driver || course.client_price || 0).toFixed(2)}€
+                </span>
+              </div>
+            </Card>
+          </div>
 
           {/* Notation */}
           {accountingEntry?.rating && (
