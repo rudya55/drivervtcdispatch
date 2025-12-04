@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,16 +23,17 @@ import {
   Euro,
   CheckCircle,
   XCircle,
-  Power
+  Power,
+  Navigation
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { formatFullDate, formatParisAddress } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Sync isActive with driver status
   useEffect(() => {
@@ -300,7 +302,11 @@ const Home = () => {
               
               // Show accept/refuse for pending courses
               return (
-                <Card key={course.id} className="p-4 space-y-4">
+                <Card 
+                  key={course.id} 
+                  className="p-4 space-y-4 cursor-pointer hover:border-primary/50 transition-all"
+                  onClick={() => navigate('/bookings')}
+                >
                   {/* Company & Vehicle */}
                   {course.company_name && (
                     <div className="flex items-center justify-between">
@@ -312,44 +318,48 @@ const Home = () => {
                   {/* Pickup Date/Time */}
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">
-                      {format(new Date(course.pickup_date), 'PPp', { locale: fr })}
+                    <span className="font-semibold">
+                      {formatFullDate(course.pickup_date)}
                     </span>
                   </div>
 
-                  {/* Locations */}
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Départ</p>
-                        <p className="text-sm font-medium">{course.departure_location}</p>
-                      </div>
+                  {/* Locations simplifiées */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="font-semibold text-sm">{formatParisAddress(course.departure_location)}</span>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-destructive mt-1 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Destination</p>
-                        <p className="text-sm font-medium">{course.destination_location}</p>
-                      </div>
+                    <span className="text-muted-foreground font-bold">→</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{formatParisAddress(course.destination_location)}</span>
+                      <MapPin className="w-4 h-4 text-destructive flex-shrink-0" />
                     </div>
                   </div>
 
-                  {/* Details */}
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span>{course.passengers_count}</span>
+                  {/* Details + Prix Net */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">{course.passengers_count}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Briefcase className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">{course.luggage_count}</span>
+                      </div>
+                      {(course as any).distance && (
+                        <div className="flex items-center gap-1">
+                          <Navigation className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm font-semibold">{(course as any).distance} km</span>
+                        </div>
+                      )}
+                      <Badge variant="outline" className="text-xs">{course.vehicle_type}</Badge>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Briefcase className="w-4 h-4 text-muted-foreground" />
-                      <span>{course.luggage_count}</span>
-                    </div>
-                    <div className="flex items-center gap-1 ml-auto">
-                      <Euro className="w-4 h-4 text-success" />
-                      <span className="font-semibold text-success">
-                        {course.net_driver ? course.net_driver.toFixed(2) : course.client_price.toFixed(2)}€
-                      </span>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-xl">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Net Chauffeur</p>
+                      <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                        {(course.net_driver || course.client_price || 0).toFixed(0)} €
+                      </p>
                     </div>
                   </div>
 
@@ -360,25 +370,24 @@ const Home = () => {
                     </p>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
+                  {/* Actions - Boutons simples et fiables */}
+                  <div className="flex gap-3 mt-2" onClick={(e) => e.stopPropagation()}>
                     <Button
-                      variant="destructive"
-                      className="flex-1"
+                      variant="outline"
+                      className="flex-1 h-14 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-base border-0 shadow-lg active:scale-95 transition-all"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'refuse' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Refuser
+                      <XCircle className="w-5 h-5 mr-2" />
+                      REFUSER
                     </Button>
                     <Button
-                      variant="default"
-                      className="flex-1 bg-accent hover:bg-accent/90"
+                      className="flex-1 h-14 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-base border-0 shadow-lg active:scale-95 transition-all"
                       onClick={() => courseActionMutation.mutate({ courseId: course.id, action: 'accept' })}
                       disabled={courseActionMutation.isPending}
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Accepter
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      ACCEPTER
                     </Button>
                   </div>
                 </Card>
@@ -387,6 +396,7 @@ const Home = () => {
           )}
         </div>
       </div>
+
 
       <BottomNav />
     </div>
