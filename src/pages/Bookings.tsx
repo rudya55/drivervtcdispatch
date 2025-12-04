@@ -21,7 +21,7 @@ import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
 
 const Bookings = () => {
   const { driver } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null);
+  const { unreadCount } = useNotifications(driver?.id || null, driver);
   const [loading, setLoading] = useState(false);
   const [newCourses, setNewCourses] = useState<Course[]>([]);
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);

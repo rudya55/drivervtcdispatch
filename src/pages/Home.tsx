@@ -32,7 +32,7 @@ import { formatFullDate, formatParisAddress } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null);
+  const { unreadCount } = useNotifications(driver?.id || null, driver);
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
   const navigate = useNavigate();

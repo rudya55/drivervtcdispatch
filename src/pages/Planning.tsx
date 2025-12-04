@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 
 const Planning = () => {
   const { driver } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null);
+  const { unreadCount } = useNotifications(driver?.id || null, driver);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedDateCourses, setSelectedDateCourses] = useState<Course[]>([]);

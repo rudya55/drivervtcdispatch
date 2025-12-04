@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 
 const Settings = () => {
   const { driver, logout, profilePhotoSignedUrl } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null);
+  const { unreadCount } = useNotifications(driver?.id || null, driver);
   const navigate = useNavigate();
 
   console.log('🔍 Settings - driver.profile_photo_url:', driver?.profile_photo_url);
