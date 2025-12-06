@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { Loader2, ArrowLeft, Camera, X } from 'lucide-react';
 
 const Vehicle = () => {
-  const { driver } = useAuth();
+  const { driver, refreshDriver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -157,17 +157,35 @@ const Vehicle = () => {
 
       if (signedUrlData?.signedUrl) {
         const newPhotos = [...vehiclePhotos, filePath];
+        
+        // Mise à jour de la base de données avec gestion d'erreur explicite
+        const { error: dbError } = await supabase
+          .from('drivers')
+          .update({ vehicle_photos_urls: newPhotos })
+          .eq('user_id', session.user.id);
+
+        if (dbError) {
+          console.error('Error saving photo to database:', dbError);
+          // Supprimer le fichier uploadé si la sauvegarde DB échoue
+          await supabase.storage.from('driver-documents').remove([filePath]);
+          
+          if (dbError.code === '42703' || dbError.message?.includes('column')) {
+            toast.error('⚠️ Migration requise : Exécutez le script SQL pour vehicle_photos_urls');
+          } else {
+            toast.error('Erreur lors de la sauvegarde en base de données');
+          }
+          return;
+        }
+
+        // Succès - mettre à jour l'état local
         setVehiclePhotos(newPhotos);
         setPhotoSignedUrls(prev => ({
           ...prev,
           [filePath]: signedUrlData.signedUrl
         }));
-
-        await supabase
-          .from('drivers')
-          .update({ vehicle_photos_urls: newPhotos })
-          .eq('user_id', session.user.id);
-
+        
+        // Rafraîchir le driver pour synchroniser avec DriverProfile
+        await refreshDriver();
         toast.success('Photo ajoutée avec succès');
       }
     } catch (error: any) {
@@ -189,13 +207,20 @@ const Vehicle = () => {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        await supabase
+        const { error: dbError } = await supabase
           .from('drivers')
           .update({ vehicle_photos_urls: newPhotos })
           .eq('user_id', session.user.id);
+          
+        if (dbError) {
+          console.error('Error updating database:', dbError);
+          toast.error('Erreur lors de la mise à jour en base');
+          return;
+        }
       }
 
       setVehiclePhotos(newPhotos);
+      await refreshDriver();
       toast.success('Photo supprimée');
     } catch (error) {
       console.error('Error removing photo:', error);
