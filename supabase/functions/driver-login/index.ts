@@ -85,12 +85,18 @@ Deno.serve(async (req) => {
       console.log('Driver profile found:', driver.id);
     }
 
-    // Mise à jour du last_login_at
+    // Mise à jour du last_login_at avec vérification d'erreur
     const now = new Date();
-    await supabase
+    const { error: updateLoginError } = await supabase
       .from('drivers')
       .update({ last_login_at: now.toISOString() })
       .eq('id', driver.id);
+
+    if (updateLoginError) {
+      console.error('❌ Error updating last_login_at:', updateLoginError);
+    } else {
+      console.log('✅ last_login_at updated to:', now.toISOString(), 'for driver:', driver.id);
+    }
 
     // Envoyer notification aux admins/fleet managers
     try {
