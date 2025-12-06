@@ -41,10 +41,6 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', authData.user.id);
 
-    // Get driver profile (serves as driver verification)
-    // If a driver profile exists for this user, they are considered a driver
-
-
     // Get or create driver profile
     let { data: driver, error: driverError } = await supabase
       .from('drivers')
@@ -87,6 +83,63 @@ Deno.serve(async (req) => {
       console.log('Driver profile created successfully:', driver.id);
     } else {
       console.log('Driver profile found:', driver.id);
+    }
+
+    // Mise à jour du last_login_at
+    const now = new Date();
+    await supabase
+      .from('drivers')
+      .update({ last_login_at: now.toISOString() })
+      .eq('id', driver.id);
+
+    // Envoyer notification aux admins/fleet managers
+    try {
+      const { data: adminUsers } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', ['admin', 'fleet_manager']);
+
+      if (adminUsers && adminUsers.length > 0) {
+        const frenchDate = now.toLocaleDateString('fr-FR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+        const frenchTime = now.toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+
+        // Créer une notification pour chaque admin
+        const loginNotifications = adminUsers.map(admin => ({
+          driver_id: driver.id,
+          type: 'driver_login',
+          title: `🟢 ${driver.name} connecté`,
+          message: `Le chauffeur ${driver.name} s'est connecté le ${frenchDate} à ${frenchTime}`,
+          read: false,
+          data: {
+            driver_id: driver.id,
+            driver_name: driver.name,
+            driver_email: driver.email,
+            login_at: now.toISOString(),
+            admin_user_id: admin.user_id
+          }
+        }));
+
+        const { error: notifError } = await supabase
+          .from('driver_notifications')
+          .insert(loginNotifications);
+
+        if (notifError) {
+          console.error('Error sending login notifications:', notifError);
+        } else {
+          console.log(`✅ Notification de connexion envoyée à ${adminUsers.length} admin(s)`);
+        }
+      }
+    } catch (notifErr) {
+      console.error('Error in notification process:', notifErr);
+      // Ne pas bloquer la connexion si les notifications échouent
     }
 
     return new Response(
