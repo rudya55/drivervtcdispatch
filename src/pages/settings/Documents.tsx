@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,16 +8,27 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { 
   Loader2, ArrowLeft, FileText, Download, Trash2, Upload, 
-  CheckCircle, Clock, XCircle 
+  CheckCircle, Clock, XCircle, X
 } from 'lucide-react';
 
+// Documents avec recto/verso pour Carte VTC, Permis et Pièce d'identité
 const DRIVER_DOCUMENTS = [
-  { key: 'vtc_card', label: 'Carte VTC', required: true },
-  { key: 'driving_license', label: 'Permis de conduire', required: true },
-  { key: 'kbis', label: 'K-bis ou Carte Artisan', required: true },
-  { key: 'insurance', label: 'Attestation d\'assurance', required: true },
-  { key: 'rc_pro', label: 'RC Professionnelle', required: false },
-  { key: 'id_card', label: 'Pièce d\'identité', required: false },
+  // Carte VTC - Recto/Verso
+  { key: 'vtc_card_front', label: 'Carte VTC (Recto)', required: true, group: 'vtc_card' },
+  { key: 'vtc_card_back', label: 'Carte VTC (Verso)', required: true, group: 'vtc_card' },
+  
+  // Permis de conduire - Recto/Verso
+  { key: 'driving_license_front', label: 'Permis de conduire (Recto)', required: true, group: 'driving_license' },
+  { key: 'driving_license_back', label: 'Permis de conduire (Verso)', required: true, group: 'driving_license' },
+  
+  // Pièce d'identité - Recto/Verso
+  { key: 'id_card_front', label: 'Pièce d\'identité (Recto)', required: true, group: 'id_card' },
+  { key: 'id_card_back', label: 'Pièce d\'identité (Verso)', required: true, group: 'id_card' },
+  
+  // Autres documents (page unique)
+  { key: 'kbis', label: 'K-bis ou Carte Artisan', required: true, group: 'kbis' },
+  { key: 'insurance', label: 'Attestation d\'assurance', required: true, group: 'insurance' },
+  { key: 'rc_pro', label: 'RC Professionnelle', required: false, group: 'rc_pro' },
 ];
 
 interface DocumentRecord {
@@ -31,15 +42,80 @@ interface DocumentRecord {
   created_at: string;
 }
 
+// Modal de prévisualisation plein écran
+const ImagePreviewModal = ({ 
+  isOpen, 
+  onClose, 
+  imageUrl, 
+  title 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  imageUrl: string; 
+  title: string;
+}) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div 
+      className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute top-4 right-4 left-4 flex justify-between items-center">
+        <p className="text-white font-medium truncate">{title}</p>
+        <button 
+          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+          onClick={onClose}
+        >
+          <X className="w-8 h-8" />
+        </button>
+      </div>
+      <div 
+        className="max-w-full max-h-[85vh] flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img 
+          src={imageUrl} 
+          alt={title}
+          className="max-w-full max-h-[85vh] object-contain rounded-lg"
+        />
+      </div>
+    </div>
+  );
+};
+
 const Documents = () => {
   const navigate = useNavigate();
-  const { session, driver } = useAuth();
+  const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [existingDocs, setExistingDocs] = useState<Record<string, DocumentRecord>>({});
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  
+  // État pour la prévisualisation
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   const userId = session?.user?.id;
+
+  // Grouper les documents par catégorie
+  const groupedDocuments = useMemo(() => {
+    const groups: Record<string, typeof DRIVER_DOCUMENTS> = {};
+    DRIVER_DOCUMENTS.forEach(doc => {
+      if (!groups[doc.group]) groups[doc.group] = [];
+      groups[doc.group].push(doc);
+    });
+    return groups;
+  }, []);
+
+  // Labels des groupes
+  const groupLabels: Record<string, string> = {
+    vtc_card: 'Carte VTC',
+    driving_license: 'Permis de conduire',
+    id_card: 'Pièce d\'identité',
+    kbis: 'K-bis ou Carte Artisan',
+    insurance: 'Attestation d\'assurance',
+    rc_pro: 'RC Professionnelle',
+  };
 
   // Charger les documents existants
   const loadExistingDocuments = async () => {
@@ -54,7 +130,6 @@ const Documents = () => {
 
       if (error) {
         console.error('[Documents] Erreur chargement:', error);
-        // Si la table n'existe pas encore, on continue silencieusement
         if (error.message?.includes('does not exist') || error.code === '42P01') {
           console.log('[Documents] Table driver_documents non créée, affichage vide');
           setExistingDocs({});
@@ -100,6 +175,14 @@ const Documents = () => {
       return;
     }
 
+    // Vérifier si le document existe déjà - demander confirmation
+    if (existingDocs[docType]) {
+      const confirmReplace = window.confirm(
+        'Un document existe déjà pour cette catégorie. Voulez-vous le remplacer ?'
+      );
+      if (!confirmReplace) return;
+    }
+
     // Validation côté client
     const maxSize = 10 * 1024 * 1024; // 10MB
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
@@ -134,7 +217,6 @@ const Documents = () => {
           .from('driver-documents')
           .remove([existingDoc.file_path]);
         
-        // Supprimer l'ancienne entrée dans la base
         await supabase
           .from('driver_documents')
           .delete()
@@ -173,7 +255,6 @@ const Documents = () => {
 
       if (dbError) {
         console.error('[Documents] Erreur insertion:', dbError);
-        // Si la table n'existe pas encore
         if (dbError.message?.includes('does not exist') || dbError.code === '42P01') {
           toast.error('La table driver_documents n\'existe pas encore. Migration en attente.');
         } else {
@@ -197,13 +278,14 @@ const Documents = () => {
     const doc = existingDocs[docType];
     if (!doc) return;
 
+    const confirmDelete = window.confirm('Êtes-vous sûr de vouloir supprimer ce document ?');
+    if (!confirmDelete) return;
+
     try {
-      // Supprimer le fichier du storage
       await supabase.storage
         .from('driver-documents')
         .remove([doc.file_path]);
 
-      // Supprimer l'entrée de la base
       await supabase
         .from('driver_documents')
         .delete()
@@ -223,7 +305,6 @@ const Documents = () => {
     if (url) {
       window.open(url, '_blank');
     } else {
-      // Générer une nouvelle signed URL
       const doc = existingDocs[docType];
       if (!doc) return;
       
@@ -237,6 +318,11 @@ const Documents = () => {
         toast.error('Impossible de télécharger le document');
       }
     }
+  };
+
+  // Ouvrir la prévisualisation
+  const openPreview = (url: string, title: string) => {
+    setPreviewImage({ url, title });
   };
 
   // Rendu du statut
@@ -286,6 +372,16 @@ const Documents = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      {/* Modal de prévisualisation */}
+      {previewImage && (
+        <ImagePreviewModal
+          isOpen={true}
+          onClose={() => setPreviewImage(null)}
+          imageUrl={previewImage.url}
+          title={previewImage.title}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-card border-b border-border p-4">
         <div className="flex items-center gap-3">
@@ -321,121 +417,141 @@ const Documents = () => {
           </CardContent>
         </Card>
 
-        {/* Liste des documents */}
-        {DRIVER_DOCUMENTS.map((docConfig) => {
-          const doc = existingDocs[docConfig.key];
-          const isUploading = uploading === docConfig.key;
-          const signedUrl = signedUrls[docConfig.key];
-          const isImage = doc && /\.(jpg|jpeg|png)$/i.test(doc.file_name);
-
+        {/* Liste des documents groupés */}
+        {Object.entries(groupedDocuments).map(([groupKey, docs]) => {
+          const isRequired = docs.some(d => d.required);
+          const allUploaded = docs.every(d => existingDocs[d.key]);
+          
           return (
-            <Card key={docConfig.key}>
+            <Card key={groupKey}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <FileText className="w-4 h-4" />
-                    {docConfig.label}
-                    {docConfig.required && (
+                    {groupLabels[groupKey]}
+                    {isRequired && (
                       <span className="text-red-500 text-xs">*</span>
                     )}
                   </CardTitle>
-                  {doc && renderStatus(doc)}
+                  {allUploaded && (
+                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Complet
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
-              <CardContent className="pt-2">
-                {doc ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Thumbnail for images */}
-                        {isImage && signedUrl ? (
-                          <img
-                            src={signedUrl}
-                            alt={doc.file_name}
-                            className="w-12 h-12 rounded object-cover border border-border shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                            <FileText className="w-6 h-6 text-primary" />
-                          </div>
+              <CardContent className="pt-2 space-y-3">
+                {/* Affichage des documents du groupe (recto/verso côte à côte si 2) */}
+                <div className={docs.length === 2 ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+                  {docs.map((docConfig) => {
+                    const doc = existingDocs[docConfig.key];
+                    const isUploading = uploading === docConfig.key;
+                    const signedUrl = signedUrls[docConfig.key];
+                    const isImage = doc && /\.(jpg|jpeg|png)$/i.test(doc.file_name);
+                    const sideLabel = docs.length === 2 
+                      ? (docConfig.key.endsWith('_front') ? 'Recto' : 'Verso')
+                      : null;
+
+                    return (
+                      <div key={docConfig.key} className="space-y-2">
+                        {sideLabel && (
+                          <p className="text-xs font-medium text-muted-foreground">{sideLabel}</p>
                         )}
-                        <div className="min-w-0">
-                          <span className="text-sm truncate block">{doc.file_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(doc.created_at).toLocaleDateString('fr-FR')}
-                          </span>
-                        </div>
+                        
+                        {doc ? (
+                          <div className="space-y-2">
+                            <div className="bg-muted/50 p-2 rounded-lg">
+                              {/* Thumbnail cliquable */}
+                              {isImage && signedUrl ? (
+                                <img
+                                  src={signedUrl}
+                                  alt={doc.file_name}
+                                  className="w-full h-24 rounded object-contain border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => openPreview(signedUrl, docConfig.label)}
+                                />
+                              ) : (
+                                <div 
+                                  className="w-full h-24 rounded bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+                                  onClick={() => handleDownload(docConfig.key)}
+                                >
+                                  <FileText className="w-8 h-8 text-primary" />
+                                </div>
+                              )}
+                              
+                              {/* Statut */}
+                              <div className="mt-2 flex items-center justify-between">
+                                {renderStatus(doc)}
+                                <div className="flex gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    onClick={() => handleDownload(docConfig.key)}
+                                  >
+                                    <Download className="w-3 h-3" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-600"
+                                    onClick={() => handleDelete(docConfig.key)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Option de remplacer */}
+                            <label className="cursor-pointer block text-center">
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleUpload(docConfig.key, file);
+                                  e.target.value = '';
+                                }}
+                                disabled={isUploading}
+                              />
+                              <span className="text-xs text-primary underline">
+                                Remplacer
+                              </span>
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block">
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleUpload(docConfig.key, file);
+                                e.target.value = '';
+                              }}
+                              disabled={isUploading}
+                            />
+                            <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 text-center hover:border-primary/50 transition-colors h-24 flex flex-col items-center justify-center">
+                              {isUploading ? (
+                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                              ) : (
+                                <>
+                                  <Upload className="w-6 h-6 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground mt-1">
+                                    Ajouter
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </label>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDownload(docConfig.key)}
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="text-red-500 hover:text-red-600"
-                          onClick={() => handleDelete(docConfig.key)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Option de remplacer */}
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleUpload(docConfig.key, file);
-                          e.target.value = '';
-                        }}
-                        disabled={isUploading}
-                      />
-                      <span className="text-xs text-primary underline">
-                        Remplacer le document
-                      </span>
-                    </label>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUpload(docConfig.key, file);
-                        e.target.value = '';
-                      }}
-                      disabled={isUploading}
-                    />
-                    <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                      {isUploading ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                          <span className="text-sm text-muted-foreground">Upload en cours...</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <Upload className="w-8 h-8 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            Cliquez pour télécharger
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            PDF, JPG ou PNG (max 10MB)
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                )}
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           );
