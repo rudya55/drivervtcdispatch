@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const documentCategories = [
   { id: 'identity', name: "Pièce d'identité", required: true },
@@ -24,7 +24,7 @@ const documentCategories = [
 type DocumentFile = {
   name: string;
   path: string;
-  url: string;
+  signedUrl: string | null;
   created_at: string;
   category?: string;
 };
@@ -36,6 +36,7 @@ const Documents = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -43,54 +44,67 @@ const Documents = () => {
 
   const fetchDocuments = async () => {
     setLoading(true);
-    console.log(`[${new Date().toISOString()}] Fetching documents`);
+    setStorageError(null);
+    console.log(`[Documents] Fetching documents...`);
 
     try {
-      // Ensure driver profile exists before fetching
       const { userId } = await ensureDriverExists();
-      console.log(`[${new Date().toISOString()}] Using user ID for storage:`, userId);
+      console.log(`[Documents] User ID:`, userId);
 
       const { data, error } = await supabase.storage
         .from('driver-documents')
         .list(userId);
 
       if (error) {
-        console.error('Fetch documents error:', error);
-        // Don't throw if bucket doesn't exist yet
-        if (error.message?.includes('not found')) {
-          console.log('Documents bucket/folder not found yet, will be created on first upload');
+        console.error('[Documents] List error:', error);
+        if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+          console.log('[Documents] Bucket/folder not found, will be created on first upload');
+          setDocuments([]);
+          return;
+        }
+        // Storage bucket might not exist yet
+        if (error.message?.includes('bucket')) {
+          setStorageError('Le bucket de stockage n\'est pas configuré. Contactez l\'administrateur.');
           setDocuments([]);
           return;
         }
         throw error;
       }
 
-      const docsWithUrls = data.map((file: any) => {
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-documents')
-          .getPublicUrl(`${userId}/${file.name}`);
-        
-        const category = file.name.split('_')[0];
-        
-        return {
-          name: file.name,
-          path: `${userId}/${file.name}`,
-          url: publicUrl,
-          created_at: file.created_at,
-          category,
-        };
-      });
+      if (!data || data.length === 0) {
+        setDocuments([]);
+        return;
+      }
 
-      setDocuments(docsWithUrls);
-      console.log(`[${new Date().toISOString()}] Fetched ${docsWithUrls.length} documents`);
+      // Generate signed URLs for each document (1 hour expiry)
+      const docsWithSignedUrls = await Promise.all(
+        data.map(async (file: any) => {
+          const filePath = `${userId}/${file.name}`;
+          const { data: signedData, error: signedError } = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(filePath, 3600); // 1 hour
+
+          if (signedError) {
+            console.error(`[Documents] Signed URL error for ${file.name}:`, signedError);
+          }
+
+          const category = file.name.split('_')[0];
+
+          return {
+            name: file.name,
+            path: filePath,
+            signedUrl: signedData?.signedUrl || null,
+            created_at: file.created_at,
+            category,
+          };
+        })
+      );
+
+      setDocuments(docsWithSignedUrls);
+      console.log(`[Documents] Fetched ${docsWithSignedUrls.length} documents with signed URLs`);
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Fetch documents error:`, error);
-      const errorMessage = [
-        error.message,
-        error.hint,
-        error.code
-      ].filter(Boolean).join(' - ');
-      toast.error(errorMessage || 'Erreur lors du chargement des documents');
+      console.error(`[Documents] Fetch error:`, error);
+      setStorageError(error.message || 'Erreur lors du chargement des documents');
     } finally {
       setLoading(false);
     }
@@ -101,109 +115,102 @@ const Documents = () => {
     if (!file) return;
 
     setUploading(category);
-    console.log(`[${new Date().toISOString()}] Uploading document for category:`, category);
-    console.log(`[${new Date().toISOString()}] File details:`, {
-      name: file.name,
-      type: file.type,
-      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
-    });
+    console.log(`[Documents] Uploading ${file.name} to category: ${category}`);
 
     try {
       // Validation: file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast.error('Le fichier est trop volumineux (max 10 Mo)');
-        setUploading(null);
         return;
       }
 
       // Validation: file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
       const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
       
-      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-        toast.error('Format de fichier non supporté. Utilisez PDF, JPG ou PNG.');
-        setUploading(null);
+      if (!allowedTypes.includes(file.type) && !['.pdf', '.jpg', '.jpeg', '.png'].includes(fileExtension)) {
+        toast.error('Format non supporté. Utilisez PDF, JPG ou PNG.');
         return;
       }
 
-      // Ensure driver profile exists before uploading
       const { userId } = await ensureDriverExists();
-      console.log(`[${new Date().toISOString()}] Using user ID for storage:`, userId);
-
       const fileExt = file.name.split('.').pop();
       const fileName = `${category}_${Date.now()}.${fileExt}`;
       const filePath = `${userId}/${fileName}`;
       
-      console.log(`[${new Date().toISOString()}] Uploading to path:`, filePath);
+      console.log(`[Documents] Uploading to:`, filePath);
       
-      const { error, data } = await supabase.storage
+      const { error } = await supabase.storage
         .from('driver-documents')
         .upload(filePath, file);
 
       if (error) {
-        console.error(`[${new Date().toISOString()}] ❌ Storage upload error:`, {
-          message: error.message,
-          error: error
-        });
+        console.error(`[Documents] Upload error:`, error);
         throw error;
       }
 
-      console.log(`[${new Date().toISOString()}] ✅ Document uploaded successfully:`, data);
+      console.log(`[Documents] ✅ Upload success`);
       toast.success('Document téléchargé avec succès');
-      fetchDocuments();
+      await fetchDocuments();
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Upload error details:`, {
-        message: error.message,
-        hint: error.hint,
-        code: error.code,
-        fullError: error
-      });
+      console.error(`[Documents] Upload failed:`, error);
       
-      // Message spécifique pour les erreurs RLS
-      if (error.message?.includes('policy') || error.message?.includes('permission') || error.message?.includes('RLS')) {
-        toast.error('Erreur de permissions. Vérifiez que le script SQL a bien été exécuté dans Supabase.');
-      } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
-        toast.error('Accès refusé. Vérifiez les permissions du bucket dans Supabase.');
+      if (error.message?.includes('policy') || error.message?.includes('permission') || error.statusCode === 403) {
+        toast.error('Erreur de permissions. Contactez l\'administrateur.');
+      } else if (error.message?.includes('bucket')) {
+        toast.error('Le bucket de stockage n\'existe pas encore.');
       } else {
-        const errorMessage = [
-          error.message,
-          error.hint,
-          error.code
-        ].filter(Boolean).join(' - ');
-        toast.error(errorMessage || 'Erreur lors du téléchargement');
+        toast.error(error.message || 'Erreur lors du téléchargement');
       }
     } finally {
       setUploading(null);
+      // Reset input
+      e.target.value = '';
     }
   };
 
   const handleDelete = async (path: string) => {
-    console.log(`[${new Date().toISOString()}] Deleting document:`, path);
+    console.log(`[Documents] Deleting:`, path);
 
     try {
-      // Ensure driver exists before deleting
-      await ensureDriverExists();
-
       const { error } = await supabase.storage
         .from('driver-documents')
         .remove([path]);
 
       if (error) throw error;
 
-      console.log(`[${new Date().toISOString()}] ✅ Document deleted successfully`);
+      console.log(`[Documents] ✅ Delete success`);
       toast.success('Document supprimé');
-      fetchDocuments();
+      await fetchDocuments();
     } catch (error: any) {
-      console.error(`[${new Date().toISOString()}] Delete error:`, error);
-      const errorMessage = [
-        error.message,
-        error.hint,
-        error.code
-      ].filter(Boolean).join(' - ');
-      toast.error(errorMessage || 'Erreur lors de la suppression');
+      console.error(`[Documents] Delete error:`, error);
+      toast.error(error.message || 'Erreur lors de la suppression');
     }
   };
+
+  const handleDownload = async (doc: DocumentFile) => {
+    if (doc.signedUrl) {
+      window.open(doc.signedUrl, '_blank');
+    } else {
+      // Generate a new signed URL if expired
+      const { data, error } = await supabase.storage
+        .from('driver-documents')
+        .createSignedUrl(doc.path, 3600);
+      
+      if (error || !data?.signedUrl) {
+        toast.error('Impossible de télécharger le document');
+        return;
+      }
+      window.open(data.signedUrl, '_blank');
+    }
+  };
+
+  const uploadedRequiredCount = documentCategories
+    .filter(cat => cat.required)
+    .filter(cat => documents.some(doc => doc.category === cat.id))
+    .length;
+  const totalRequired = documentCategories.filter(cat => cat.required).length;
+  const progressPercentage = (uploadedRequiredCount / totalRequired) * 100;
 
   return (
     <div className="min-h-screen bg-background pb-20 pt-16">
@@ -220,34 +227,31 @@ const Documents = () => {
           Retour
         </Button>
 
-        {/* Progress Bar for Required Documents */}
-        {(() => {
-          const uploadedRequiredCount = documentCategories
-            .filter(cat => cat.required)
-            .filter(cat => documents.some(doc => doc.category === cat.id))
-            .length;
-          const totalRequired = documentCategories.filter(cat => cat.required).length;
-          const progressPercentage = (uploadedRequiredCount / totalRequired) * 100;
+        {/* Storage Error Banner */}
+        {storageError && (
+          <Card className="p-4 mb-4 border-destructive bg-destructive/10">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <p className="text-sm">{storageError}</p>
+            </div>
+          </Card>
+        )}
 
-          return (
-            <Card className="p-4 mb-4 bg-accent/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">
-                  Documents obligatoires
-                </span>
-                <span className="text-sm font-semibold text-primary">
-                  {uploadedRequiredCount} / {totalRequired}
-                </span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-            </Card>
-          );
-        })()}
+        {/* Progress Bar */}
+        <Card className="p-4 mb-4 bg-accent/50">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Documents obligatoires</span>
+            <span className="text-sm font-semibold text-primary">
+              {uploadedRequiredCount} / {totalRequired}
+            </span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div 
+              className="bg-primary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        </Card>
 
         <div className="space-y-4">
           {documentCategories.map((category) => {
@@ -312,11 +316,14 @@ const Documents = () => {
                           className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                         >
                           {/* Thumbnail or icon */}
-                          {isImage ? (
+                          {isImage && doc.signedUrl ? (
                             <img
-                              src={doc.url}
+                              src={doc.signedUrl}
                               alt={doc.name}
                               className="w-12 h-12 rounded object-cover border border-border shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
@@ -346,7 +353,7 @@ const Documents = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(doc.url, '_blank')}
+                              onClick={() => handleDownload(doc)}
                               title="Ouvrir le document"
                             >
                               <Download className="w-4 h-4" />
