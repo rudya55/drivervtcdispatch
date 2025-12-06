@@ -176,62 +176,51 @@ export const useAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      console.log('🔐 Calling driver-login Edge Function...');
+      
+      // Appeler l'Edge Function driver-login au lieu de supabase.auth.signInWithPassword
+      const { data, error } = await supabase.functions.invoke('driver-login', {
+        body: { email, password }
       });
 
       if (error) {
+        console.error('Edge function error:', error);
         throw new Error(error.message || 'Erreur de connexion');
+      }
+
+      if (data?.error) {
+        console.error('Driver-login returned error:', data.error);
+        throw new Error(data.error);
       }
 
       if (!data?.session) {
         throw new Error('Connexion échouée - session manquante');
       }
 
-      // Vérifier et auto-créer le profil driver si nécessaire
-      let { data: driverData, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, approved')
-        .eq('user_id', data.session.user.id)
-        .maybeSingle();
+      console.log('✅ Driver-login successful, setting session...');
 
-      if (driverError) {
-        console.error('Error fetching driver:', driverError);
-        await supabase.auth.signOut();
-        throw new Error("Erreur lors de la vérification du profil");
+      // Établir la session côté client avec le token retourné
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      });
+
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('Erreur établissement session');
       }
 
-      // Auto-create driver profile if missing
-      if (!driverData) {
-        console.log('🔧 No driver profile found during login, creating...');
-        try {
-          await ensureDriverExists();
-          // Re-fetch after creation
-          const { data: newData } = await supabase
-            .from('drivers')
-            .select('id, approved')
-            .eq('user_id', data.session.user.id)
-            .maybeSingle();
-          driverData = newData;
-        } catch (err) {
-          console.error('Failed to create driver profile:', err);
-          await supabase.auth.signOut();
-          throw new Error("PROFILE_CREATED_PENDING");
-        }
-      }
-
-      if (!driverData) {
-        await supabase.auth.signOut();
-        throw new Error("PROFILE_CREATED_PENDING");
-      }
-
-      if (!driverData.approved) {
+      // Vérifier si le chauffeur est approuvé
+      if (data.driver && data.driver.approved === false) {
+        console.warn('❌ Driver not approved');
         await supabase.auth.signOut();
         throw new Error("PENDING_APPROVAL");
       }
 
       setSession(data.session);
+      setDriver(data.driver);
+      
+      console.log('✅ Login complete, last_login_at updated, notifications sent');
       return data;
     } catch (error: any) {
       console.error('Login error in hook:', error);
