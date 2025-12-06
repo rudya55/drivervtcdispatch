@@ -1,385 +1,449 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotifications } from '@/hooks/useNotifications';
-import { Header } from '@/components/Header';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
-import { ensureDriverExists } from '@/lib/ensureDriver';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, FileText, Download, Trash2, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { 
+  Loader2, ArrowLeft, FileText, Download, Trash2, Upload, 
+  CheckCircle, Clock, XCircle 
+} from 'lucide-react';
 
-const documentCategories = [
-  { id: 'identity', name: "Pièce d'identité", required: true },
-  { id: 'vtc_card', name: 'Carte VTC', required: true },
-  { id: 'kbis', name: 'K-bis', required: true },
-  { id: 'driver_license', name: 'Permis de conduire', required: true },
-  { id: 'insurance', name: "Attestation d'assurance", required: true },
-  { id: 'rc_pro', name: 'RC Pro', required: true },
+const DRIVER_DOCUMENTS = [
+  { key: 'vtc_card', label: 'Carte VTC', required: true },
+  { key: 'driving_license', label: 'Permis de conduire', required: true },
+  { key: 'kbis', label: 'K-bis ou Carte Artisan', required: true },
+  { key: 'insurance', label: 'Attestation d\'assurance', required: true },
+  { key: 'rc_pro', label: 'RC Professionnelle', required: false },
+  { key: 'id_card', label: 'Pièce d\'identité', required: false },
 ];
 
-type DocumentFile = {
-  name: string;
-  path: string;
-  signedUrl: string | null;
+interface DocumentRecord {
+  id: string;
+  document_type: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  status: 'pending' | 'approved' | 'rejected';
+  rejection_reason?: string;
   created_at: string;
-  category?: string;
-};
+}
 
 const Documents = () => {
-  const { driver } = useAuth();
-  const { unreadCount } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { session, driver } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<DocumentFile[]>([]);
-  const [storageError, setStorageError] = useState<string | null>(null);
+  const [existingDocs, setExistingDocs] = useState<Record<string, DocumentRecord>>({});
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [driver]);
+  const userId = session?.user?.id;
 
-  const fetchDocuments = async () => {
+  // Charger les documents existants
+  const loadExistingDocuments = async () => {
+    if (!userId) return;
+    
     setLoading(true);
-    setStorageError(null);
-    console.log(`[Documents] Fetching documents...`);
-
     try {
-      const { userId } = await ensureDriverExists();
-      console.log(`[Documents] User ID:`, userId);
-
-      const { data, error } = await supabase.storage
-        .from('driver-documents')
-        .list(userId);
+      const { data, error } = await supabase
+        .from('driver_documents')
+        .select('*')
+        .eq('user_id', userId);
 
       if (error) {
-        console.error('[Documents] List error:', error);
-        if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
-          console.log('[Documents] Bucket/folder not found, will be created on first upload');
-          setDocuments([]);
+        console.error('[Documents] Erreur chargement:', error);
+        // Si la table n'existe pas encore, on continue silencieusement
+        if (error.message?.includes('does not exist') || error.code === '42P01') {
+          console.log('[Documents] Table driver_documents non créée, affichage vide');
+          setExistingDocs({});
+          setLoading(false);
           return;
         }
-        // Storage bucket might not exist yet
-        if (error.message?.includes('bucket')) {
-          setStorageError('Le bucket de stockage n\'est pas configuré. Contactez l\'administrateur.');
-          setDocuments([]);
-          return;
-        }
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
-        setDocuments([]);
+        toast.error('Erreur lors du chargement des documents');
         return;
       }
 
-      // Generate signed URLs for each document (1 hour expiry)
-      const docsWithSignedUrls = await Promise.all(
-        data.map(async (file: any) => {
-          const filePath = `${userId}/${file.name}`;
-          const { data: signedData, error: signedError } = await supabase.storage
-            .from('driver-documents')
-            .createSignedUrl(filePath, 3600); // 1 hour
+      const docsMap: Record<string, DocumentRecord> = {};
+      data?.forEach(doc => {
+        docsMap[doc.document_type] = doc;
+      });
+      setExistingDocs(docsMap);
 
-          if (signedError) {
-            console.error(`[Documents] Signed URL error for ${file.name}:`, signedError);
-          }
-
-          const category = file.name.split('_')[0];
-
-          return {
-            name: file.name,
-            path: filePath,
-            signedUrl: signedData?.signedUrl || null,
-            created_at: file.created_at,
-            category,
-          };
-        })
-      );
-
-      setDocuments(docsWithSignedUrls);
-      console.log(`[Documents] Fetched ${docsWithSignedUrls.length} documents with signed URLs`);
-    } catch (error: any) {
-      console.error(`[Documents] Fetch error:`, error);
-      setStorageError(error.message || 'Erreur lors du chargement des documents');
+      // Générer les signed URLs pour les documents existants
+      const urls: Record<string, string> = {};
+      for (const doc of data || []) {
+        const { data: signedData } = await supabase.storage
+          .from('driver-documents')
+          .createSignedUrl(doc.file_path, 3600);
+        if (signedData?.signedUrl) {
+          urls[doc.document_type] = signedData.signedUrl;
+        }
+      }
+      setSignedUrls(urls);
+    } catch (err) {
+      console.error('[Documents] Erreur:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpload = async (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    loadExistingDocuments();
+  }, [userId]);
 
-    setUploading(category);
-    console.log(`[Documents] Uploading ${file.name} to category: ${category}`);
+  // Upload un document
+  const handleUpload = async (docType: string, file: File) => {
+    if (!userId) {
+      toast.error('Vous devez être connecté');
+      return;
+    }
 
+    // Validation côté client
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    
+    if (file.size > maxSize) {
+      toast.error('Le fichier est trop volumineux (max 10MB)');
+      return;
+    }
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Format non supporté. Utilisez PDF, JPG ou PNG');
+      return;
+    }
+
+    setUploading(docType);
+    
     try {
-      // Validation: file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('Le fichier est trop volumineux (max 10 Mo)');
-        return;
-      }
+      // Récupérer le driver_id
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      // Validation: file type
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      if (!allowedTypes.includes(file.type) && !['.pdf', '.jpg', '.jpeg', '.png'].includes(fileExtension)) {
-        toast.error('Format non supporté. Utilisez PDF, JPG ou PNG.');
-        return;
-      }
-
-      const { userId } = await ensureDriverExists();
       const fileExt = file.name.split('.').pop();
-      const fileName = `${category}_${Date.now()}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
-      
-      console.log(`[Documents] Uploading to:`, filePath);
-      
-      const { error } = await supabase.storage
+      const filePath = `${userId}/${docType}_${Date.now()}.${fileExt}`;
+
+      // Supprimer l'ancien fichier si existe
+      const existingDoc = existingDocs[docType];
+      if (existingDoc) {
+        await supabase.storage
+          .from('driver-documents')
+          .remove([existingDoc.file_path]);
+        
+        // Supprimer l'ancienne entrée dans la base
+        await supabase
+          .from('driver_documents')
+          .delete()
+          .eq('id', existingDoc.id);
+      }
+
+      // Upload le nouveau fichier
+      const { error: uploadError } = await supabase.storage
         .from('driver-documents')
         .upload(filePath, file);
 
-      if (error) {
-        console.error(`[Documents] Upload error:`, error);
-        throw error;
-      }
-
-      console.log(`[Documents] ✅ Upload success`);
-      toast.success('Document téléchargé avec succès');
-      await fetchDocuments();
-    } catch (error: any) {
-      console.error(`[Documents] Upload failed:`, error);
-      
-      if (error.message?.includes('policy') || error.message?.includes('permission') || error.statusCode === 403) {
-        toast.error('Erreur de permissions. Contactez l\'administrateur.');
-      } else if (error.message?.includes('bucket')) {
-        toast.error('Le bucket de stockage n\'existe pas encore.');
-      } else {
-        toast.error(error.message || 'Erreur lors du téléchargement');
-      }
-    } finally {
-      setUploading(null);
-      // Reset input
-      e.target.value = '';
-    }
-  };
-
-  const handleDelete = async (path: string) => {
-    console.log(`[Documents] Deleting:`, path);
-
-    try {
-      const { error } = await supabase.storage
-        .from('driver-documents')
-        .remove([path]);
-
-      if (error) throw error;
-
-      console.log(`[Documents] ✅ Delete success`);
-      toast.success('Document supprimé');
-      await fetchDocuments();
-    } catch (error: any) {
-      console.error(`[Documents] Delete error:`, error);
-      toast.error(error.message || 'Erreur lors de la suppression');
-    }
-  };
-
-  const handleDownload = async (doc: DocumentFile) => {
-    if (doc.signedUrl) {
-      window.open(doc.signedUrl, '_blank');
-    } else {
-      // Generate a new signed URL if expired
-      const { data, error } = await supabase.storage
-        .from('driver-documents')
-        .createSignedUrl(doc.path, 3600);
-      
-      if (error || !data?.signedUrl) {
-        toast.error('Impossible de télécharger le document');
+      if (uploadError) {
+        console.error('[Documents] Erreur upload:', uploadError);
+        if (uploadError.message?.includes('policy') || uploadError.message?.includes('permission')) {
+          toast.error('Erreur de permissions. Le bucket storage n\'est pas configuré.');
+        } else if (uploadError.message?.includes('bucket') || uploadError.message?.includes('not found')) {
+          toast.error('Le bucket de stockage n\'existe pas. Contactez l\'administrateur.');
+        } else {
+          toast.error('Erreur lors de l\'upload du fichier');
+        }
         return;
       }
-      window.open(data.signedUrl, '_blank');
+
+      // Insérer les métadonnées dans la table
+      const { error: dbError } = await supabase
+        .from('driver_documents')
+        .insert({
+          user_id: userId,
+          driver_id: driverData?.id,
+          document_type: docType,
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          status: 'pending'
+        });
+
+      if (dbError) {
+        console.error('[Documents] Erreur insertion:', dbError);
+        // Si la table n'existe pas encore
+        if (dbError.message?.includes('does not exist') || dbError.code === '42P01') {
+          toast.error('La table driver_documents n\'existe pas encore. Migration en attente.');
+        } else {
+          toast.error('Erreur lors de l\'enregistrement du document');
+        }
+        return;
+      }
+
+      toast.success('Document uploadé avec succès');
+      await loadExistingDocuments();
+    } catch (err) {
+      console.error('[Documents] Erreur:', err);
+      toast.error('Erreur inattendue');
+    } finally {
+      setUploading(null);
     }
   };
 
-  const uploadedRequiredCount = documentCategories
-    .filter(cat => cat.required)
-    .filter(cat => documents.some(doc => doc.category === cat.id))
-    .length;
-  const totalRequired = documentCategories.filter(cat => cat.required).length;
-  const progressPercentage = (uploadedRequiredCount / totalRequired) * 100;
+  // Supprimer un document
+  const handleDelete = async (docType: string) => {
+    const doc = existingDocs[docType];
+    if (!doc) return;
+
+    try {
+      // Supprimer le fichier du storage
+      await supabase.storage
+        .from('driver-documents')
+        .remove([doc.file_path]);
+
+      // Supprimer l'entrée de la base
+      await supabase
+        .from('driver_documents')
+        .delete()
+        .eq('id', doc.id);
+
+      toast.success('Document supprimé');
+      await loadExistingDocuments();
+    } catch (err) {
+      console.error('[Documents] Erreur suppression:', err);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  // Télécharger un document
+  const handleDownload = async (docType: string) => {
+    const url = signedUrls[docType];
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      // Générer une nouvelle signed URL
+      const doc = existingDocs[docType];
+      if (!doc) return;
+      
+      const { data } = await supabase.storage
+        .from('driver-documents')
+        .createSignedUrl(doc.file_path, 3600);
+      
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      } else {
+        toast.error('Impossible de télécharger le document');
+      }
+    }
+  };
+
+  // Rendu du statut
+  const renderStatus = (doc: DocumentRecord) => {
+    switch (doc.status) {
+      case 'approved':
+        return (
+          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Validé
+          </Badge>
+        );
+      case 'rejected':
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejeté
+            </Badge>
+            {doc.rejection_reason && (
+              <span className="text-xs text-red-400">{doc.rejection_reason}</span>
+            )}
+          </div>
+        );
+      default:
+        return (
+          <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+            <Clock className="w-3 h-3 mr-1" />
+            En attente
+          </Badge>
+        );
+    }
+  };
+
+  // Calcul de la progression
+  const requiredDocs = DRIVER_DOCUMENTS.filter(d => d.required);
+  const uploadedRequired = requiredDocs.filter(d => existingDocs[d.key]).length;
+  const progressPercent = (uploadedRequired / requiredDocs.length) * 100;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-16">
-      <Header title="Documents" unreadCount={unreadCount} />
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header */}
+      <div className="bg-card border-b border-border p-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-xl font-semibold">Documents administratifs</h1>
+        </div>
+      </div>
 
-      <div className="max-w-lg mx-auto p-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/settings')}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Retour
-        </Button>
-
-        {/* Storage Error Banner */}
-        {storageError && (
-          <Card className="p-4 mb-4 border-destructive bg-destructive/10">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <p className="text-sm">{storageError}</p>
+      <div className="p-4 space-y-4">
+        {/* Progression des documents obligatoires */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium">Documents obligatoires</span>
+              <span className="text-sm text-muted-foreground">
+                {uploadedRequired} / {requiredDocs.length}
+              </span>
             </div>
-          </Card>
-        )}
-
-        {/* Progress Bar */}
-        <Card className="p-4 mb-4 bg-accent/50">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Documents obligatoires</span>
-            <span className="text-sm font-semibold text-primary">
-              {uploadedRequiredCount} / {totalRequired}
-            </span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div 
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            {progressPercent === 100 && (
+              <p className="text-xs text-green-500 mt-2 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Tous les documents obligatoires sont téléchargés
+              </p>
+            )}
+          </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          {documentCategories.map((category) => {
-            const categoryDocs = documents.filter(doc => doc.category === category.id);
-            const hasDocument = categoryDocs.length > 0;
+        {/* Liste des documents */}
+        {DRIVER_DOCUMENTS.map((docConfig) => {
+          const doc = existingDocs[docConfig.key];
+          const isUploading = uploading === docConfig.key;
+          const signedUrl = signedUrls[docConfig.key];
+          const isImage = doc && /\.(jpg|jpeg|png)$/i.test(doc.file_name);
 
-            return (
-              <Card key={category.id} className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{category.name}</h3>
-                    {category.required && (
-                      <span className="text-xs text-destructive">*</span>
+          return (
+            <Card key={docConfig.key}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    {docConfig.label}
+                    {docConfig.required && (
+                      <span className="text-red-500 text-xs">*</span>
                     )}
-                    {hasDocument && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full border border-green-500/20">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Téléchargé
-                      </span>
-                    )}
-                  </div>
-                  {!hasDocument && (
-                    <Label
-                      htmlFor={`upload-${category.id}`}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
-                        {uploading === category.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Upload className="w-4 h-4" />
-                            Télécharger
-                          </>
-                        )}
-                      </div>
-                      <Input
-                        id={`upload-${category.id}`}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleUpload(category.id, e)}
-                        disabled={uploading !== null}
-                        className="hidden"
-                      />
-                    </Label>
-                  )}
+                  </CardTitle>
+                  {doc && renderStatus(doc)}
                 </div>
-
-                {loading ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : hasDocument ? (
-                  <div className="space-y-2">
-                    {categoryDocs.map((doc) => {
-                      const isImage = /\.(jpg|jpeg|png)$/i.test(doc.name);
-                      const fileExt = doc.name.split('.').pop()?.toUpperCase() || 'FILE';
-                      
-                      return (
-                        <div
-                          key={doc.path}
-                          className="flex items-center gap-3 p-3 bg-muted rounded-lg"
-                        >
-                          {/* Thumbnail or icon */}
-                          {isImage && doc.signedUrl ? (
-                            <img
-                              src={doc.signedUrl}
-                              alt={doc.name}
-                              className="w-12 h-12 rounded object-cover border border-border shrink-0"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                              <FileText className="w-6 h-6 text-primary" />
-                            </div>
-                          )}
-                          
-                          {/* File info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium truncate">{doc.name}</span>
-                              <span className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded shrink-0">
-                                {fileExt}
-                              </span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(doc.created_at).toLocaleDateString('fr-FR', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              })}
-                            </span>
+              </CardHeader>
+              <CardContent className="pt-2">
+                {doc ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Thumbnail for images */}
+                        {isImage && signedUrl ? (
+                          <img
+                            src={signedUrl}
+                            alt={doc.file_name}
+                            className="w-12 h-12 rounded object-cover border border-border shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                            <FileText className="w-6 h-6 text-primary" />
                           </div>
-                          
-                          {/* Actions */}
-                          <div className="flex gap-2 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownload(doc)}
-                              title="Ouvrir le document"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(doc.path)}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <span className="text-sm truncate block">{doc.file_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(doc.created_at).toLocaleDateString('fr-FR')}
+                          </span>
                         </div>
-                      );
-                    })}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDownload(docConfig.key)}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-500 hover:text-red-600"
+                          onClick={() => handleDelete(docConfig.key)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Option de remplacer */}
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUpload(docConfig.key, file);
+                          e.target.value = '';
+                        }}
+                        disabled={isUploading}
+                      />
+                      <span className="text-xs text-primary underline">
+                        Remplacer le document
+                      </span>
+                    </label>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Aucun document téléchargé
-                  </p>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUpload(docConfig.key, file);
+                        e.target.value = '';
+                      }}
+                      disabled={isUploading}
+                    />
+                    <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                      {isUploading ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                          <span className="text-sm text-muted-foreground">Upload en cours...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="w-8 h-8 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            Cliquez pour télécharger
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            PDF, JPG ou PNG (max 10MB)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </label>
                 )}
-              </Card>
-            );
-          })}
-        </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        <p className="text-xs text-muted-foreground text-center">
+          * Documents obligatoires pour pouvoir recevoir des courses
+        </p>
       </div>
     </div>
   );
