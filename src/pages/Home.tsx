@@ -5,7 +5,7 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
+import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
 import { useNativePushNotifications } from '@/hooks/useNativePushNotifications';
 import { supabase, Course } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
@@ -44,8 +44,8 @@ const Home = () => {
     }
   }, [driver?.status]);
 
-  // Native geolocation with background tracking
-  const locationState = useNativeGeolocation(isActive);
+  // Background geolocation with persistent tracking
+  const locationState = useBackgroundGeolocation(isActive);
   
   // Native push notifications
   useNativePushNotifications(driver?.id);

@@ -231,7 +231,27 @@ export const useAuth = () => {
   const logout = async () => {
     await supabase.auth.signOut();
     setDriver(null);
+    setSession(null);
+    setProfilePhotoSignedUrl(null);
   };
+
+  // Auto-refresh session to prevent expiration during background usage
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      if (session) {
+        console.log('[Auth] Auto-refreshing session...');
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.error('[Auth] Session refresh failed:', error);
+        } else if (data.session) {
+          console.log('[Auth] Session refreshed successfully');
+          setSession(data.session);
+        }
+      }
+    }, 10 * 60 * 1000); // Refresh every 10 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [session]);
 
   const refreshDriver = async () => {
     if (!session?.user) return;
