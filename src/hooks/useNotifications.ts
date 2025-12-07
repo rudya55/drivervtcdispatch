@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, DriverNotification } from '@/lib/supabase';
 import { requestNotificationPermission, onMessageListener } from '@/lib/firebase';
 import { toast } from 'sonner';
-import { playNotificationSound } from '@/lib/notificationSounds';
+import { playNotificationWithHaptic } from '@/lib/notificationSounds';
+import { Capacitor } from '@capacitor/core';
 
 export const useNotifications = (driverId: string | null, driver?: any) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -64,14 +65,25 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
   // Listen for foreground messages
   useEffect(() => {
     const unsubscribe = onMessageListener().then((payload: any) => {
-      // Play custom notification sound
+      // Déterminer le type de vibration selon le payload
+      const notificationType = payload.data?.type || 'default';
+      const hapticType = 
+        notificationType === 'new_course' ? 'new_course' :
+        notificationType === 'chat_message' ? 'chat_message' :
+        notificationType === 'urgent' ? 'urgent_alert' :
+        'default';
+      
+      // Play custom notification sound + haptic
       if (driver?.notifications_enabled !== false) {
-        playNotificationSound(driver?.notification_sound || 'default');
+        playNotificationWithHaptic(driver?.notification_sound || 'default', hapticType as any);
       }
       
-      toast(payload.notification?.title || 'Nouvelle notification', {
-        description: payload.notification?.body,
-      });
+      // Afficher toast uniquement sur le web (pas sur APK natif)
+      if (!Capacitor.isNativePlatform()) {
+        toast(payload.notification?.title || 'Nouvelle notification', {
+          description: payload.notification?.body,
+        });
+      }
       
       // Refetch notifications
       queryClient.invalidateQueries({ queryKey: ['notifications', driverId] });
@@ -106,14 +118,25 @@ export const useNotifications = (driverId: string | null, driver?: any) => {
             window.dispatchEvent(new CustomEvent('reload-courses'));
           }
           
-          // Play custom notification sound
+          // Déterminer le type de vibration selon le type de notification
+          const hapticType = 
+            notification.type === 'new_course' ? 'new_course' :
+            notification.type === 'chat_message' ? 'chat_message' :
+            notification.type === 'urgent' ? 'urgent_alert' :
+            notification.type === 'course_update' ? 'course_update' :
+            'default';
+          
+          // Play custom notification sound + haptic
           if (driver?.notifications_enabled !== false) {
-            playNotificationSound(driver?.notification_sound || 'default');
+            playNotificationWithHaptic(driver?.notification_sound || 'default', hapticType as any);
           }
           
-          toast(notification.title, {
-            description: notification.message,
-          });
+          // Afficher toast uniquement sur le web (pas sur APK natif)
+          if (!Capacitor.isNativePlatform()) {
+            toast(notification.title, {
+              description: notification.message,
+            });
+          }
         }
       )
       .subscribe();
