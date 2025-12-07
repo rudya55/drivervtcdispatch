@@ -1,8 +1,12 @@
-import { useState } from 'react';
 import GoogleMap from './GoogleMap';
-import { Button } from './ui/button';
-import { Power } from 'lucide-react';
+import { GPSIndicator } from './GPSIndicator';
 import { cn } from '@/lib/utils';
+
+interface GPSState {
+  isTracking: boolean;
+  accuracy: number | null;
+  error: string | null;
+}
 
 interface MapWithStatusButtonProps {
   center: { lat: number; lng: number };
@@ -13,6 +17,7 @@ interface MapWithStatusButtonProps {
   isUpdating?: boolean;
   driverIcon?: 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv';
   driverHeading?: number;
+  gpsState?: GPSState;
 }
 
 export const MapWithStatusButton = ({
@@ -23,14 +28,10 @@ export const MapWithStatusButton = ({
   onStatusChange,
   isUpdating = false,
   driverIcon = 'car',
-  driverHeading = 0
+  driverHeading = 0,
+  gpsState
 }: MapWithStatusButtonProps) => {
   const isOnline = driverStatus === 'active';
-
-  const handleToggle = () => {
-    const newStatus = isOnline ? 'inactive' : 'active';
-    onStatusChange(newStatus);
-  };
 
   return (
     <div className="relative w-full h-full">
@@ -46,6 +47,18 @@ export const MapWithStatusButton = ({
           heading: driverHeading
         }}
       />
+
+      {/* GPS Indicator - Top Left Corner */}
+      {gpsState && (
+        <div className="absolute top-4 left-4 z-10">
+          <GPSIndicator
+            isTracking={gpsState.isTracking}
+            accuracy={gpsState.accuracy}
+            error={gpsState.error}
+            showDetails={true}
+          />
+        </div>
+      )}
 
       {/* Status Indicator - Top Right Corner */}
       <div className="absolute top-4 right-4 z-10">
