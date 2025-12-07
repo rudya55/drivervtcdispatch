@@ -3,7 +3,7 @@ export const darkModeStyles = [
   { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
   { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
   { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
   { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
@@ -17,9 +17,8 @@ export const darkModeStyles = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
   { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
-  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
 ];
 
 export const lightModeStyles = [
-  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
 ];
