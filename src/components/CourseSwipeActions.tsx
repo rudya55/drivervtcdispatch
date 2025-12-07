@@ -53,6 +53,7 @@ type SwipeAction = {
 export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart = true, onViewDetails }: CourseSwipeActionsProps) => {
   const [swipeX, setSwipeX] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -60,6 +61,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const [showBonDeCommande, setShowBonDeCommande] = useState(false);
   const startX = useRef(0);
+  const startTime = useRef(0);
+  const lastX = useRef(0);
+  const lastTime = useRef(0);
+  const velocityRef = useRef(0);
   const sliderRef = useRef<HTMLDivElement>(null);
   const [sliderWidth, setSliderWidth] = useState(260);
   const { driver } = useAuth();
@@ -69,7 +74,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     const updateSliderWidth = () => {
       if (sliderRef.current) {
         const containerWidth = sliderRef.current.offsetWidth;
-        // Largeur disponible = largeur container - largeur knob (48px) - margins (8px)
+        // Largeur disponible = largeur container - largeur knob (56px)
         setSliderWidth(containerWidth - 56);
       }
     };
@@ -167,8 +172,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     { num: 5, label: 'Terminer', icon: CheckCircle }
   ];
 
-  const maxSwipeDistance = sliderWidth; // Distance dynamique basée sur la largeur de l'écran
-  const threshold = maxSwipeDistance * 0.75; // 75% de la distance
+  const maxSwipeDistance = sliderWidth;
+  const threshold = maxSwipeDistance * 0.55; // 55% de la distance - plus accessible
+  const velocityThreshold = 0.4; // pixels/ms - swipe rapide déclenche l'action
 
   // Parser les extras depuis les notes
   const parseExtras = (notes: string | null): string[] => {
@@ -190,53 +196,99 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const generalNotes = course.notes?.replace(/rehausseur|siège auto|siege auto|siège bébé|siege bebe|fauteuil roulant|animaux|animal/gi, '').trim() || '';
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (isAnimating) return;
+    const now = Date.now();
     startX.current = e.touches[0].clientX;
+    startTime.current = now;
+    lastX.current = e.touches[0].clientX;
+    lastTime.current = now;
+    velocityRef.current = 0;
     setSwipeX(0);
+    
+    // Légère vibration au démarrage
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!currentAction) return;
+    if (!currentAction || isAnimating) return;
     
     // Empêcher le scroll pendant le swipe
     e.preventDefault();
 
+    const now = Date.now();
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
+    
+    // Calcul de la vélocité (pixels/ms)
+    const timeDelta = now - lastTime.current;
+    if (timeDelta > 0) {
+      const distanceDelta = currentX - lastX.current;
+      velocityRef.current = distanceDelta / timeDelta;
+    }
+    lastX.current = currentX;
+    lastTime.current = now;
 
-    // Only allow right swipe
-    if (diff > 0 && diff < maxSwipeDistance) {
-      setSwipeX(diff);
-      if (diff > threshold) {
+    // Swipe vers la droite uniquement
+    if (diff >= 0) {
+      const clampedDiff = Math.min(diff, maxSwipeDistance);
+      setSwipeX(clampedDiff);
+      
+      // Vibration au passage du seuil
+      if (clampedDiff > threshold && !activeAction) {
         setActiveAction(currentAction.id);
-      } else {
+        if (navigator.vibrate) {
+          navigator.vibrate(30);
+        }
+      } else if (clampedDiff <= threshold && activeAction) {
         setActiveAction(null);
       }
     }
   };
 
   const handleTouchEnd = () => {
-    if (swipeX > threshold && currentAction) {
-      // Action triggered - vibration feedback if supported
+    if (isAnimating) return;
+    
+    // Validation par distance OU par vélocité rapide
+    const isDistanceValid = swipeX > threshold;
+    const isVelocityValid = velocityRef.current > velocityThreshold && swipeX > maxSwipeDistance * 0.25;
+    
+    if ((isDistanceValid || isVelocityValid) && currentAction) {
+      // Animation vers la fin
+      setIsAnimating(true);
+      setSwipeX(maxSwipeDistance);
+      
+      // Vibration forte de confirmation
       if (navigator.vibrate) {
-        navigator.vibrate(50);
+        navigator.vibrate([50, 30, 100]);
       }
       
-      if (currentAction.action === 'complete') {
-        setShowRatingModal(true);
-      } else {
-        const actionData: any = { 
-          course_id: course.id,
-          action: currentAction.action 
-        };
-        if (currentLocation) {
-          actionData.latitude = currentLocation.lat;
-          actionData.longitude = currentLocation.lng;
+      setTimeout(() => {
+        if (currentAction.action === 'complete') {
+          setShowRatingModal(true);
+        } else {
+          const actionData: any = { 
+            course_id: course.id,
+            action: currentAction.action 
+          };
+          if (currentLocation) {
+            actionData.latitude = currentLocation.lat;
+            actionData.longitude = currentLocation.lng;
+          }
+          onAction(currentAction.action, actionData);
         }
-        onAction(currentAction.action, actionData);
-      }
+        setSwipeX(0);
+        setActiveAction(null);
+        setIsAnimating(false);
+      }, 200);
+    } else {
+      // Retour élastique avec animation
+      setIsAnimating(true);
+      setSwipeX(0);
+      setActiveAction(null);
+      setTimeout(() => setIsAnimating(false), 300);
     }
-    setSwipeX(0);
-    setActiveAction(null);
   };
 
   const handleRatingSubmit = () => {
@@ -443,64 +495,79 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           )}
         </Card>
 
-        {/* Compact Swipe Slider - Toute la barre est touchable */}
+        {/* Compact Swipe Slider - Zone tactile agrandie */}
         <div 
           ref={sliderRef}
-          className="relative w-full h-14 rounded-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 shadow-lg select-none"
+          className={cn(
+            "relative w-full h-16 rounded-full overflow-hidden shadow-lg select-none",
+            "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400",
+            swipeX > threshold && "from-green-600 via-green-500 to-green-400"
+          )}
           style={{ 
             touchAction: 'none', 
             willChange: 'transform',
             userSelect: 'none',
-            WebkitUserSelect: 'none'
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            transition: 'background 0.2s ease'
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Knob draggable (cadenas) - TOUCHABLE */}
+          {/* Barre de progression visuelle */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 bg-white/20 pointer-events-none rounded-full"
+            style={{ 
+              width: `${Math.min((swipeX / maxSwipeDistance) * 100, 100)}%`,
+              transition: isAnimating ? 'width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none'
+            }}
+          />
+          
+          {/* Knob draggable - Zone tactile agrandie 56x56 */}
           <div 
             className={cn(
-              "absolute left-1 top-1 bottom-1 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md z-10",
-              swipeX > 0 && "scale-110"
+              "absolute left-1 top-1 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-xl z-10",
+              "border-2 border-white/50",
+              swipeX > 0 && "scale-105",
+              swipeX > threshold && "scale-110 shadow-2xl"
             )}
             style={{ 
               transform: `translateX(${swipeX}px)`,
-              transition: swipeX === 0 ? 'transform 0.3s ease-out, scale 0.2s ease' : 'scale 0.2s ease',
+              transition: isAnimating 
+                ? 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), scale 0.15s ease' 
+                : 'scale 0.15s ease',
               willChange: 'transform'
             }}
           >
             {swipeX > threshold ? (
-              <Unlock className="w-6 h-6 text-blue-600" />
+              <Unlock className="w-7 h-7 text-green-600" />
             ) : (
-              <Lock className="w-6 h-6 text-blue-600" />
+              <ChevronRight className="w-7 h-7 text-blue-600" />
             )}
           </div>
           
-          {/* Texte central */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {/* Texte central avec feedback visuel */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none pl-16">
             <span 
-              className="text-white font-bold text-sm uppercase tracking-wide transition-all"
-              style={{ 
-                opacity: swipeX > threshold ? 1 : 0.9,
-                transform: swipeX > threshold ? 'scale(1.05)' : 'scale(1)'
-              }}
+              className={cn(
+                "font-bold text-sm uppercase tracking-wider transition-all duration-200",
+                swipeX > threshold ? "text-white scale-105" : "text-white/90"
+              )}
             >
-              {swipeX > threshold ? '✓ RELÂCHEZ' : currentAction.label.toUpperCase()}
+              {swipeX > threshold ? '✓ RELÂCHEZ !' : `⟩⟩ ${currentAction.label.toUpperCase()}`}
             </span>
           </div>
           
-          {/* Flèches animées */}
-          <div className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none">
-            <ChevronRight className="w-5 h-5 text-white/40 animate-pulse" style={{ animationDelay: '0ms' }} />
-            <ChevronRight className="w-5 h-5 text-white/60 animate-pulse -ml-2" style={{ animationDelay: '150ms' }} />
-            <ChevronRight className="w-5 h-5 text-white animate-pulse -ml-2" style={{ animationDelay: '300ms' }} />
-          </div>
-          
-          {/* Barre de progression visuelle */}
+          {/* Flèches animées indicatives */}
           <div 
-            className="absolute left-0 top-0 bottom-0 bg-white/10 pointer-events-none transition-all"
-            style={{ width: `${(swipeX / maxSwipeDistance) * 100}%` }}
-          />
+            className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none"
+            style={{ opacity: swipeX > threshold ? 0 : 1, transition: 'opacity 0.2s' }}
+          >
+            <ChevronRight className="w-6 h-6 text-white/50 animate-pulse" style={{ animationDelay: '0ms' }} />
+            <ChevronRight className="w-6 h-6 text-white/70 animate-pulse -ml-3" style={{ animationDelay: '150ms' }} />
+            <ChevronRight className="w-6 h-6 text-white animate-pulse -ml-3" style={{ animationDelay: '300ms' }} />
+          </div>
         </div>
       </div>
 
