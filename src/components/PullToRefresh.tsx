@@ -30,7 +30,8 @@ export const PullToRefresh = ({
     const container = containerRef.current;
     if (!container || isRefreshing) return;
 
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    // Check if we're at the top of the page
+    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
     if (scrollTop === 0) {
       setCanPull(true);
       startY.current = e.touches[0].clientY;

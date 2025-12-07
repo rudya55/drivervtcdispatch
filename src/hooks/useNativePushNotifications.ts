@@ -110,15 +110,19 @@ export const useNativePushNotifications = (driverId: string | undefined, driver?
                 console.error('❌ [Native Push] Failed to accept course:', error);
               } else {
                 console.log('✅ [Native Push] Course accepted successfully');
-                // Navigate to bookings page
-                window.location.href = '/bookings';
+                // Trigger reload-courses event to refresh the course list
+                window.dispatchEvent(new CustomEvent('reload-courses'));
+                // Use pushState to navigate without full reload (compatible with React Router)
+                window.history.pushState({}, '', '/bookings');
+                window.dispatchEvent(new PopStateEvent('popstate'));
               }
             } catch (error) {
               console.error('❌ [Native Push] Exception accepting course:', error);
             }
           } else if (data?.course_id) {
-            // Regular tap - navigate to course details
-            window.location.href = `/course/${data.course_id}`;
+            // Regular tap - use pushState to navigate without full reload
+            window.history.pushState({}, '', `/course/${data.course_id}`);
+            window.dispatchEvent(new PopStateEvent('popstate'));
           }
         });
         

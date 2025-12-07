@@ -7,6 +7,9 @@ interface CourseCountdownProps {
   onUnlock?: () => void;
 }
 
+// Constant: courses can be started 1 hour before pickup time
+const UNLOCK_TIME_BEFORE_PICKUP_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
 /**
  * Component that displays a countdown timer until a course can be started.
  * A course can only be started 1 hour before the pickup time.
@@ -18,7 +21,7 @@ export const CourseCountdown = ({ pickupDate, onUnlock }: CourseCountdownProps) 
   useEffect(() => {
     const calculateTimeRemaining = () => {
       const pickupTime = new Date(pickupDate);
-      const canStartTime = new Date(pickupTime.getTime() - 60 * 60 * 1000); // 1 hour before
+      const canStartTime = new Date(pickupTime.getTime() - UNLOCK_TIME_BEFORE_PICKUP_MS);
       const now = new Date();
       const remaining = canStartTime.getTime() - now.getTime();
 
