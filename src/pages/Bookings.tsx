@@ -18,6 +18,7 @@ import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
 import { Info } from 'lucide-react';
 import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
+import { PullToRefresh } from '@/components/PullToRefresh';
 
 const Bookings = () => {
   const { driver } = useAuth();
@@ -525,93 +526,99 @@ const Bookings = () => {
           </TabsList>
 
           <TabsContent value="new" className="space-y-4 mt-4">
-            {newCourses.length === 0 ? (
-              <Card className="p-8 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <MapPin className="w-12 h-12 text-muted-foreground/30" />
-                  <p className="text-muted-foreground font-medium">Aucune nouvelle course disponible</p>
-                  <p className="text-xs text-muted-foreground">
-                    Les nouvelles courses apparaîtront ici dès leur publication
-                  </p>
-                </div>
-              </Card>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <p className="text-sm text-muted-foreground">
-                    {newCourses.length} course{newCourses.length > 1 ? 's' : ''} disponible{newCourses.length > 1 ? 's' : ''}
-                  </p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={fetchCourses}
-                  >
-                    🔄 Actualiser
-                  </Button>
-                </div>
-                {newCourses.map(course => (
-                  <CourseCard key={course.id} course={course} showActions />
-                ))}
-              </>
-            )}
+            <PullToRefresh onRefresh={fetchCourses}>
+              {newCourses.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <MapPin className="w-12 h-12 text-muted-foreground/30" />
+                    <p className="text-muted-foreground font-medium">Aucune nouvelle course disponible</p>
+                    <p className="text-xs text-muted-foreground">
+                      Les nouvelles courses apparaîtront ici dès leur publication
+                    </p>
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <p className="text-sm text-muted-foreground">
+                      {newCourses.length} course{newCourses.length > 1 ? 's' : ''} disponible{newCourses.length > 1 ? 's' : ''}
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={fetchCourses}
+                    >
+                      🔄 Actualiser
+                    </Button>
+                  </div>
+                  {newCourses.map(course => (
+                    <CourseCard key={course.id} course={course} showActions />
+                  ))}
+                </>
+              )}
+            </PullToRefresh>
           </TabsContent>
 
           <TabsContent value="active" className="space-y-4 mt-4">
-            {activeCourses.length === 0 ? (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground">Aucune course en cours</p>
-              </Card>
-            ) : (
-              activeCourses.map(course => (
-                <div key={course.id} className="space-y-3">
-                  {course.status === 'accepted' && (
-                    <CourseCountdown 
-                      pickupDate={course.pickup_date}
-                      onUnlock={handleCourseUnlock}
-                    />
-                  )}
+            <PullToRefresh onRefresh={fetchCourses}>
+              {activeCourses.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">Aucune course en cours</p>
+                </Card>
+              ) : (
+                activeCourses.map(course => (
+                  <div key={course.id} className="space-y-3">
+                    {course.status === 'accepted' && (
+                      <CourseCountdown 
+                        pickupDate={course.pickup_date}
+                        onUnlock={handleCourseUnlock}
+                      />
+                    )}
 
-                  <CourseSwipeActions
-                    course={course}
-                    onAction={handleCourseAction}
-                    currentLocation={currentLocation}
-                    canStart={canStartCourse(course.pickup_date)}
-                    onViewDetails={() => setSelectedCourse(course)}
-                  />
-                </div>
-              ))
-            )}
+                    <CourseSwipeActions
+                      course={course}
+                      onAction={handleCourseAction}
+                      currentLocation={currentLocation}
+                      canStart={canStartCourse(course.pickup_date)}
+                      onViewDetails={() => setSelectedCourse(course)}
+                    />
+                  </div>
+                ))
+              )}
+            </PullToRefresh>
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-4 mt-4">
-            {completedCourses.length === 0 ? (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground">Aucune course terminée</p>
-              </Card>
-            ) : (
-              completedCourses.map(course => (
-                <Card 
-                  key={course.id} 
-                  className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
-                  onClick={() => setSelectedCompletedCourse(course)}
-                >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">
-                        {extractCity(course.departure_location)} → {extractCity(course.destination_location)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {course.picked_up_at 
-                          ? new Date(course.picked_up_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : new Date(course.completed_at || course.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                        }
-                      </p>
-                    </div>
-                    <Badge className="bg-green-500">Terminée</Badge>
-                  </div>
+            <PullToRefresh onRefresh={fetchCourses}>
+              {completedCourses.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">Aucune course terminée</p>
                 </Card>
-              ))
-            )}
+              ) : (
+                completedCourses.map(course => (
+                  <Card 
+                    key={course.id} 
+                    className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
+                    onClick={() => setSelectedCompletedCourse(course)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">
+                          {extractCity(course.departure_location)} → {extractCity(course.destination_location)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {course.picked_up_at 
+                            ? new Date(course.picked_up_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : new Date(course.completed_at || course.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          }
+                        </p>
+                      </div>
+                      <Badge className="bg-green-500">Terminée</Badge>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </PullToRefresh>
           </TabsContent>
         </Tabs>
       </div>

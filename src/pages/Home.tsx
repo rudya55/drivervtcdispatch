@@ -15,6 +15,7 @@ import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { StatusToggle } from '@/components/StatusToggle';
 import { toast } from 'sonner';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import {
   MapPin,
   Clock,
@@ -294,41 +295,44 @@ const Home = () => {
             Mes courses {displayedCourses.length > 0 && `(${displayedCourses.length})`}
           </h2>
 
-          {isLoading ? (
-            <Card className="p-6">
-              <p className="text-center text-muted-foreground">Chargement...</p>
-            </Card>
-          ) : displayedCourses.length === 0 ? (
-            <Card className="p-6">
-              <p className="text-center text-muted-foreground">Aucune course</p>
-            </Card>
-          ) : (
-            displayedCourses.map((course) => {
-              // Show swipe actions for all active courses (any status beyond pending/dispatched)
-              if (activeStatuses.includes(course.status)) {
+          <PullToRefresh onRefresh={async () => {
+            await queryClient.invalidateQueries({ queryKey: ['courses', driver?.id] });
+          }}>
+            {isLoading ? (
+              <Card className="p-6">
+                <p className="text-center text-muted-foreground">Chargement...</p>
+              </Card>
+            ) : displayedCourses.length === 0 ? (
+              <Card className="p-6">
+                <p className="text-center text-muted-foreground">Aucune course</p>
+              </Card>
+            ) : (
+              displayedCourses.map((course) => {
+                // Show swipe actions for all active courses (any status beyond pending/dispatched)
+                if (activeStatuses.includes(course.status)) {
+                  return (
+                    <CourseSwipeActions
+                      key={course.id}
+                      course={course}
+                      currentLocation={locationState.coordinates}
+                      onAction={(action, data) => 
+                        courseActionMutation.mutate({ 
+                          courseId: course.id, 
+                          action,
+                          data
+                        })
+                      }
+                    />
+                  );
+                }
+                
+                // Show accept/refuse for pending courses
                 return (
-                  <CourseSwipeActions
-                    key={course.id}
-                    course={course}
-                    currentLocation={locationState.coordinates}
-                    onAction={(action, data) => 
-                      courseActionMutation.mutate({ 
-                        courseId: course.id, 
-                        action,
-                        data
-                      })
-                    }
-                  />
-                );
-              }
-              
-              // Show accept/refuse for pending courses
-              return (
-                <Card 
-                  key={course.id} 
-                  className="p-4 space-y-2 cursor-pointer hover:border-primary/50 transition-all"
-                  onClick={() => navigate('/bookings')}
-                >
+                  <Card 
+                    key={course.id} 
+                    className="p-4 space-y-2 cursor-pointer hover:border-primary/50 transition-all"
+                    onClick={() => navigate('/bookings')}
+                  >
                   {/* 1. Date/Heure */}
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-muted-foreground" />
@@ -425,6 +429,7 @@ const Home = () => {
               );
             })
           )}
+          </PullToRefresh>
         </div>
       </div>
 
