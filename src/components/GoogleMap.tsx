@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MapPin, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from 'next-themes';
 
 interface GoogleMapProps {
   center?: { lat: number; lng: number };
@@ -27,6 +28,32 @@ const getVehicleIconPath = (icon: string): string => {
   return paths[icon as keyof typeof paths] || paths.car;
 }
 
+const darkModeStyles = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+];
+
+const lightModeStyles = [
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+];
+
 const GoogleMap = ({
   center = { lat: 48.8566, lng: 2.3522 },
   zoom = 12,
@@ -42,6 +69,8 @@ const GoogleMap = ({
   const [mapError, setMapError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
 
   // Load Google Maps API key and script
   useEffect(() => {
@@ -121,13 +150,7 @@ const GoogleMap = ({
         mapInstanceRef.current = new google.maps.Map(mapRef.current, {
           center,
           zoom,
-          styles: [
-            {
-              featureType: 'poi',
-              elementType: 'labels',
-              stylers: [{ visibility: 'off' }],
-            },
-          ],
+          styles: isDarkMode ? darkModeStyles : lightModeStyles,
         });
         console.log('✅ Google Maps initialized successfully');
       }
@@ -195,6 +218,15 @@ const GoogleMap = ({
       setMapError(true);
     }
   }, [center, zoom, markers, driverMarker, routePoints, apiKeyLoaded]);
+
+  // Update map styles when theme changes
+  useEffect(() => {
+    if (mapInstanceRef.current && apiKeyLoaded) {
+      mapInstanceRef.current.setOptions({
+        styles: isDarkMode ? darkModeStyles : lightModeStyles,
+      });
+    }
+  }, [isDarkMode, apiKeyLoaded]);
 
   // Fallback map display when Google Maps is not available
   if (mapError) {
