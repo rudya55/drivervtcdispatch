@@ -6,6 +6,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Course unlock timing constant (1 hour before pickup in milliseconds)
+export const UNLOCK_TIME_BEFORE_PICKUP_MS = 60 * 60 * 1000;
+
+// Check if a course can be started (1h before pickup)
+export const canStartCourse = (pickupDate: string): boolean => {
+  const pickup = new Date(pickupDate);
+  const unlockTime = new Date(pickup.getTime() - UNLOCK_TIME_BEFORE_PICKUP_MS);
+  const now = new Date();
+  return now >= unlockTime;
+};
+
+// Format countdown time remaining in human-readable format
+export const formatCountdownTime = (timeRemaining: number): string => {
+  const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+  const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+  return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min ${seconds}s`;
+};
+
 export const translateCourseStatus = (status: string): string => {
   const translations: Record<string, string> = {
     'pending': 'En attente',

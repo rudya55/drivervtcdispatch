@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, UNLOCK_TIME_BEFORE_PICKUP_MS, formatCountdownTime } from '@/lib/utils';
 
 interface CourseSwipeActionsProps {
   course: Course;
@@ -78,7 +78,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
     const calculateTime = () => {
       const pickup = new Date(course.pickup_date);
-      const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
+      const unlockTime = new Date(pickup.getTime() - UNLOCK_TIME_BEFORE_PICKUP_MS);
       const now = new Date();
       const diff = unlockTime.getTime() - now.getTime();
       setTimeRemaining(Math.max(0, diff));
@@ -328,14 +328,26 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     setComment('');
   };
 
-  // Format countdown time
-  const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-  const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
-  const countdownText = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min ${seconds}s`;
+  // Format countdown time using utility function
+  const countdownText = formatCountdownTime(timeRemaining);
 
   // Show all info even when locked, but with countdown badge
   const isLocked = course.status === 'accepted' && !canStart;
+
+  // Get slider text based on state
+  const getSliderText = (): string => {
+    if (isLocked) return `🔒 VERROUILLÉ ${countdownText}`;
+    if (swipeX > threshold) return '✓ RELÂCHEZ !';
+    if (currentAction) return `⟩⟩ ${currentAction.label.toUpperCase()}`;
+    return '⟩⟩ DÉMARRER LA COURSE';
+  };
+
+  // Get slider text color class
+  const getSliderTextClass = (): string => {
+    if (isLocked) return "text-white/80";
+    if (swipeX > threshold) return "text-white scale-105";
+    return "text-white/90";
+  };
 
   return (
     <>
@@ -586,18 +598,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             <span 
               className={cn(
                 "font-bold text-sm uppercase tracking-wider transition-all duration-200",
-                isLocked 
-                  ? "text-white/80"
-                  : swipeX > threshold ? "text-white scale-105" : "text-white/90"
+                getSliderTextClass()
               )}
             >
-              {isLocked 
-                ? `🔒 VERROUILLÉ ${countdownText}`
-                : swipeX > threshold 
-                ? '✓ RELÂCHEZ !' 
-                : currentAction 
-                ? `⟩⟩ ${currentAction.label.toUpperCase()}`
-                : '⟩⟩ DÉMARRER LA COURSE'}
+              {getSliderText()}
             </span>
           </div>
           

@@ -28,7 +28,7 @@ import {
   Plane,
   Baby
 } from 'lucide-react';
-import { formatFullDate, formatParisAddress } from '@/lib/utils';
+import { formatFullDate, formatParisAddress, canStartCourse } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
@@ -189,14 +189,6 @@ const Home = () => {
       toast.error(error?.message || 'Erreur lors de la mise à jour de la course');
     },
   });
-
-  // Function to check if a course can be started (1h before pickup)
-  const canStartCourse = (pickupDate: string): boolean => {
-    const pickup = new Date(pickupDate);
-    const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
-    const now = new Date();
-    return now >= unlockTime;
-  };
 
   // Filter courses to display - Include ALL active statuses
   const today = new Date().toDateString();
