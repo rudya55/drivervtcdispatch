@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
+import { useTheme } from 'next-themes';
+import { darkModeStyles, lightModeStyles } from '@/lib/mapStyles';
 
 interface CourseDetailsModalProps {
   course: Course | null;
@@ -30,6 +32,8 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
   const mapInstanceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
   
   // Get driver's current location
   const locationState = useNativeGeolocation(open);
@@ -126,9 +130,7 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
         center: { lat: 48.8566, lng: 2.3522 },
         disableDefaultUI: true,
         zoomControl: true,
-        styles: [
-          { featureType: 'poi', stylers: [{ visibility: 'off' }] }
-        ]
+        styles: isDarkMode ? darkModeStyles : lightModeStyles
       });
       mapInstanceRef.current = map;
 
@@ -207,6 +209,15 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
       }
     };
   }, [open, course, session, locationState.coordinates]);
+
+  // Update map styles when theme changes
+  useEffect(() => {
+    if (mapInstanceRef.current && open) {
+      mapInstanceRef.current.setOptions({
+        styles: isDarkMode ? darkModeStyles : lightModeStyles,
+      });
+    }
+  }, [isDarkMode, open]);
 
   // Conditional return AFTER all hooks
   if (!course) return null;
