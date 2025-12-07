@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
+import { playHapticFeedback, HapticNotificationType } from '@/lib/notificationHaptics';
+import { playNotificationSound } from '@/lib/notificationSounds';
 
-export const useNativePushNotifications = (driverId: string | undefined) => {
+interface Driver {
+  notification_sound?: string;
+  notifications_enabled?: boolean;
+}
+
+export const useNativePushNotifications = (driverId: string | undefined, driver?: Driver) => {
   useEffect(() => {
     if (!driverId) return;
 
@@ -38,7 +44,6 @@ export const useNativePushNotifications = (driverId: string | undefined) => {
               console.error('❌ [Native Push] Erreur sauvegarde token:', error);
             } else {
               console.log('✅ [Native Push] Token sauvegardé en base de données');
-              toast.success('Notifications push activées');
             }
           } catch (error) {
             console.error('❌ [Native Push] Échec sauvegarde token:', error);
@@ -53,9 +58,30 @@ export const useNativePushNotifications = (driverId: string | undefined) => {
         // Handle incoming notifications when app is in foreground
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('📬 [Native Push] Notification reçue:', notification);
-          toast.success(notification.title || 'Notification', {
-            description: notification.body,
-          });
+          
+          // Déterminer le type de vibration selon le payload
+          const notificationType = notification.data?.type || 'default';
+          const hapticType: HapticNotificationType = 
+            notificationType === 'new_course' ? 'new_course' :
+            notificationType === 'chat_message' ? 'chat_message' :
+            notificationType === 'urgent' ? 'urgent_alert' :
+            notificationType === 'course_update' ? 'course_update' :
+            'default';
+          
+          // Jouer la vibration appropriée
+          playHapticFeedback(hapticType);
+          
+          // Jouer le son personnalisé si activé
+          if (driver?.notifications_enabled !== false) {
+            playNotificationSound(driver?.notification_sound || 'default');
+          }
+          
+          // Rafraîchir les données si nouvelle course
+          if (notificationType === 'new_course') {
+            window.dispatchEvent(new CustomEvent('reload-courses'));
+          }
+          
+          // PAS de toast - la notification native s'affiche dans la barre de notifications
         });
 
         // Handle notification taps
@@ -79,5 +105,5 @@ export const useNativePushNotifications = (driverId: string | undefined) => {
     return () => {
       PushNotifications.removeAllListeners();
     };
-  }, [driverId]);
+  }, [driverId, driver]);
 };
