@@ -279,6 +279,11 @@ const Home = () => {
               isUpdating={statusMutation.isPending}
               driverIcon={(driver?.vehicle_icon as 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv') || 'car'}
               driverHeading={locationState.heading || 0}
+              gpsState={{
+                isTracking: locationState.isTracking,
+                accuracy: locationState.accuracy,
+                error: locationState.error
+              }}
             />
           </div>
         </Card>
