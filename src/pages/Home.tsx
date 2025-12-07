@@ -16,6 +16,7 @@ import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { StatusToggle } from '@/components/StatusToggle';
 import { toast } from 'sonner';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { useHaptics } from '@/hooks/useHaptics';
 import {
   MapPin,
   Clock,
@@ -34,6 +35,7 @@ import { formatFullDate, formatParisAddress } from '@/lib/utils';
 const Home = () => {
   const { driver, session } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null, driver);
+  const { success, mediumImpact, heavyImpact } = useHaptics();
   const [isActive, setIsActive] = useState(driver?.status === 'active');
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -109,6 +111,9 @@ const Home = () => {
   // Update driver status
   const statusMutation = useMutation({
     mutationFn: async (status: 'active' | 'inactive') => {
+      // Haptic feedback on status change
+      heavyImpact();
+      
       const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
       const { data, error } = await supabase.functions.invoke('driver-update-status', {
         body: { status },
@@ -151,6 +156,7 @@ const Home = () => {
       }
     },
     onSuccess: (_, status) => {
+      success(); // Success haptic feedback
       setIsActive(status === 'active');
       toast.success(status === 'active' ? 'Vous êtes maintenant actif' : 'Vous êtes maintenant inactif');
       queryClient.invalidateQueries({ queryKey: ['courses'] });
@@ -164,6 +170,13 @@ const Home = () => {
   // Accept/refuse/update course
   const courseActionMutation = useMutation({
     mutationFn: async ({ courseId, action, data }: { courseId: string; action: string; data?: any }) => {
+      // Haptic feedback based on action
+      if (action === 'accept' || action === 'start' || action === 'complete') {
+        heavyImpact(); // Strong haptic for important actions
+      } else {
+        mediumImpact(); // Medium haptic for other actions
+      }
+      
       const { error } = await supabase.functions.invoke('driver-update-course-status', {
         body: { 
           course_id: courseId, 
@@ -174,6 +187,7 @@ const Home = () => {
       if (error) throw error;
     },
     onSuccess: (_, { action }) => {
+      success(); // Success haptic feedback
       const messages: Record<string, string> = {
         accept: 'Course acceptée',
         refuse: 'Course refusée',

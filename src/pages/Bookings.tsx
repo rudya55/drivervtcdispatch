@@ -19,10 +19,12 @@ import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
 import { Info } from 'lucide-react';
 import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const Bookings = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null, driver);
+  const { success, mediumImpact, heavyImpact } = useHaptics();
   const [loading, setLoading] = useState(false);
   const [newCourses, setNewCourses] = useState<Course[]>([]);
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);
@@ -211,6 +213,7 @@ const Bookings = () => {
     if (!driver) return;
 
     setProcessing(courseId);
+    mediumImpact(); // Haptic feedback on button press
     try {
       const { error } = await supabase.functions.invoke('driver-update-course-status', {
         body: { course_id: courseId, action: 'accept' }
@@ -218,6 +221,7 @@ const Bookings = () => {
 
       if (error) throw error;
 
+      success(); // Success haptic feedback
       toast.success('Course acceptée !');
       fetchCourses();
     } catch (error: any) {
@@ -230,6 +234,7 @@ const Bookings = () => {
 
   const handleRefuseCourse = async (courseId: string) => {
     setProcessing(courseId);
+    mediumImpact(); // Haptic feedback on button press
     try {
       const { error } = await supabase.functions.invoke('driver-update-course-status', {
         body: { course_id: courseId, action: 'refuse' }
@@ -249,11 +254,13 @@ const Bookings = () => {
 
   const handleStartCourse = async (courseId: string) => {
     setProcessing(courseId);
+    heavyImpact(); // Strong haptic for important action
     try {
       const { error } = await supabase.functions.invoke('driver-update-course-status', {
         body: { course_id: courseId, action: 'start' }
       });
       if (error) throw error;
+      success(); // Success haptic feedback
       toast.success('Course démarrée');
       fetchCourses();
     } catch (error: any) {
@@ -266,6 +273,7 @@ const Bookings = () => {
 
   const handleCompleteCourse = async (courseId: string) => {
     setProcessing(courseId);
+    heavyImpact(); // Strong haptic for important action
     try {
       const { error } = await supabase.functions.invoke('driver-update-course-status', {
         body: { course_id: courseId, action: 'complete' }
@@ -282,6 +290,7 @@ const Bookings = () => {
         setSelectedCourse(completedCourse);
       }
       
+      success(); // Success haptic feedback
       toast.success('Course terminée !');
       fetchCourses();
     } catch (error: any) {
@@ -299,6 +308,13 @@ const Bookings = () => {
     if (!courseId) return;
 
     setProcessing(courseId);
+    // Haptic feedback based on action importance
+    if (action === 'start' || action === 'complete') {
+      heavyImpact(); // Strong haptic for major actions
+    } else {
+      mediumImpact(); // Medium haptic for status changes
+    }
+    
     try {
       console.log(`📤 Action: ${action}`, data);
 
@@ -324,6 +340,8 @@ const Bookings = () => {
 
       if (error) throw error;
 
+      success(); // Success haptic feedback
+      
       const successMessages: Record<string, string> = {
         start: '🚗 Course démarrée !',
         arrived: '📍 Arrivée confirmée !',

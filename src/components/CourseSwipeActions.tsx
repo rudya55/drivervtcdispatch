@@ -32,6 +32,7 @@ import {
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface CourseSwipeActionsProps {
   course: Course;
@@ -68,6 +69,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const sliderRef = useRef<HTMLDivElement>(null);
   const [sliderWidth, setSliderWidth] = useState(260);
   const { driver } = useAuth();
+  const { lightImpact, mediumImpact, heavyImpact } = useHaptics();
 
   // Calculer la largeur dynamique du slider
   useEffect(() => {
@@ -205,10 +207,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     velocityRef.current = 0;
     setSwipeX(0);
     
-    // Légère vibration au démarrage
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
-    }
+    // Light haptic feedback on swipe start
+    lightImpact();
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -235,12 +235,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       const clampedDiff = Math.min(diff, maxSwipeDistance);
       setSwipeX(clampedDiff);
       
-      // Vibration au passage du seuil
+      // Medium haptic feedback when crossing threshold
       if (clampedDiff > threshold && !activeAction) {
         setActiveAction(currentAction.id);
-        if (navigator.vibrate) {
-          navigator.vibrate(30);
-        }
+        mediumImpact();
       } else if (clampedDiff <= threshold && activeAction) {
         setActiveAction(null);
       }
@@ -259,10 +257,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       setIsAnimating(true);
       setSwipeX(maxSwipeDistance);
       
-      // Vibration forte de confirmation
-      if (navigator.vibrate) {
-        navigator.vibrate([50, 30, 100]);
-      }
+      // Strong haptic feedback on confirmation
+      heavyImpact();
       
       setTimeout(() => {
         if (currentAction.action === 'complete') {
