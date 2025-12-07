@@ -15,7 +15,7 @@ const Notifications = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background pb-6 pt-16">
+    <div className="min-h-screen bg-background pb-6 pt-14 md:pt-16">
       <header className="fixed top-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-card border-b border-border z-40">
         <div className="flex items-center justify-between h-16 px-4 max-w-lg mx-auto">
           <Button
