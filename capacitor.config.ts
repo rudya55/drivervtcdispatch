@@ -23,8 +23,10 @@ const config: CapacitorConfig = {
     },
   },
   android: {
-    // Keep app alive in background
     backgroundColor: '#1a1f2e',
+    allowMixedContent: true,
+    // Support foldable devices like Pixel Fold
+    webContentsDebuggingEnabled: false,
   },
 };
 
