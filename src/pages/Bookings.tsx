@@ -563,22 +563,14 @@ const Bookings = () => {
               </Card>
             ) : (
               activeCourses.map(course => (
-                <div key={course.id} className="space-y-3">
-                  {course.status === 'accepted' && (
-                    <CourseTimer 
-                      pickupDate={course.pickup_date}
-                      onUnlock={handleCourseUnlock}
-                    />
-                  )}
-
-                  <CourseSwipeActions
-                    course={course}
-                    onAction={handleCourseAction}
-                    currentLocation={currentLocation}
-                    canStart={canStartCourse(course.pickup_date)}
-                    onViewDetails={() => setSelectedCourse(course)}
-                  />
-                </div>
+                <CourseSwipeActions
+                  key={course.id}
+                  course={course}
+                  onAction={handleCourseAction}
+                  currentLocation={currentLocation}
+                  canStart={canStartCourse(course.pickup_date)}
+                  onViewDetails={() => setSelectedCourse(course)}
+                />
               ))
             )}
           </TabsContent>

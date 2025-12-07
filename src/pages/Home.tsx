@@ -190,6 +190,14 @@ const Home = () => {
     },
   });
 
+  // Function to check if a course can be started (1h before pickup)
+  const canStartCourse = (pickupDate: string): boolean => {
+    const pickup = new Date(pickupDate);
+    const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
+    const now = new Date();
+    return now >= unlockTime;
+  };
+
   // Filter courses to display - Include ALL active statuses
   const today = new Date().toDateString();
   const pendingCourses = courses.filter(c => c.status === 'pending' || c.status === 'dispatched');
@@ -311,6 +319,7 @@ const Home = () => {
                     key={course.id}
                     course={course}
                     currentLocation={locationState.coordinates}
+                    canStart={canStartCourse(course.pickup_date)}
                     onAction={(action, data) => 
                       courseActionMutation.mutate({ 
                         courseId: course.id, 
