@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
-import { CourseTimer } from '@/components/CourseTimer';
+import { CourseCountdown } from '@/components/CourseCountdown';
 import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { SignBoardModal } from '@/components/SignBoardModal';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
@@ -361,7 +361,7 @@ const Bookings = () => {
       <Card className="p-4 space-y-2">
         {showTimer && (
           <div className="flex justify-center mb-2">
-            <CourseTimer 
+            <CourseCountdown 
               pickupDate={course.pickup_date}
               onUnlock={handleCourseUnlock}
             />
@@ -565,7 +565,7 @@ const Bookings = () => {
               activeCourses.map(course => (
                 <div key={course.id} className="space-y-3">
                   {course.status === 'accepted' && (
-                    <CourseTimer 
+                    <CourseCountdown 
                       pickupDate={course.pickup_date}
                       onUnlock={handleCourseUnlock}
                     />
