@@ -4,6 +4,8 @@ import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
+import { GPSIndicator } from './GPSIndicator';
+import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
 
 interface HeaderProps {
   title: string;
@@ -14,6 +16,7 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
   const { driver } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const gpsState = useBackgroundGeolocation(true);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -28,7 +31,17 @@ export const Header = ({ title, unreadCount = 0 }: HeaderProps) => {
       }}
     >
       <div className="flex items-center justify-between h-16 px-4 max-w-lg mx-auto">
-        <h1 className="text-xl font-bold text-foreground flex-1 text-center pl-12">{title}</h1>
+        {/* GPS Indicator - Left */}
+        <div className="flex-shrink-0">
+          <GPSIndicator 
+            isTracking={gpsState.isTracking}
+            accuracy={gpsState.accuracy}
+            error={gpsState.error}
+            showDetails={false}
+          />
+        </div>
+
+        <h1 className="text-xl font-bold text-foreground flex-1 text-center">{title}</h1>
 
         <div className="flex items-center gap-2">
           <Button
