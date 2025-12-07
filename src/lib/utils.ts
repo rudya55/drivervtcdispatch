@@ -22,7 +22,11 @@ export const formatCountdownTime = (timeRemaining: number): string => {
   const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
   const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
-  return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min ${seconds}s`;
+  
+  // Show seconds only when less than 1 minute remains
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  if (minutes > 0) return `${minutes}min`;
+  return `${seconds}s`;
 };
 
 export const translateCourseStatus = (status: string): string => {

@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Course } from '@/lib/supabase';
 import { GPSSelector } from '@/components/GPSSelector';
 import { BonDeCommandeModal } from '@/components/BonDeCommandeModal';
-import { CourseTimer } from '@/components/CourseTimer';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import {
@@ -357,7 +356,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           <div className="flex justify-center">
             <Badge variant="secondary" className="bg-warning/20 text-warning border-warning/30 text-base px-4 py-2">
               <Timer className="w-4 h-4 mr-2" />
-              ⏱️ Déblocage dans {countdownText}
+              Déblocage dans {countdownText}
             </Badge>
           </div>
         )}
