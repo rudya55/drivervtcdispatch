@@ -108,6 +108,8 @@ All colors MUST be HSL.
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   body {
@@ -124,6 +126,21 @@ All colors MUST be HSL.
   .dark .font-bold {
     font-weight: 700;
   }
+}
+
+/* Foldable device support - larger touch targets */
+@media (min-width: 600px) and (max-width: 900px) {
+  button, [role="button"], .touchable {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* Swipe slider touch optimization */
+.swipe-slider {
+  touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 @layer utilities {

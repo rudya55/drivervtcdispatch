@@ -33,11 +33,12 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:resizeableActivity="true"
             android:exported="true">
 
             <intent-filter>
@@ -48,6 +49,11 @@
             <meta-data
                 android:name="android.max_aspect"
                 android:value="2.4" />
+                
+            <!-- Support foldable devices -->
+            <meta-data
+                android:name="android.supports_size_changes"
+                android:value="true" />
         </activity>
 
         <provider
