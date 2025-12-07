@@ -128,11 +128,21 @@ All colors MUST be HSL.
   }
 }
 
-/* Foldable device support - larger touch targets */
+/* Foldable device support - larger touch targets and adjusted spacing */
 @media (min-width: 600px) and (max-width: 900px) {
   button, [role="button"], .touchable {
     min-height: 48px;
     min-width: 48px;
+  }
+  
+  /* Adjust padding for foldable screens to reduce excessive white space */
+  .pt-16 {
+    padding-top: 3.5rem !important; /* Reduced from 4rem */
+  }
+  
+  /* Ensure proper spacing with safe areas on foldable devices */
+  .min-h-screen {
+    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 }
 

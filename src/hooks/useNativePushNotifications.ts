@@ -84,13 +84,45 @@ export const useNativePushNotifications = (driverId: string | undefined, driver?
           // PAS de toast - la notification native s'affiche dans la barre de notifications
         });
 
-        // Handle notification taps
-        await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+        // Handle notification taps and actions
+        // Note: For actionable notifications to work, the backend must send notifications
+        // with actions configured in the FCM payload:
+        // {
+        //   notification: { ... },
+        //   android: {
+        //     actions: [{ action: 'accept_course', title: 'Accepter' }]
+        //   }
+        // }
+        await PushNotifications.addListener('pushNotificationActionPerformed', async (notification) => {
           console.log('👆 [Native Push] Action sur notification:', notification);
           const data = notification.notification.data;
+          const actionId = notification.actionId;
           
-          if (data?.course_id) {
-            window.location.href = `/course/${data.course_id}`;
+          // Handle quick accept action from notification
+          if (actionId === 'accept_course' && data?.course_id) {
+            console.log('✅ [Native Push] Quick accept course:', data.course_id);
+            try {
+              const { error } = await supabase.functions.invoke('driver-update-course-status', {
+                body: { course_id: data.course_id, action: 'accept' }
+              });
+              
+              if (error) {
+                console.error('❌ [Native Push] Failed to accept course:', error);
+              } else {
+                console.log('✅ [Native Push] Course accepted successfully');
+                // Trigger reload-courses event to refresh the course list
+                window.dispatchEvent(new CustomEvent('reload-courses'));
+                // Use pushState to navigate without full reload (compatible with React Router)
+                window.history.pushState({}, '', '/bookings');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
+            } catch (error) {
+              console.error('❌ [Native Push] Exception accepting course:', error);
+            }
+          } else if (data?.course_id) {
+            // Regular tap - use pushState to navigate without full reload
+            window.history.pushState({}, '', `/course/${data.course_id}`);
+            window.dispatchEvent(new PopStateEvent('popstate'));
           }
         });
         

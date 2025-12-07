@@ -8,14 +8,21 @@ import { ArrowLeft, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { PullToRefresh } from '@/components/PullToRefresh';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Notifications = () => {
   const { driver } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(driver?.id || null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['notifications', driver?.id] });
+  };
 
   return (
-    <div className="min-h-screen bg-background pb-6 pt-16">
+    <div className="min-h-screen bg-background pb-6 pt-14 md:pt-16">
       <header className="fixed top-0 w-full max-w-lg left-1/2 -translate-x-1/2 bg-card border-b border-border z-40">
         <div className="flex items-center justify-between h-16 px-4 max-w-lg mx-auto">
           <Button
@@ -42,40 +49,44 @@ const Notifications = () => {
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto p-4 space-y-2">
-        {notifications.length === 0 ? (
-          <Card className="p-6">
-            <p className="text-center text-muted-foreground">
-              Aucune notification
-            </p>
-          </Card>
-        ) : (
-          notifications.map((notification) => (
-            <Card
-              key={notification.id}
-              className={`p-4 cursor-pointer transition-colors ${!notification.read ? 'bg-primary/5' : ''
-                }`}
-              onClick={() => !notification.read && markAsRead(notification.id)}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{notification.title}</h3>
-                    {!notification.read && (
-                      <Badge variant="default" className="h-2 w-2 p-0 rounded-full" />
-                    )}
+      <div className="max-w-lg mx-auto p-4">
+        <PullToRefresh onRefresh={handleRefresh}>
+          <div className="space-y-2">
+            {notifications.length === 0 ? (
+              <Card className="p-6">
+                <p className="text-center text-muted-foreground">
+                  Aucune notification
+                </p>
+              </Card>
+            ) : (
+              notifications.map((notification) => (
+                <Card
+                  key={notification.id}
+                  className={`p-4 cursor-pointer transition-colors ${!notification.read ? 'bg-primary/5' : ''
+                    }`}
+                  onClick={() => !notification.read && markAsRead(notification.id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{notification.title}</h3>
+                        {!notification.read && (
+                          <Badge variant="default" className="h-2 w-2 p-0 rounded-full" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {notification.message}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(notification.created_at), 'PPp', { locale: fr })}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {notification.message}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(notification.created_at), 'PPp', { locale: fr })}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))
-        )}
+                </Card>
+              ))
+            )}
+          </div>
+        </PullToRefresh>
       </div>
     </div>
   );
