@@ -28,7 +28,7 @@ import {
   Plane,
   Baby
 } from 'lucide-react';
-import { formatFullDate, formatParisAddress } from '@/lib/utils';
+import { formatFullDate, formatParisAddress, canStartCourse } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
@@ -311,6 +311,7 @@ const Home = () => {
                     key={course.id}
                     course={course}
                     currentLocation={locationState.coordinates}
+                    canStart={canStartCourse(course.pickup_date)}
                     onAction={(action, data) => 
                       courseActionMutation.mutate({ 
                         courseId: course.id, 

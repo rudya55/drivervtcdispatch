@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
-import { translateCourseStatus, extractCity, formatFullDate, formatParisAddress } from '@/lib/utils';
+import { translateCourseStatus, extractCity, formatFullDate, formatParisAddress, canStartCourse } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -69,14 +69,6 @@ const Bookings = () => {
       );
     }
   }, []);
-
-  // Fonction pour vérifier si une course peut être démarrée (1h avant pickup)
-  const canStartCourse = (pickupDate: string): boolean => {
-    const pickup = new Date(pickupDate);
-    const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
-    const now = new Date();
-    return now >= unlockTime;
-  };
 
   // Mémoriser la callback onUnlock pour éviter les re-renders
   const handleCourseUnlock = useCallback(() => {
@@ -563,22 +555,14 @@ const Bookings = () => {
               </Card>
             ) : (
               activeCourses.map(course => (
-                <div key={course.id} className="space-y-3">
-                  {course.status === 'accepted' && (
-                    <CourseTimer 
-                      pickupDate={course.pickup_date}
-                      onUnlock={handleCourseUnlock}
-                    />
-                  )}
-
-                  <CourseSwipeActions
-                    course={course}
-                    onAction={handleCourseAction}
-                    currentLocation={currentLocation}
-                    canStart={canStartCourse(course.pickup_date)}
-                    onViewDetails={() => setSelectedCourse(course)}
-                  />
-                </div>
+                <CourseSwipeActions
+                  key={course.id}
+                  course={course}
+                  onAction={handleCourseAction}
+                  currentLocation={currentLocation}
+                  canStart={canStartCourse(course.pickup_date)}
+                  onViewDetails={() => setSelectedCourse(course)}
+                />
               ))
             )}
           </TabsContent>

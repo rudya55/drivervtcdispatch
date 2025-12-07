@@ -27,11 +27,12 @@ import {
   Plane,
   FileText,
   Car,
-  Baby
+  Baby,
+  Timer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, UNLOCK_TIME_BEFORE_PICKUP_MS, formatCountdownTime } from '@/lib/utils';
 
 interface CourseSwipeActionsProps {
   course: Course;
@@ -60,6 +61,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const [showBonDeCommande, setShowBonDeCommande] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const startX = useRef(0);
   const startTime = useRef(0);
   const lastX = useRef(0);
@@ -68,6 +70,23 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const sliderRef = useRef<HTMLDivElement>(null);
   const [sliderWidth, setSliderWidth] = useState(260);
   const { driver } = useAuth();
+
+  // Calculate countdown for locked courses
+  useEffect(() => {
+    if (course.status !== 'accepted' || canStart) return;
+
+    const calculateTime = () => {
+      const pickup = new Date(course.pickup_date);
+      const unlockTime = new Date(pickup.getTime() - UNLOCK_TIME_BEFORE_PICKUP_MS);
+      const now = new Date();
+      const diff = unlockTime.getTime() - now.getTime();
+      setTimeRemaining(Math.max(0, diff));
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [course.pickup_date, course.status, canStart]);
 
   // Calculer la largeur dynamique du slider
   useEffect(() => {
@@ -196,7 +215,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const generalNotes = course.notes?.replace(/rehausseur|siège auto|siege auto|siège bébé|siege bebe|fauteuil roulant|animaux|animal/gi, '').trim() || '';
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isAnimating) return;
+    if (isAnimating || !canStart) return;
     const now = Date.now();
     startX.current = e.touches[0].clientX;
     startTime.current = now;
@@ -212,7 +231,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!currentAction || isAnimating) return;
+    if (!currentAction || isAnimating || !canStart) return;
     
     // Empêcher le scroll pendant le swipe
     e.preventDefault();
@@ -248,7 +267,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleTouchEnd = () => {
-    if (isAnimating) return;
+    if (isAnimating || !canStart) return;
     
     // Validation par distance OU par vélocité rapide
     const isDistanceValid = swipeX > threshold;
@@ -308,29 +327,41 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     setComment('');
   };
 
-  if (!currentAction) {
-    return (
-      <Card className="p-6 bg-warning/10 border-warning/30">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Lock className="w-10 h-10 text-warning" />
-          <div>
-            <p className="font-semibold text-lg">🔒 Course verrouillée</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Vous pourrez démarrer cette course 1h avant l'heure de prise en charge
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-full">
-            Glissez de gauche à droite pour progresser dans les étapes
-          </div>
-        </div>
-      </Card>
-    );
-  }
+  // Format countdown time using utility function
+  const countdownText = formatCountdownTime(timeRemaining);
+
+  // Show all info even when locked, but with countdown badge
+  const isLocked = course.status === 'accepted' && !canStart;
+
+  // Get slider text based on state
+  const getSliderText = (): string => {
+    if (isLocked) return `🔒 VERROUILLÉ ${countdownText}`;
+    if (swipeX > threshold) return '✓ RELÂCHEZ !';
+    if (currentAction) return `⟩⟩ ${currentAction.label.toUpperCase()}`;
+    return '⟩⟩ DÉMARRER LA COURSE';
+  };
+
+  // Get slider text color class
+  const getSliderTextClass = (): string => {
+    if (isLocked) return "text-white/80";
+    if (swipeX > threshold) return "text-white scale-105";
+    return "text-white/90";
+  };
 
   return (
     <>
       <div className="space-y-4">
-        {/* Progress Indicator - 5 Steps */}
+        {/* Countdown Timer Badge - shown when locked */}
+        {isLocked && (
+          <div className="flex justify-center">
+            <Badge variant="secondary" className="bg-warning/20 text-warning border-warning/30 text-base px-4 py-2">
+              <Timer className="w-4 h-4 mr-2" />
+              Déblocage dans {countdownText}
+            </Badge>
+          </div>
+        )}
+
+        {/* Progress Indicator - 5 Steps (grayed when locked) */}
         <div className="px-2">
           <div className="flex items-center justify-between relative">
             {steps.map((step) => (
@@ -338,7 +369,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
                 <div
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
-                    step.num < currentStep
+                    isLocked
+                      ? "bg-muted/50 border-muted-foreground/20"
+                      : step.num < currentStep
                       ? "bg-success border-success"
                       : step.num === currentStep
                       ? "bg-primary border-primary scale-110 shadow-lg"
@@ -348,14 +381,18 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
                   <step.icon
                     className={cn(
                       "w-5 h-5",
-                      step.num <= currentStep ? "text-white" : "text-muted-foreground"
+                      isLocked
+                        ? "text-muted-foreground/50"
+                        : step.num <= currentStep ? "text-white" : "text-muted-foreground"
                     )}
                   />
                 </div>
                 <span
                   className={cn(
                     "text-[10px] mt-1 font-medium",
-                    step.num === currentStep ? "text-primary" : "text-muted-foreground"
+                    isLocked
+                      ? "text-muted-foreground/50"
+                      : step.num === currentStep ? "text-primary" : "text-muted-foreground"
                   )}
                 >
                   {step.label}
@@ -365,7 +402,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             {/* Connecting lines */}
             <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted-foreground/20 -z-0" />
             <div
-              className="absolute top-5 left-0 h-0.5 bg-success transition-all duration-500 -z-0"
+              className={cn(
+                "absolute top-5 left-0 h-0.5 transition-all duration-500 -z-0",
+                isLocked ? "bg-muted-foreground/20" : "bg-success"
+              )}
               style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
             />
           </div>
@@ -500,8 +540,11 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           ref={sliderRef}
           className={cn(
             "relative w-full h-16 rounded-full overflow-hidden shadow-lg select-none",
-            "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400",
-            swipeX > threshold && "from-green-600 via-green-500 to-green-400"
+            isLocked
+              ? "bg-gradient-to-r from-gray-400 via-gray-400 to-gray-400 opacity-70"
+              : swipeX > threshold
+              ? "bg-gradient-to-r from-green-600 via-green-500 to-green-400"
+              : "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400"
           )}
           style={{ 
             touchAction: 'none', 
@@ -529,8 +572,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             className={cn(
               "absolute left-1 top-1 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-xl z-10",
               "border-2 border-white/50",
-              swipeX > 0 && "scale-105",
-              swipeX > threshold && "scale-110 shadow-2xl"
+              !isLocked && swipeX > 0 && "scale-105",
+              !isLocked && swipeX > threshold && "scale-110 shadow-2xl"
             )}
             style={{ 
               transform: `translateX(${swipeX}px)`,
@@ -540,7 +583,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
               willChange: 'transform'
             }}
           >
-            {swipeX > threshold ? (
+            {isLocked ? (
+              <Lock className="w-7 h-7 text-gray-500" />
+            ) : swipeX > threshold ? (
               <Unlock className="w-7 h-7 text-green-600" />
             ) : (
               <ChevronRight className="w-7 h-7 text-blue-600" />
@@ -552,22 +597,24 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             <span 
               className={cn(
                 "font-bold text-sm uppercase tracking-wider transition-all duration-200",
-                swipeX > threshold ? "text-white scale-105" : "text-white/90"
+                getSliderTextClass()
               )}
             >
-              {swipeX > threshold ? '✓ RELÂCHEZ !' : `⟩⟩ ${currentAction.label.toUpperCase()}`}
+              {getSliderText()}
             </span>
           </div>
           
-          {/* Flèches animées indicatives */}
-          <div 
-            className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none"
-            style={{ opacity: swipeX > threshold ? 0 : 1, transition: 'opacity 0.2s' }}
-          >
-            <ChevronRight className="w-6 h-6 text-white/50 animate-pulse" style={{ animationDelay: '0ms' }} />
-            <ChevronRight className="w-6 h-6 text-white/70 animate-pulse -ml-3" style={{ animationDelay: '150ms' }} />
-            <ChevronRight className="w-6 h-6 text-white animate-pulse -ml-3" style={{ animationDelay: '300ms' }} />
-          </div>
+          {/* Flèches animées indicatives - hidden when locked */}
+          {!isLocked && (
+            <div 
+              className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none"
+              style={{ opacity: swipeX > threshold ? 0 : 1, transition: 'opacity 0.2s' }}
+            >
+              <ChevronRight className="w-6 h-6 text-white/50 animate-pulse" style={{ animationDelay: '0ms' }} />
+              <ChevronRight className="w-6 h-6 text-white/70 animate-pulse -ml-3" style={{ animationDelay: '150ms' }} />
+              <ChevronRight className="w-6 h-6 text-white animate-pulse -ml-3" style={{ animationDelay: '300ms' }} />
+            </div>
+          )}
         </div>
       </div>
 
