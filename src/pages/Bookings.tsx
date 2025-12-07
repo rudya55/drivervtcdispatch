@@ -17,7 +17,7 @@ import { SignBoardModal } from '@/components/SignBoardModal';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { CompletedCourseDetails } from '@/components/CompletedCourseDetails';
 import { Info } from 'lucide-react';
-import { useNativeGeolocation } from '@/hooks/useNativeGeolocation';
+import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
 
 const Bookings = () => {
   const { driver } = useAuth();
@@ -36,7 +36,7 @@ const Bookings = () => {
   const activeCoursesList = newCourses.filter(c => 
     c.status === 'accepted' || c.status === 'in_progress'
   ).concat(activeCourses);
-  const gpsState = useNativeGeolocation(activeCoursesList.length > 0);
+  const gpsState = useBackgroundGeolocation(activeCoursesList.length > 0);
 
   // Mettre à jour la position en temps réel
   useEffect(() => {

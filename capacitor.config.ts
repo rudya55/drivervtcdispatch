@@ -18,6 +18,13 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
+    BackgroundGeolocation: {
+      // Configuration for persistent background location tracking
+    },
+  },
+  android: {
+    // Keep app alive in background
+    backgroundColor: '#1a1f2e',
   },
 };
 
