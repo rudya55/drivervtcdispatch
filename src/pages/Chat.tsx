@@ -84,8 +84,8 @@ export default function Chat() {
 
     try {
       // Try Edge Function first
-      const { data, error } = await supabase.functions.invoke('driver-chat', {
-        body: { action: 'load', course_id: courseId }
+      const { data, error } = await supabase.functions.invoke('chat-messages', {
+        body: { action: 'get_messages', course_id: courseId }
       });
 
       if (error) throw error;
@@ -143,11 +143,12 @@ export default function Chat() {
     setNewMessage('');
 
     try {
-      const { data, error } = await supabase.functions.invoke('driver-chat', {
+      const { data, error } = await supabase.functions.invoke('chat-messages', {
         body: {
-          action: 'send',
+          action: 'send_message',
           course_id: courseId,
-          message: messageContent
+          driver_id: driver.id,
+          content: messageContent
         }
       });
 
