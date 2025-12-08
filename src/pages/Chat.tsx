@@ -6,7 +6,7 @@ import { Header } from '@/components/Header';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Send, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -78,20 +78,6 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Mark messages as read via Edge Function
-  useEffect(() => {
-    if (!courseId || !driver || messages.length === 0) return;
-    
-    const unreadMessages = messages.filter(
-      m => m.sender_role !== 'driver' && !m.read_by_driver
-    );
-    
-    if (unreadMessages.length > 0) {
-      supabase.functions.invoke('driver-chat', {
-        body: { action: 'mark_read', course_id: courseId }
-      }).catch(err => console.error('Error marking as read:', err));
-    }
-  }, [messages, courseId, driver]);
 
   const fetchMessages = async () => {
     if (!courseId) return;
@@ -255,7 +241,7 @@ export default function Chat() {
           onClick={() => navigate('/bookings')}
           className="h-10 w-10"
         >
-          <span className="text-2xl font-light">×</span>
+          <X className="w-6 h-6" />
         </Button>
       </div>
 
