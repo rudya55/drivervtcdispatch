@@ -239,12 +239,12 @@ export function DriverChatScreen({ open, onOpenChange, courseId, clientName }: D
               )}
             </div>
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="h-8 w-8 rounded-full hover:bg-destructive/10"
+              className="h-10 w-10 rounded-full border-2 border-muted-foreground/30 hover:bg-destructive/10 hover:border-destructive"
             >
-              <X className="h-4 w-4" />
+              <X className="h-6 w-6 text-muted-foreground" />
             </Button>
           </div>
 
