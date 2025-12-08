@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Driver } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ interface UseChatNotificationsOptions {
 
 export const useChatNotifications = ({ driver, enabled = true }: UseChatNotificationsOptions) => {
   const processedMessageIds = useRef<Set<string>>(new Set());
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!driver?.id || !enabled) return;
@@ -47,10 +49,15 @@ export const useChatNotifications = ({ driver, enabled = true }: UseChatNotifica
           // Vibration haptic pour message chat
           await playHapticFeedback('chat_message');
 
-          // Afficher un toast
+          // Afficher un toast cliquable pour ouvrir le chat
+          const courseId = newMessage.course_id;
           toast.info('💬 Nouveau message du Dispatch', {
             description: newMessage.message?.substring(0, 50) + (newMessage.message?.length > 50 ? '...' : ''),
             duration: 5000,
+            action: {
+              label: 'Ouvrir',
+              onClick: () => navigate(`/chat/${courseId}`),
+            },
           });
         }
       )
@@ -60,5 +67,5 @@ export const useChatNotifications = ({ driver, enabled = true }: UseChatNotifica
       console.log('🔔 Chat notifications listener stopping');
       supabase.removeChannel(channel);
     };
-  }, [driver?.id, driver?.notification_sound, enabled]);
+  }, [driver?.id, driver?.notification_sound, enabled, navigate]);
 };
