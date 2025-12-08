@@ -83,7 +83,7 @@ export default function Chat() {
     );
     
     if (unreadMessages.length > 0) {
-      supabase.functions.invoke('chat-messages', {
+      supabase.functions.invoke('driver-chat', {
         body: { action: 'mark_read', course_id: courseId }
       }).catch(err => console.error('Error marking as read:', err));
     }
@@ -94,8 +94,8 @@ export default function Chat() {
 
     try {
       // Try Edge Function first
-      const { data, error } = await supabase.functions.invoke('chat-messages', {
-        body: { action: 'get_messages', course_id: courseId }
+      const { data, error } = await supabase.functions.invoke('driver-chat', {
+        body: { action: 'load', course_id: courseId }
       });
 
       if (error) throw error;
@@ -153,12 +153,11 @@ export default function Chat() {
     setNewMessage('');
 
     try {
-      const { data, error } = await supabase.functions.invoke('chat-messages', {
+      const { data, error } = await supabase.functions.invoke('driver-chat', {
         body: {
-          action: 'send_message',
+          action: 'send',
           course_id: courseId,
-          driver_id: driver.id,
-          content: messageContent
+          message: messageContent
         }
       });
 
