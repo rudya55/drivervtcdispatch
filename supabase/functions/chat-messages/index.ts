@@ -39,7 +39,7 @@ serve(async (req) => {
 
     if (action === "get_messages") {
       const { data: messages, error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .select("*")
         .eq("course_id", course_id)
         .order("created_at", { ascending: true });
@@ -80,7 +80,7 @@ serve(async (req) => {
       }
 
       const { data: message, error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .insert({
           course_id,
           driver_id: actualDriverId,
@@ -112,7 +112,7 @@ serve(async (req) => {
 
     if (action === "mark_read") {
       const { error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .update({ read_by_driver: true })
         .eq("course_id", course_id)
         .eq("read_by_driver", false);
@@ -130,9 +130,9 @@ serve(async (req) => {
     // Mark messages as delivered (WhatsApp-style double check grey)
     if (action === "mark_delivered") {
       if (message_ids && message_ids.length > 0) {
-        const { error } = await supabase
-          .from("messages")
-          .update({ delivered_at: new Date().toISOString() })
+      const { error } = await supabase
+        .from("chat_messages")
+        .update({ delivered_at: new Date().toISOString() })
           .in("id", message_ids)
           .is("delivered_at", null);
 
@@ -150,7 +150,7 @@ serve(async (req) => {
     // Mark fleet messages as read by driver
     if (action === "mark_read_by_driver") {
       const { error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .update({ read_by_driver: true })
         .eq("course_id", course_id)
         .neq("sender_role", "driver")

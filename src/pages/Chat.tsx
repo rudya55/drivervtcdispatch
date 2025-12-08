@@ -49,7 +49,7 @@ export default function Chat() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
+          table: 'chat_messages',
           filter: `course_id=eq.${courseId}`,
         },
         (payload) => {
@@ -158,7 +158,7 @@ export default function Chat() {
         // Try fallback to direct query
         try {
           const { data: directData, error: directError } = await supabase
-            .from('messages')
+            .from('chat_messages')
             .select('*')
             .eq('course_id', courseId)
             .order('created_at', { ascending: true });
