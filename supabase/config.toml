@@ -38,3 +38,9 @@ verify_jwt = true
 
 [functions.driver-update-profile]
 verify_jwt = true
+
+[functions.chat-messages]
+verify_jwt = true
+
+[functions.driver-chat]
+verify_jwt = true
