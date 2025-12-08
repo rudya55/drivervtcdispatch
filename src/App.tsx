@@ -10,6 +10,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import Bookings from "./pages/Bookings";
 import Chat from "./pages/Chat";
+import ChatList from "./pages/ChatList";
 import Planning from "./pages/Planning";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
@@ -89,6 +90,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <Bookings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chats"
+        element={
+          <ProtectedRoute>
+            <ChatList />
           </ProtectedRoute>
         }
       />
