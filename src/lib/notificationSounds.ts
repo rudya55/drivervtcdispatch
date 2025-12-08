@@ -44,3 +44,24 @@ export const playNotificationWithHaptic = async (
   // Jouer le son
   playNotificationSound(soundId);
 };
+
+// Son spécifique pour les messages chat (plus doux)
+export const playChatMessageSound = () => {
+  try {
+    const audio = new Audio('/sounds/chat-message.mp3');
+    audio.volume = 0.5;
+    audio.play().catch(err => {
+      console.error('[ChatSound] Playback error:', err);
+    });
+  } catch (e) {
+    console.error('[ChatSound] Error:', e);
+  }
+};
+
+// Jouer son chat ET vibration ensemble
+export const playChatNotificationWithHaptic = async (): Promise<void> => {
+  if (Capacitor.isNativePlatform()) {
+    playHapticFeedback('chat_message');
+  }
+  playChatMessageSound();
+};

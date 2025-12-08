@@ -10,7 +10,7 @@ import { ArrowLeft, Send, Check, CheckCheck, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { playNotificationWithHaptic } from '@/lib/notificationSounds';
+import { playChatNotificationWithHaptic } from '@/lib/notificationSounds';
 
 interface Message {
   id: string;
@@ -60,10 +60,9 @@ export default function Chat() {
             return [...current, newMsg];
           });
           
-          // Play sound + haptic for dispatch messages
+          // Play dedicated chat sound + haptic for dispatch messages
           if (newMsg.sender_role !== 'driver') {
-            const soundId = driver?.notification_sound || 'default';
-            playNotificationWithHaptic(soundId, 'chat_message');
+            playChatNotificationWithHaptic();
             toast.success('Nouveau message du dispatch !');
           }
         }

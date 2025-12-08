@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Driver } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { playNotificationSound } from '@/lib/notificationSounds';
-import { playHapticFeedback } from '@/lib/notificationHaptics';
+import { playChatNotificationWithHaptic } from '@/lib/notificationSounds';
 
 interface UseChatNotificationsOptions {
   driver: Driver | null;
@@ -42,12 +41,8 @@ export const useChatNotifications = ({ driver, enabled = true }: UseChatNotifica
 
           console.log('💬 New dispatcher message received:', newMessage);
 
-          // Jouer le son de notification
-          const soundToPlay = driver.notification_sound || 'default';
-          await playNotificationSound(soundToPlay);
-
-          // Vibration haptic pour message chat
-          await playHapticFeedback('chat_message');
+          // Jouer le son chat dédié + haptic
+          await playChatNotificationWithHaptic();
 
           // Afficher un toast cliquable pour ouvrir le chat
           const courseId = newMessage.course_id;
