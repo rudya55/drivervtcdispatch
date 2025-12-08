@@ -22,6 +22,7 @@ interface Message {
   created_at: string;
   read_by_driver: boolean;
   read_by_fleet: boolean;
+  delivered_at: string | null;
 }
 
 export default function Chat() {
@@ -78,6 +79,51 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Mark fleet/admin messages as read when chat opens
+  useEffect(() => {
+    if (!courseId || messages.length === 0) return;
+    
+    const unreadFleetMessages = messages.filter(
+      m => m.sender_role !== 'driver' && !m.read_by_driver
+    );
+    
+    if (unreadFleetMessages.length > 0) {
+      markMessagesAsReadByDriver();
+    }
+  }, [messages, courseId]);
+
+  // Mark driver messages as delivered when received
+  useEffect(() => {
+    if (!courseId || messages.length === 0) return;
+    
+    const undeliveredDriverMessages = messages.filter(
+      m => m.sender_role === 'driver' && !m.delivered_at
+    );
+    
+    if (undeliveredDriverMessages.length > 0) {
+      markMessagesAsDelivered(undeliveredDriverMessages.map(m => m.id));
+    }
+  }, [messages, courseId]);
+
+  const markMessagesAsReadByDriver = async () => {
+    try {
+      await supabase.functions.invoke('chat-messages', {
+        body: { action: 'mark_read_by_driver', course_id: courseId }
+      });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  };
+
+  const markMessagesAsDelivered = async (messageIds: string[]) => {
+    try {
+      await supabase.functions.invoke('chat-messages', {
+        body: { action: 'mark_delivered', course_id: courseId, message_ids: messageIds }
+      });
+    } catch (error) {
+      console.error('Error marking messages as delivered:', error);
+    }
+  };
 
   const fetchMessages = async () => {
     if (!courseId) return;
@@ -285,8 +331,14 @@ export default function Chat() {
                       {format(new Date(message.created_at), 'HH:mm', { locale: fr })}
                     </span>
                     {isDriver && (
-                      <span className="text-primary-foreground/70">
+                      <span className={`flex items-center ${
+                        message.read_by_fleet 
+                          ? 'text-blue-400' 
+                          : 'text-primary-foreground/70'
+                      }`}>
                         {message.read_by_fleet ? (
+                          <CheckCheck className="w-4 h-4" />
+                        ) : message.delivered_at ? (
                           <CheckCheck className="w-4 h-4" />
                         ) : (
                           <Check className="w-4 h-4" />

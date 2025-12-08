@@ -127,6 +127,47 @@ serve(async (req) => {
       });
     }
 
+    // Mark messages as delivered (WhatsApp-style double check grey)
+    if (action === "mark_delivered") {
+      const { message_ids } = await req.json();
+      
+      if (message_ids && message_ids.length > 0) {
+        const { error } = await supabase
+          .from("messages")
+          .update({ delivered_at: new Date().toISOString() })
+          .in("id", message_ids)
+          .is("delivered_at", null);
+
+        if (error) {
+          console.error("Error marking as delivered:", error);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Mark fleet messages as read by driver
+    if (action === "mark_read_by_driver") {
+      const { error } = await supabase
+        .from("messages")
+        .update({ read_by_driver: true })
+        .eq("course_id", course_id)
+        .neq("sender_role", "driver")
+        .eq("read_by_driver", false);
+
+      if (error) {
+        console.error("Error marking as read by driver:", error);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
