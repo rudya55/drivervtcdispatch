@@ -107,45 +107,44 @@ export default function Chat() {
 
   const markMessagesAsReadByDriver = async () => {
     try {
-      await supabase.functions.invoke('chat-messages', {
-        body: { action: 'mark_read_by_driver', course_id: courseId }
+      await supabase.functions.invoke('driver-chat', {
+        body: { action: 'mark_read', course_id: courseId }
       });
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
   };
 
-  const markMessagesAsDelivered = async (messageIds: string[]) => {
-    try {
-      await supabase.functions.invoke('chat-messages', {
-        body: { action: 'mark_delivered', course_id: courseId, message_ids: messageIds }
-      });
-    } catch (error) {
-      console.error('Error marking messages as delivered:', error);
-    }
+  // Note: mark_delivered not supported by driver-chat, skip silently
+  const markMessagesAsDelivered = async (_messageIds: string[]) => {
+    // Delivery tracking handled server-side
   };
 
   const fetchMessages = async () => {
     if (!courseId) return;
 
     try {
-      // Try Edge Function first
-      const { data, error } = await supabase.functions.invoke('chat-messages', {
-        body: { action: 'get_messages', course_id: courseId }
+      // Use driver-chat Edge Function
+      const { data, error } = await supabase.functions.invoke('driver-chat', {
+        body: { action: 'load', course_id: courseId }
       });
 
       if (error) throw error;
 
       if (data?.error) {
         console.error('Edge function error:', data.error);
-        // If table doesn't exist, show appropriate message
         if (data.error.includes('does not exist') || data.error.includes('42P01')) {
           setTableExists(false);
           return;
         }
       }
 
-      setMessages(data?.messages || []);
+      // Map 'message' field to 'content' for UI compatibility
+      const mappedMessages = (data?.messages || []).map((m: Record<string, unknown>) => ({
+        ...m,
+        content: m.message || m.content || ''
+      }));
+      setMessages(mappedMessages);
       setTableExists(true);
     } catch (error: unknown) {
       console.error('Error fetching messages:', error);
@@ -189,12 +188,11 @@ export default function Chat() {
     setNewMessage('');
 
     try {
-      const { data, error } = await supabase.functions.invoke('chat-messages', {
+      const { data, error } = await supabase.functions.invoke('driver-chat', {
         body: {
-          action: 'send_message',
+          action: 'send',
           course_id: courseId,
-          driver_id: driver.id,
-          content: messageContent
+          message: messageContent
         }
       });
 
