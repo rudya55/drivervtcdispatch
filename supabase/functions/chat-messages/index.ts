@@ -34,7 +34,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, course_id, driver_id, content } = await req.json();
+    const { action, course_id, driver_id, content, message_ids } = await req.json();
     console.log("Chat action:", action, "course_id:", course_id);
 
     if (action === "get_messages") {
@@ -129,8 +129,6 @@ serve(async (req) => {
 
     // Mark messages as delivered (WhatsApp-style double check grey)
     if (action === "mark_delivered") {
-      const { message_ids } = await req.json();
-      
       if (message_ids && message_ids.length > 0) {
         const { error } = await supabase
           .from("messages")
