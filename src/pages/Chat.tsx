@@ -277,16 +277,16 @@ export default function Chat() {
           <ArrowLeft className="w-6 h-6" />
         </Button>
         <div className="flex-1">
-          <h1 className="font-semibold">Chat avec le dispatch</h1>
+          <h1 className="font-semibold">Chat avec dispatch</h1>
           <p className="text-sm text-muted-foreground">Course #{courseId?.slice(0, 8)}</p>
         </div>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
           onClick={() => navigate('/bookings')}
-          className="h-10 w-10"
+          className="h-10 w-10 rounded-full border-2 border-muted-foreground/30 hover:bg-destructive/10 hover:border-destructive"
         >
-          <X className="w-6 h-6" />
+          <X className="w-6 h-6 text-muted-foreground" />
         </Button>
       </div>
 
@@ -329,17 +329,16 @@ export default function Chat() {
                       {format(new Date(message.created_at), 'HH:mm', { locale: fr })}
                     </span>
                     {isDriver && (
-                      <span className={`flex items-center ${
-                        message.read_by_fleet 
-                          ? 'text-blue-400' 
-                          : 'text-primary-foreground/70'
-                      }`}>
+                      <span className="flex items-center gap-1">
                         {message.read_by_fleet ? (
-                          <CheckCheck className="w-4 h-4" />
+                          <>
+                            <CheckCheck className="w-4 h-4 text-red-500 stroke-[2.5]" />
+                            <span className="text-xs text-red-500 font-bold">Lu</span>
+                          </>
                         ) : message.delivered_at ? (
-                          <CheckCheck className="w-4 h-4" />
+                          <CheckCheck className="w-4 h-4 text-primary-foreground/70 stroke-[2.5]" />
                         ) : (
-                          <Check className="w-4 h-4" />
+                          <Check className="w-4 h-4 text-primary-foreground/50 stroke-[2.5]" />
                         )}
                       </span>
                     )}
