@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { StatusToggle } from '@/components/StatusToggle';
+import { CourseTimer } from '@/components/CourseTimer';
 import { toast } from 'sonner';
 import {
   MapPin,
@@ -306,11 +307,17 @@ const Home = () => {
             displayedCourses.map((course) => {
               // Show swipe actions for all active courses (any status beyond pending/dispatched)
               if (activeStatuses.includes(course.status)) {
+                // Vérifier si la course peut être démarrée (2h avant)
+                const pickup = new Date(course.pickup_date);
+                const unlockTime = new Date(pickup.getTime() - 120 * 60000); // 2h avant
+                const canStartCourse = new Date() >= unlockTime;
+                
                 return (
                   <CourseSwipeActions
                     key={course.id}
                     course={course}
                     currentLocation={locationState.coordinates}
+                    canStart={canStartCourse}
                     onAction={(action, data) => 
                       courseActionMutation.mutate({ 
                         courseId: course.id, 

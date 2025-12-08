@@ -136,6 +136,23 @@ All colors MUST be HSL.
   }
 }
 
+/* Landscape mode support */
+@media (orientation: landscape) {
+  .landscape\:h-\[90vh\] { height: 90vh; }
+  .landscape\:max-w-6xl { max-width: 72rem; }
+  .landscape\:w-32 { width: 8rem; }
+  .landscape\:h-32 { height: 8rem; }
+  .landscape\:w-24 { width: 6rem; }
+  .landscape\:h-24 { height: 6rem; }
+  .landscape\:w-12 { width: 3rem; }
+  .landscape\:h-12 { height: 3rem; }
+  .landscape\:mb-4 { margin-bottom: 1rem; }
+  .landscape\:text-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .landscape\:text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .landscape\:text-5xl { font-size: 3rem; line-height: 1; }
+  .landscape\:md\:text-6xl { font-size: 3.75rem; line-height: 1; }
+}
+
 /* Swipe slider touch optimization */
 .swipe-slider {
   touch-action: pan-y pinch-zoom;
