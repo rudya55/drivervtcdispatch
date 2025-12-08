@@ -73,7 +73,7 @@ const Bookings = () => {
   // Fonction pour vérifier si une course peut être démarrée (1h avant pickup)
   const canStartCourse = (pickupDate: string): boolean => {
     const pickup = new Date(pickupDate);
-    const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
+    const unlockTime = new Date(pickup.getTime() - 120 * 60000); // 2h avant
     const now = new Date();
     return now >= unlockTime;
   };

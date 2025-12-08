@@ -21,7 +21,7 @@ export const CourseTimer = ({ pickupDate, onUnlock }: CourseTimerProps) => {
   useEffect(() => {
     const calculateTime = () => {
       const pickup = new Date(pickupDate);
-      const unlockTime = new Date(pickup.getTime() - 60 * 60000); // 1h avant
+      const unlockTime = new Date(pickup.getTime() - 120 * 60000); // 2h avant
       const now = new Date();
       
       const diff = unlockTime.getTime() - now.getTime();
@@ -60,7 +60,7 @@ export const CourseTimer = ({ pickupDate, onUnlock }: CourseTimerProps) => {
   return (
     <Badge variant="secondary" className="bg-warning/20 text-warning border-warning/30">
       <Timer className="w-3 h-3 mr-1" />
-      Déblocage dans {hours > 0 && `${hours}h `}{minutes}min {seconds}s
+      Débloquée dans {hours > 0 && `${hours}h `}{minutes}min {seconds}s
     </Badge>
   );
 };

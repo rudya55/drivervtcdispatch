@@ -50,6 +50,9 @@ type SwipeAction = {
   action: string;
 };
 
+import { CourseTimer } from '@/components/CourseTimer';
+import { SignBoardModal } from '@/components/SignBoardModal';
+
 export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart = true, onViewDetails }: CourseSwipeActionsProps) => {
   const [swipeX, setSwipeX] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -60,6 +63,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
   const [showBonDeCommande, setShowBonDeCommande] = useState(false);
+  const [showSignBoard, setShowSignBoard] = useState(false);
   const startX = useRef(0);
   const startTime = useRef(0);
   const lastX = useRef(0);
@@ -96,9 +100,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
   // Determine available actions based on course status
   const getAvailableActions = (): SwipeAction[] => {
-    // Étape 1 : Démarrer la course
+  // Étape 1 : Démarrer la course
     if (course.status === 'accepted') {
-      if (!canStart) return [];
       return [{
         id: 'start',
         label: 'Démarrer la course',
@@ -308,24 +311,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     setComment('');
   };
 
-  if (!currentAction) {
-    return (
-      <Card className="p-6 bg-warning/10 border-warning/30">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Lock className="w-10 h-10 text-warning" />
-          <div>
-            <p className="font-semibold text-lg">🔒 Course verrouillée</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Vous pourrez démarrer cette course 1h avant l'heure de prise en charge
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-full">
-            Glissez de gauche à droite pour progresser dans les étapes
-          </div>
-        </div>
-      </Card>
-    );
-  }
+  // Variable pour savoir si le swipe est bloqué (course verrouillée)
+  const isSwipeLocked = !canStart && course.status === 'accepted';
 
   return (
     <>
@@ -389,11 +376,14 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             </div>
           )}
 
-          {/* 3. Nom du client */}
-          <div className="flex items-center gap-2">
+          {/* 3. Nom du client - Cliquable pour SignBoard */}
+          <button
+            onClick={() => setShowSignBoard(true)}
+            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors py-1"
+          >
             <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{course.client_name}</span>
-          </div>
+            <span className="text-sm font-medium underline">{course.client_name}</span>
+          </button>
 
           {/* 4. Passagers et bagages */}
           <div className="flex items-center gap-4">
@@ -495,80 +485,98 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           )}
         </Card>
 
-        {/* Compact Swipe Slider - Zone tactile agrandie */}
-        <div 
-          ref={sliderRef}
-          className={cn(
-            "relative w-full h-16 rounded-full overflow-hidden shadow-lg select-none",
-            "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400",
-            swipeX > threshold && "from-green-600 via-green-500 to-green-400"
-          )}
-          style={{ 
-            touchAction: 'none', 
-            willChange: 'transform',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            WebkitTouchCallout: 'none',
-            transition: 'background 0.2s ease'
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Barre de progression visuelle */}
+        {/* Swipe Slider ou Verrouillage */}
+        {isSwipeLocked ? (
+          /* Slider verrouillé avec chrono */
+          <div className="relative w-full h-16 rounded-full overflow-hidden shadow-lg select-none bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400">
+            <div className="absolute left-1 top-1 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-xl z-10 border-2 border-white/50">
+              <Lock className="w-7 h-7 text-amber-600" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none pl-16">
+              <div className="flex flex-col items-center">
+                <span className="font-bold text-sm uppercase tracking-wider text-white/90">
+                  🔒 Verrouillée
+                </span>
+                <CourseTimer pickupDate={course.pickup_date} />
+              </div>
+            </div>
+          </div>
+        ) : currentAction ? (
+          /* Slider actif */
           <div 
-            className="absolute left-0 top-0 bottom-0 bg-white/20 pointer-events-none rounded-full"
-            style={{ 
-              width: `${Math.min((swipeX / maxSwipeDistance) * 100, 100)}%`,
-              transition: isAnimating ? 'width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none'
-            }}
-          />
-          
-          {/* Knob draggable - Zone tactile agrandie 56x56 */}
-          <div 
+            ref={sliderRef}
             className={cn(
-              "absolute left-1 top-1 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-xl z-10",
-              "border-2 border-white/50",
-              swipeX > 0 && "scale-105",
-              swipeX > threshold && "scale-110 shadow-2xl"
+              "relative w-full h-16 rounded-full overflow-hidden shadow-lg select-none",
+              "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400",
+              swipeX > threshold && "from-green-600 via-green-500 to-green-400"
             )}
             style={{ 
-              transform: `translateX(${swipeX}px)`,
-              transition: isAnimating 
-                ? 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), scale 0.15s ease' 
-                : 'scale 0.15s ease',
-              willChange: 'transform'
+              touchAction: 'none', 
+              willChange: 'transform',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+              transition: 'background 0.2s ease'
             }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            {swipeX > threshold ? (
-              <Unlock className="w-7 h-7 text-green-600" />
-            ) : (
-              <ChevronRight className="w-7 h-7 text-blue-600" />
-            )}
-          </div>
-          
-          {/* Texte central avec feedback visuel */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none pl-16">
-            <span 
+            {/* Barre de progression visuelle */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 bg-white/20 pointer-events-none rounded-full"
+              style={{ 
+                width: `${Math.min((swipeX / maxSwipeDistance) * 100, 100)}%`,
+                transition: isAnimating ? 'width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none'
+              }}
+            />
+            
+            {/* Knob draggable - Zone tactile agrandie 56x56 */}
+            <div 
               className={cn(
-                "font-bold text-sm uppercase tracking-wider transition-all duration-200",
-                swipeX > threshold ? "text-white scale-105" : "text-white/90"
+                "absolute left-1 top-1 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-xl z-10",
+                "border-2 border-white/50",
+                swipeX > 0 && "scale-105",
+                swipeX > threshold && "scale-110 shadow-2xl"
               )}
+              style={{ 
+                transform: `translateX(${swipeX}px)`,
+                transition: isAnimating 
+                  ? 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), scale 0.15s ease' 
+                  : 'scale 0.15s ease',
+                willChange: 'transform'
+              }}
             >
-              {swipeX > threshold ? '✓ RELÂCHEZ !' : `⟩⟩ ${currentAction.label.toUpperCase()}`}
-            </span>
+              {swipeX > threshold ? (
+                <Unlock className="w-7 h-7 text-green-600" />
+              ) : (
+                <ChevronRight className="w-7 h-7 text-blue-600" />
+              )}
+            </div>
+            
+            {/* Texte central avec feedback visuel */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none pl-16">
+              <span 
+                className={cn(
+                  "font-bold text-sm uppercase tracking-wider transition-all duration-200",
+                  swipeX > threshold ? "text-white scale-105" : "text-white/90"
+                )}
+              >
+                {swipeX > threshold ? '✓ RELÂCHEZ !' : `⟩⟩ ${currentAction.label.toUpperCase()}`}
+              </span>
+            </div>
+            
+            {/* Flèches animées indicatives */}
+            <div 
+              className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none"
+              style={{ opacity: swipeX > threshold ? 0 : 1, transition: 'opacity 0.2s' }}
+            >
+              <ChevronRight className="w-6 h-6 text-white/50 animate-pulse" style={{ animationDelay: '0ms' }} />
+              <ChevronRight className="w-6 h-6 text-white/70 animate-pulse -ml-3" style={{ animationDelay: '150ms' }} />
+              <ChevronRight className="w-6 h-6 text-white animate-pulse -ml-3" style={{ animationDelay: '300ms' }} />
+            </div>
           </div>
-          
-          {/* Flèches animées indicatives */}
-          <div 
-            className="absolute right-4 inset-y-0 flex items-center gap-0 pointer-events-none"
-            style={{ opacity: swipeX > threshold ? 0 : 1, transition: 'opacity 0.2s' }}
-          >
-            <ChevronRight className="w-6 h-6 text-white/50 animate-pulse" style={{ animationDelay: '0ms' }} />
-            <ChevronRight className="w-6 h-6 text-white/70 animate-pulse -ml-3" style={{ animationDelay: '150ms' }} />
-            <ChevronRight className="w-6 h-6 text-white animate-pulse -ml-3" style={{ animationDelay: '300ms' }} />
-          </div>
-        </div>
+        ) : null}
       </div>
 
       {/* Rating Modal */}
@@ -650,6 +658,15 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         driver={driver}
         open={showBonDeCommande}
         onOpenChange={setShowBonDeCommande}
+      />
+
+      {/* SignBoard Modal - Pancarte client */}
+      <SignBoardModal
+        open={showSignBoard}
+        onOpenChange={setShowSignBoard}
+        clientName={course.client_name}
+        companyName={course.company_name}
+        companyLogoUrl={driver?.company_logo_url}
       />
     </>
   );
