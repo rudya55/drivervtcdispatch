@@ -425,6 +425,31 @@ Deno.serve(async (req) => {
             console.error('⚠️ Erreur création entrée comptable:', accountingError.message);
           } else if (accountingData) {
             console.log('✅ Entrée comptable créée:', accountingData.id);
+            
+            // Recalculer et mettre à jour le rating moyen du chauffeur
+            if (rating) {
+              try {
+                const { data: allRatings } = await supabaseServiceRole
+                  .from('accounting_entries')
+                  .select('rating')
+                  .eq('driver_id', driver.id)
+                  .not('rating', 'is', null);
+
+                if (allRatings && allRatings.length > 0) {
+                  const avgRating = allRatings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / allRatings.length;
+                  const roundedRating = Math.round(avgRating * 10) / 10;
+                  
+                  await supabaseServiceRole
+                    .from('drivers')
+                    .update({ rating: roundedRating })
+                    .eq('id', driver.id);
+                  
+                  console.log(`✅ Rating moyen mis à jour: ${roundedRating}`);
+                }
+              } catch (ratingError) {
+                console.error('⚠️ Erreur mise à jour rating moyen:', ratingError);
+              }
+            }
           }
         }
       } catch (accountingError) {
