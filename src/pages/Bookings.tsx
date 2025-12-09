@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
 import { translateCourseStatus, extractCity, formatFullDate, formatParisAddress } from '@/lib/utils';
@@ -23,39 +24,46 @@ import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
 const Bookings = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null, driver);
+  const queryClient = useQueryClient();
   
   // Activer les notifications chat en temps réel
   useChatNotifications({ driver, enabled: true });
-  const [loading, setLoading] = useState(false);
-  const [newCourses, setNewCourses] = useState<Course[]>([]);
-  const [activeCourses, setActiveCourses] = useState<Course[]>([]);
-  const [completedCourses, setCompletedCourses] = useState<Course[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedCompletedCourse, setSelectedCompletedCourse] = useState<Course | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showSignBoard, setShowSignBoard] = useState(false);
 
-  // Activer le GPS en continu quand il y a des courses actives
-  const activeCoursesList = newCourses.filter(c => 
-    c.status === 'accepted' || c.status === 'in_progress'
-  ).concat(activeCourses);
-  const gpsState = useBackgroundGeolocation(activeCoursesList.length > 0);
+  // Utiliser useQuery pour les courses - même queryKey que Home.tsx
+  const { data: courses = [], isLoading: loading } = useQuery({
+    queryKey: ['courses', driver?.id],
+    queryFn: async () => {
+      console.log('📊 Fetching courses for driver:', driver?.id);
+      const { data, error } = await supabase.functions.invoke('driver-courses');
+      if (error) throw error;
+      console.log('📊 Received courses:', data?.courses?.length || 0);
+      return (data?.courses || []) as Course[];
+    },
+    enabled: !!driver?.id,
+  });
 
-  // Mettre à jour la position en temps réel
-  useEffect(() => {
-    if (gpsState.coordinates) {
-      setCurrentLocation(gpsState.coordinates);
-    }
-  }, [gpsState.coordinates]);
-
-  useEffect(() => {
-    if (driver) {
-      fetchCourses();
-    } else {
-      setLoading(false);
-    }
-  }, [driver]);
+  // Filtrer les courses par catégorie avec useMemo
+  const { newCourses, activeCourses, completedCourses } = useMemo(() => {
+    const newCoursesFiltered = courses.filter((c: Course) => 
+      c.status === 'dispatched' || c.status === 'pending'
+    );
+    const activeCoursesFiltered = courses.filter((c: Course) => 
+      ['accepted', 'in_progress', 'started', 'arrived', 'picked_up'].includes(c.status)
+    );
+    const completedCoursesFiltered = courses.filter((c: Course) => 
+      ['completed', 'dropped_off'].includes(c.status)
+    );
+    return {
+      newCourses: newCoursesFiltered,
+      activeCourses: activeCoursesFiltered,
+      completedCourses: completedCoursesFiltered
+    };
+  }, [courses]);
 
   // Get GPS location
   useEffect(() => {
@@ -105,7 +113,7 @@ const Bookings = () => {
         },
         (payload) => {
           console.log('My course update:', payload);
-          fetchCourses();
+          queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
         }
       )
       .subscribe();
@@ -123,7 +131,7 @@ const Bookings = () => {
         },
         (payload) => {
           console.log('Auto-dispatch course update:', payload);
-          fetchCourses();
+          queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
           
           if (payload.eventType === 'INSERT') {
             toast.info('Nouvelle course disponible !', {
@@ -138,13 +146,13 @@ const Bookings = () => {
       supabase.removeChannel(myCoursesChannel);
       supabase.removeChannel(autoDispatchChannel);
     };
-  }, [driver]);
+  }, [driver, queryClient]);
 
   // Synchronize with notifications system
   useEffect(() => {
     const handleNewCourseNotification = () => {
       console.log('🔔 New course notification received, reloading courses...');
-      fetchCourses();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     };
     
     window.addEventListener('reload-courses', handleNewCourseNotification);
@@ -152,63 +160,8 @@ const Bookings = () => {
     return () => {
       window.removeEventListener('reload-courses', handleNewCourseNotification);
     };
-  }, []);
+  }, [queryClient]);
 
-  const fetchCourses = async () => {
-    if (!driver) return;
-
-    console.log('📊 Fetching courses for driver:', driver.id);
-    console.log('📊 Driver accepts vehicle types:', driver.vehicle_types_accepted);
-
-    setLoading(true);
-    try {
-      // Use Edge Function that handles dispatch_mode and vehicle_types_accepted filtering
-      const { data, error } = await supabase.functions.invoke('driver-courses');
-
-      if (error) throw error;
-
-      console.log('📊 Received courses:', data?.courses?.length || 0);
-      console.log('📊 Courses by status:', {
-        dispatched: data?.courses?.filter((c: Course) => c.status === 'dispatched').length,
-        pending: data?.courses?.filter((c: Course) => c.status === 'pending').length,
-        accepted: data?.courses?.filter((c: Course) => c.status === 'accepted').length,
-        in_progress: data?.courses?.filter((c: Course) => c.status === 'in_progress').length,
-        completed: data?.courses?.filter((c: Course) => c.status === 'completed').length,
-      });
-
-      if (data?.courses) {
-        // Include both 'dispatched' and 'pending' in new courses tab
-        const newCoursesFiltered = data.courses.filter((c: Course) => 
-          c.status === 'dispatched' || c.status === 'pending'
-        );
-        
-        // Active courses include all in-progress statuses
-        const activeCoursesFiltered = data.courses.filter((c: Course) => 
-          ['accepted', 'in_progress', 'started', 'arrived', 'picked_up'].includes(c.status)
-        );
-        
-        // Completed courses
-        const completedCoursesFiltered = data.courses.filter((c: Course) => 
-          ['completed', 'dropped_off'].includes(c.status)
-        );
-
-        console.log('📊 Setting state:', {
-          new: newCoursesFiltered.length,
-          active: activeCoursesFiltered.length,
-          completed: completedCoursesFiltered.length
-        });
-
-        setNewCourses(newCoursesFiltered);
-        setActiveCourses(activeCoursesFiltered);
-        setCompletedCourses(completedCoursesFiltered);
-      }
-    } catch (error: any) {
-      console.error('❌ Fetch courses error:', error);
-      toast.error('Erreur lors du chargement des courses');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAcceptCourse = async (courseId: string) => {
     if (!driver) return;
@@ -222,7 +175,7 @@ const Bookings = () => {
       if (error) throw error;
 
       toast.success('Course acceptée !');
-      fetchCourses();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     } catch (error: any) {
       console.error('Accept course error:', error);
       toast.error('Erreur lors de l\'acceptation');
@@ -241,7 +194,7 @@ const Bookings = () => {
       if (error) throw error;
 
       toast.success('Course refusée');
-      fetchCourses();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     } catch (error: any) {
       console.error('Refuse course error:', error);
       toast.error('Erreur lors du refus');
@@ -258,7 +211,7 @@ const Bookings = () => {
       });
       if (error) throw error;
       toast.success('Course démarrée');
-      fetchCourses();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     } catch (error: any) {
       console.error('Start course error:', error);
       toast.error('Erreur lors du démarrage de la course');
@@ -286,7 +239,7 @@ const Bookings = () => {
       }
       
       toast.success('Course terminée !');
-      fetchCourses();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     } catch (error: any) {
       console.error('Complete course error:', error);
       toast.error('Erreur lors de la fin de la course');
@@ -336,7 +289,7 @@ const Bookings = () => {
       };
 
       toast.success(successMessages[action] || 'Action effectuée !');
-      await fetchCourses();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
 
     } catch (error: any) {
       console.error(`❌ ${action} error:`, error);
@@ -548,7 +501,7 @@ const Bookings = () => {
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    onClick={fetchCourses}
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['courses'] })}
                   >
                     🔄 Actualiser
                   </Button>
