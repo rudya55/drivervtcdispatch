@@ -169,23 +169,23 @@ Deno.serve(async (req) => {
         break;
 
       case 'start':
-        // Validate timing (within 1 hour before pickup)
+        // Validate timing (within 2 hours before pickup)
         const pickupTime = new Date(course.pickup_date).getTime();
         const currentTime = new Date().getTime();
-        const oneHourBefore = pickupTime - 60 * 60 * 1000;
+        const twoHoursBefore = pickupTime - 2 * 60 * 60 * 1000;
 
-        if (currentTime < oneHourBefore) {
+        if (currentTime < twoHoursBefore) {
           console.log('⏰ Course locked - too early to start');
           return new Response(
             JSON.stringify({ 
-              error: 'Vous ne pouvez démarrer la course qu\'une heure avant l\'heure de prise en charge' 
+              error: 'Vous ne pouvez démarrer la course que 2 heures avant l\'heure de prise en charge' 
             }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
         updateData = {
-          status: 'in_progress',
+          status: 'started',
           started_at: now,
         };
         trackingNotes = 'Chauffeur en route vers le point de départ';
@@ -193,6 +193,7 @@ Deno.serve(async (req) => {
 
       case 'arrived':
         updateData = {
+          status: 'arrived',
           arrived_at: now,
         };
         trackingNotes = 'Chauffeur arrivé sur place';
@@ -200,6 +201,7 @@ Deno.serve(async (req) => {
 
       case 'pickup':
         updateData = {
+          status: 'picked_up',
           picked_up_at: now,
         };
         trackingNotes = 'Client à bord';
@@ -207,6 +209,7 @@ Deno.serve(async (req) => {
 
       case 'dropoff':
         updateData = {
+          status: 'dropped_off',
           dropped_off_at: now,
         };
         trackingNotes = 'Client déposé';
