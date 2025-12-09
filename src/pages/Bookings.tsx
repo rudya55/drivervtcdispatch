@@ -530,7 +530,7 @@ const Bookings = () => {
 
                   <CourseSwipeActions
                     course={course}
-                    onAction={handleCourseAction}
+                    onAction={(action, data) => handleCourseAction(action, { ...data, course_id: course.id })}
                     currentLocation={currentLocation}
                     canStart={canStartCourse(course.pickup_date)}
                     onViewDetails={() => setSelectedCourse(course)}
