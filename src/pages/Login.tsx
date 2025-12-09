@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Car, Loader2, Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Fingerprint } from 'lucide-react';
+import vtcDispatchLogo from '@/assets/vtc-dispatch-logo.png';
 import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 
@@ -319,10 +320,12 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-6 space-y-6">
         <div className="flex flex-col items-center space-y-2">
-          <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-            <Car className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold text-center">VTC Driver</h1>
+          <img 
+            src={vtcDispatchLogo} 
+            alt="VTC Dispatch Driver" 
+            className="w-24 h-24 rounded-xl object-cover"
+          />
+          <h1 className="text-2xl font-bold text-center">VTC Dispatch Driver</h1>
           <p className="text-sm text-muted-foreground text-center">
             Gérez vos courses en temps réel
           </p>
