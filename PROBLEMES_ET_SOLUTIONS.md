@@ -39,6 +39,8 @@ Tous les problèmes principaux ont été résolus. L'application est fonctionnel
 
 ### 3. ~~Build Android échoue~~ ✅ RÉSOLU
 
+**Problème 3.1 : Workflow GitHub Actions**
+
 **Problème détecté** :
 - Le workflow GitHub Actions était configuré uniquement pour `workflow_dispatch` (déclenchement manuel)
 - Quand déclenché par un push ou une Pull Request, `inputs.build_type` était vide
@@ -49,7 +51,24 @@ Tous les problèmes principaux ont été résolus. L'application est fonctionnel
 - Remplacement de toutes les conditions `if: inputs.build_type == 'X'` par `if: env.BUILD_TYPE == 'X'`
 - Le workflow fonctionne maintenant quel que soit le type de déclenchement
 
-**Statut actuel** : ✅ Fonctionnel - Le workflow génère les APK/AAB correctement
+**Statut** : ✅ Résolu
+
+---
+
+**Problème 3.2 : Conflit Manifest Merger**
+
+**Problème détecté** :
+- Build échouait sur le job 57371666551 (ref c2b38b0) avec une erreur de manifest merger
+- Le service `BackgroundGeolocationService` était déclaré avec `android:exported="false"` dans AndroidManifest.xml
+- La dépendance `capacitor-community-background-geolocation` déclarait le même service avec `android:exported="true"`
+- Erreur : "Attribute service#...BackgroundGeolocationService@exported value=(false) is also present... value=(true)"
+
+**Solution appliquée** :
+- Ajout du namespace `xmlns:tools="http://schemas.android.com/tools"` dans l'élément manifest
+- Ajout de l'attribut `tools:replace="android:exported"` à la déclaration du BackgroundGeolocationService
+- Cela permet au manifest local de surcharger la valeur conflictuelle de la dépendance
+
+**Statut actuel** : ✅ Résolu - Le manifest merger applique maintenant la valeur locale
 
 ---
 
