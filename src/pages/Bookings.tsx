@@ -53,10 +53,10 @@ const Bookings = () => {
       c.status === 'dispatched' || c.status === 'pending'
     );
     const activeCoursesFiltered = courses.filter((c: Course) => 
-      ['accepted', 'in_progress', 'started', 'arrived', 'picked_up'].includes(c.status)
+      ['accepted', 'in_progress', 'started', 'arrived', 'picked_up', 'dropped_off'].includes(c.status)
     );
     const completedCoursesFiltered = courses.filter((c: Course) => 
-      ['completed', 'dropped_off'].includes(c.status)
+      c.status === 'completed'
     );
     return {
       newCourses: newCoursesFiltered,
