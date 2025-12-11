@@ -157,12 +157,12 @@ const DriverProfile = () => {
   });
 
   // Fetch driver reviews from accounting entries
-  const { data: reviews, isLoading: reviewsLoading } = useQuery({
+  const { data: reviews, isLoading: reviewsLoading, error: reviewsError } = useQuery({
     queryKey: ['driver-reviews', driver?.id],
     queryFn: async () => {
       if (!driver?.id) return [];
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('accounting_entries')
         .select(`
           id,
@@ -175,6 +175,12 @@ const DriverProfile = () => {
         .not('rating', 'is', null)
         .order('created_at', { ascending: false })
         .limit(20);
+
+      // Handle case where table doesn't exist yet
+      if (error) {
+        console.warn('accounting_entries table may not exist yet:', error.message);
+        return [];
+      }
 
       // Fetch course details for company names
       if (data && data.length > 0) {
@@ -198,7 +204,8 @@ const DriverProfile = () => {
       
       return [];
     },
-    enabled: !!driver?.id
+    enabled: !!driver?.id,
+    retry: false
   });
 
   const handleSaveBio = async () => {
