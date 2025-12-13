@@ -26,20 +26,39 @@ workflows:
       - name: Sync Capacitor
         script: |
           npx cap sync ios
+      - name: Configure iOS Info.plist (Permissions & Background Modes)
+        script: |
+          node scripts/configure-ios-info-plist.js || echo "Info.plist configuration skipped (will be done manually)"
+      - name: Configure iOS Capabilities
+        script: |
+          node scripts/configure-ios-capabilities.js || echo "Capabilities configuration skipped (will be done manually)"
       - name: Install CocoaPods dependencies
         script: |
           cd ios/App
           pod install --repo-update
       - name: Build for iOS Simulator
         script: |
+          cd ios/App
+          # Trouver un simulateur disponible
+          SIMULATOR=$(xcrun simctl list devices available | grep -i "iphone" | head -1 | sed 's/.*(\(.*\))/\1/' | tr -d ' ')
+          if [ -z "$SIMULATOR" ]; then
+            echo "No simulator found, using generic destination"
+            DESTINATION='generic/platform=iOS Simulator'
+          else
+            echo "Using simulator: $SIMULATOR"
+            DESTINATION="id=$SIMULATOR"
+          fi
+          # Build pour simulateur
           xcodebuild build \
-            -workspace "$XCODE_WORKSPACE" \
-            -scheme "$XCODE_SCHEME" \
+            -workspace App.xcworkspace \
+            -scheme App \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+            -sdk iphonesimulator \
+            -destination "$DESTINATION" \
             -derivedDataPath ./build \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
+            ONLY_ACTIVE_ARCH=NO
       - name: Build Archive
         script: |
           xcodebuild archive \
