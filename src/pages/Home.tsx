@@ -5,6 +5,7 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { useBackgroundGeolocation } from '@/hooks/useBackgroundGeolocation';
 import { useNativePushNotifications } from '@/hooks/useNativePushNotifications';
 import { supabase, Course } from '@/lib/supabase';
@@ -50,6 +51,9 @@ const Home = () => {
   
   // Native push notifications
   useNativePushNotifications(driver?.id);
+  
+  // Chat notifications en temps réel
+  useChatNotifications({ driver, enabled: true });
   
   // Get center for map
   const mapCenter = locationState.coordinates || { lat: 48.8566, lng: 2.3522 };

@@ -57,6 +57,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const [swipeX, setSwipeX] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -70,6 +71,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const lastTime = useRef(0);
   const velocityRef = useRef(0);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const lastActionRef = useRef<{ action: string; timestamp: number } | null>(null);
   const [sliderWidth, setSliderWidth] = useState(260);
   const { driver } = useAuth();
 
@@ -113,7 +115,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     }
 
     // Étape 2 : Arrivé sur place (reconnaît 'started' OU 'in_progress' sans arrived_at)
-    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) {
+    // IMPORTANT: Vérifier que started_at existe et que arrived_at n'existe pas encore
+    if ((course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) 
+        && course.started_at 
+        && !course.arrived_at) {
       return [{
         id: 'arrived',
         label: 'Je suis sur place',
@@ -199,7 +204,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const generalNotes = course.notes?.replace(/rehausseur|siège auto|siege auto|siège bébé|siege bebe|fauteuil roulant|animaux|animal/gi, '').trim() || '';
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isAnimating) return;
+    if (isAnimating || isProcessing) return;
     const now = Date.now();
     startX.current = e.touches[0].clientX;
     startTime.current = now;
@@ -215,7 +220,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!currentAction || isAnimating) return;
+    if (!currentAction || isAnimating || isProcessing) return;
     
     // Empêcher le scroll pendant le swipe
     e.preventDefault();
@@ -251,13 +256,17 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleTouchEnd = () => {
-    if (isAnimating) return;
+    if (isAnimating || isProcessing) return;
     
     // Validation par distance OU par vélocité rapide
     const isDistanceValid = swipeX > threshold;
     const isVelocityValid = velocityRef.current > velocityThreshold && swipeX > maxSwipeDistance * 0.25;
     
     if ((isDistanceValid || isVelocityValid) && currentAction) {
+      // Empêcher les appels multiples
+      if (isProcessing) return;
+      setIsProcessing(true);
+      
       // Animation vers la fin
       setIsAnimating(true);
       setSwipeX(maxSwipeDistance);
@@ -270,7 +279,66 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       setTimeout(() => {
         if (currentAction.action === 'complete') {
           setShowRatingModal(true);
+          setIsProcessing(false);
         } else {
+          // Protection contre les appels multiples de la même action
+          const now = Date.now();
+          if (lastActionRef.current && 
+              lastActionRef.current.action === currentAction.action && 
+              lastActionRef.current.timestamp > now - 2000) {
+            console.warn('⚠️ Action déjà appelée récemment, ignorée:', currentAction.action);
+            setIsProcessing(false);
+            setIsAnimating(false);
+            setSwipeX(0);
+            setActiveAction(null);
+            return;
+          }
+          
+          // Validation supplémentaire avant d'appeler l'action
+          // Pour 'start': vérifier que le statut est bien 'accepted'
+          if (currentAction.action === 'start' && course.status !== 'accepted') {
+            console.warn('⚠️ Action start refusée: statut invalide', course.status);
+            setIsProcessing(false);
+            setIsAnimating(false);
+            setSwipeX(0);
+            setActiveAction(null);
+            return;
+          }
+          
+          // Pour 'arrived': vérifier que le statut est 'started' et que started_at existe
+          if (currentAction.action === 'arrived') {
+            if (course.status !== 'started' && course.status !== 'in_progress') {
+              console.warn('⚠️ Action arrived refusée: statut invalide', course.status);
+              setIsProcessing(false);
+              setIsAnimating(false);
+              setSwipeX(0);
+              setActiveAction(null);
+              return;
+            }
+            if (!course.started_at) {
+              console.warn('⚠️ Action arrived refusée: started_at manquant');
+              setIsProcessing(false);
+              setIsAnimating(false);
+              setSwipeX(0);
+              setActiveAction(null);
+              return;
+            }
+            if (course.arrived_at) {
+              console.warn('⚠️ Action arrived refusée: déjà arrivé');
+              setIsProcessing(false);
+              setIsAnimating(false);
+              setSwipeX(0);
+              setActiveAction(null);
+              return;
+            }
+          }
+          
+          // Mémoriser l'action pour éviter les doublons
+          lastActionRef.current = {
+            action: currentAction.action,
+            timestamp: now
+          };
+          
           const actionData: any = { 
             course_id: course.id,
             action: currentAction.action 
@@ -279,7 +347,12 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             actionData.latitude = currentLocation.lat;
             actionData.longitude = currentLocation.lng;
           }
+          // Appeler l'action une seule fois
           onAction(currentAction.action, actionData);
+          // Réinitialiser après un délai pour permettre la mise à jour
+          setTimeout(() => {
+            setIsProcessing(false);
+          }, 1500);
         }
         setSwipeX(0);
         setActiveAction(null);
@@ -508,10 +581,11 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             className={cn(
               "relative w-full h-16 rounded-full overflow-hidden shadow-lg select-none",
               "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400",
-              swipeX > threshold && "from-green-600 via-green-500 to-green-400"
+              swipeX > threshold && "from-green-600 via-green-500 to-green-400",
+              isProcessing && "opacity-50 pointer-events-none"
             )}
             style={{ 
-              touchAction: 'none', 
+              touchAction: isProcessing ? 'auto' : 'none', 
               willChange: 'transform',
               userSelect: 'none',
               WebkitUserSelect: 'none',
