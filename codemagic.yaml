@@ -13,9 +13,6 @@ workflows:
       xcode: latest
       cocoapods: default
       node: 20
-    ios_signing:
-      distribution_type: app_store
-      bundle_identifier: com.lovable.drivervtcdispatch
     scripts:
       - name: Install dependencies
         script: |
