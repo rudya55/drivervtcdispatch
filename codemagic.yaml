@@ -6,6 +6,8 @@ workflows:
     integrations:
       app_store_connect: Codemagic
     environment:
+      groups:
+        - 57U2A3Y466
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.lovable.drivervtcdispatch
@@ -13,7 +15,7 @@ workflows:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "com.lovable.drivervtcdispatch"
-        APP_STORE_APP_ID: 0000000000
+        APP_STORE_APP_ID: 6756529868
       node: 20
       xcode: latest
       cocoapods: default
