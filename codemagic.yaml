@@ -45,5 +45,3 @@ workflows:
           - fasttransport26@gmail.com
       app_store_connect:
         submit_to_testflight: true
-    integrations:
-      app_store_connect: 7GRRFYZ942
