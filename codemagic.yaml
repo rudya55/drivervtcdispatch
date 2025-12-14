@@ -6,16 +6,16 @@ workflows:
     environment:
       groups:
         - 7GRRFYZ942
-    ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.lovable.drivervtcdispatch
-    vars:
+      vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "com.lovable.drivervtcdispatch"
-    node: 20
-    xcode: latest
-    cocoapods: default
+      xcode: latest
+      cocoapods: default
+      node: 20
+    ios_signing:
+      distribution_type: app_store
+      bundle_identifier: com.lovable.drivervtcdispatch
     scripts:
       - name: Install dependencies
         script: |
@@ -47,5 +47,4 @@ workflows:
         recipients:
           - rudyabitbol@icloud.com
       app_store_connect:
-        auth: integration
         submit_to_testflight: true
