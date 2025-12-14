@@ -37,7 +37,7 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
-      - *.dSYM.zip
+      - "*.dSYM.zip"
     publishing:
       email:
         recipients:
@@ -155,4 +155,3 @@ workflows:
         notify:
           success: true
           failure: true
-          
