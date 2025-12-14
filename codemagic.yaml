@@ -45,6 +45,6 @@ workflows:
     publishing:
       email:
         recipients:
-          - rudyabitbol@icloud.com
+          - fasttransport26@gmail.com
       app_store_connect:
         submit_to_testflight: true
