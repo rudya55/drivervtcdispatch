@@ -47,9 +47,9 @@ workflows:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-      notify:
-        success: true
-        failure: true
+    notify:
+      success: true
+      failure: true
 
   ios-simulator:
     name: iOS Simulator Build (Test)
@@ -121,9 +121,9 @@ workflows:
       email:
         recipients:
           - fasttransport26@gmail.com
-      notify:
-        success: true
-        failure: true
+    notify:
+      success: true
+      failure: true
 
   android-debug:
     name: Android Debug Build
@@ -157,6 +157,6 @@ workflows:
       email:
         recipients:
           - fasttransport26@gmail.com
-      notify:
-        success: true
-        failure: true
+    notify:
+      success: true
+      failure: true
