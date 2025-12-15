@@ -1,0 +1,7 @@
+-----BEGIN PRIVATE KEY-----
+MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgTest1234567890AB
+CDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkoAoGCCqGSM49AwEHoUQDQgAETest
+KeyForAppStoreConnectAPIAccessThisIsNotARealKeyPleaseReplaceWithYourActual
+ProductionKeyFromAppleDeveloperPortalThisIsOnlyForTestingPurposes1234567890
+ABCDEFGHIJKLMNOPQRSTUVWXYZ==
+-----END PRIVATE KEY-----

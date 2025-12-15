@@ -1,0 +1,28 @@
+{
+  "description": "Configuration de test pour l'API App Store Connect",
+  "note": "Ceci est un fichier de test. Remplacez ces valeurs par vos vraies credentials en production",
+  "app_store_connect": {
+    "key_id": "TEST12345",
+    "issuer_id": "12345678-1234-1234-1234-123456789012",
+    "private_key_file": "AuthKey_TEST12345.p8",
+    "bundle_id": "com.lovable.drivervtcdispatch"
+  },
+  "environment_variables": {
+    "APP_STORE_CONNECT_KEY_IDENTIFIER": "TEST12345",
+    "APP_STORE_CONNECT_ISSUER_ID": "12345678-1234-1234-1234-123456789012",
+    "APP_STORE_CONNECT_PRIVATE_KEY": "Contenu du fichier .p8 encodé en base64 ou directement le contenu"
+  },
+  "instructions": {
+    "step_1": "Obtenir votre clé API depuis https://appstoreconnect.apple.com/access/api",
+    "step_2": "Télécharger le fichier AuthKey_XXXXXXXXXX.p8",
+    "step_3": "Noter le Key ID (10 caractères alphanumériques)",
+    "step_4": "Noter l'Issuer ID (UUID format)",
+    "step_5": "Configurer ces valeurs dans les variables d'environnement Codemagic",
+    "step_6": "Le fichier .p8 doit être encodé et stocké dans APP_STORE_CONNECT_PRIVATE_KEY"
+  },
+  "permissions_required": [
+    "App Manager",
+    "Developer"
+  ],
+  "test_command": "curl -H 'Authorization: Bearer YOUR_JWT_TOKEN' https://api.appstoreconnect.apple.com/v1/apps"
+}
