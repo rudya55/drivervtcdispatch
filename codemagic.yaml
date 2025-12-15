@@ -51,8 +51,8 @@ workflows:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         
         # J'ai mis tes vrais codes ici :
-        key_id: 7GRRFYZ942
-        issuer_id: c18a0e25-b753-4e57-8f5f-ff90709d63bb
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
 
   ios-simulator:
     name: iOS Simulator Build (Test)
