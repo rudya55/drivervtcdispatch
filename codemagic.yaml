@@ -9,11 +9,11 @@ workflows:
         - 7GRRFYZ942
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.rudy.drivervtcdispatch
+        bundle_identifier: com.lovable.drivervtcdispatch
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-        BUNDLE_ID: "com.rudy.drivervtcdispatch"
+        BUNDLE_ID: "com.lovable.drivervtcdispatch"
       node: 20
       xcode: latest
       cocoapods: default
@@ -95,7 +95,7 @@ workflows:
       groups:
         - 7GRRFYZ942
       vars:
-        PACKAGE_NAME: "com.rudy.drivervtcdispatch"
+        PACKAGE_NAME: "com.lovable.drivervtcdispatch"
       node: 20
       java: 17
     scripts:
@@ -128,7 +128,7 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       vars:
-        PACKAGE_NAME: "com.rudy.drivervtcdispatch"
+        PACKAGE_NAME: "com.lovable.drivervtcdispatch"
       node: 20
       java: 17
     scripts:
