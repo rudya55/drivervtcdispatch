@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.rudy.drivervtcdispatch',  appName: 'VTC Dispatch Chauffeur',
+  appId: 'com.lovable.drivervtcdispatch',  appName: 'VTC Dispatch Chauffeur',
   webDir: 'dist',
   // PRODUCTION: Commenter la section server pour utiliser le build local
   // server: {
