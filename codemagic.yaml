@@ -25,11 +25,9 @@ workflows:
           npm run build
       - name: Sync Capacitor
         script: |
-          if [ ! -d "ios" ]; then
+          rm -rf ios
             npx cap add ios
-          fi
-          npx cap sync ios
-
+            npx cap sync ios
                 - name: Apply code signing
         script: |
           xcode-project use-profiles
