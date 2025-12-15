@@ -7,7 +7,7 @@ workflows:
       groups:
         - 7GRRFYZ942
       ios_signing:
-                        distribution_type: development
+                        distribution_type: app_store
                         bundle_identifier: com.lovable.drivervtcdispatch
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
