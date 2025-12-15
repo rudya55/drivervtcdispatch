@@ -4,6 +4,7 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
+      # Assure-toi que les variables que tu viens de créer sont dans ce groupe
       groups:
         - 7GRRFYZ942
       ios_signing:
@@ -25,19 +26,18 @@ workflows:
           npm run build
       - name: Sync Capacitor
         script: |
-          # On nettoie et recrée le dossier ios pour éviter les conflits
           rm -rf ios
           npx cap add ios
           npx cap sync ios
       - name: Apply code signing
         script: |
-          # Cette commande utilise tes clés pour créer le profil de provisionnement
           xcode-project use-profiles
       - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist $CM_BUILD_DIR/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -47,10 +47,7 @@ workflows:
         recipients:
           - fasttransport26@gmail.com
       app_store_connect:
-        # La clé privée doit être dans tes "Environment Variables" Codemagic
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        
-        # J'ai mis tes vrais codes ici :
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
 
