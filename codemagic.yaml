@@ -29,7 +29,7 @@ workflows:
           rm -rf ios
           npx cap add ios
           npx cap sync ios
-            - name: Apply code signning
+      - name: Apply code signing
         script: |
           xcode-project use-profiles
       - name: Build IPA
