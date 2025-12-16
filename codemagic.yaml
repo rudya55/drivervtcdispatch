@@ -29,6 +29,53 @@ workflows:
           rm -rf ios
           npx cap add ios
           npx cap sync ios
+              - name: Patch Info.plist for background location
+                    script: |
+                            set -e
+        PLIST="ios/App/App/Info.plist"
+        echo "🔧 Patch Info.plist path: $PLIST"
+        
+        if [ ! -f "$PLIST" ]; then
+          echo "⚠️ $PLIST introuvable. Ajustez la variable PLIST dans le script si votre Info.plist est ailleurs."
+          exit 1
+        fi
+        
+        # Ajouter UIBackgroundModes (avec 'location') si absent
+        if ! grep -q "<key>UIBackgroundModes</key>" "$PLIST"; then
+          echo "Ajout de UIBackgroundModes dans $PLIST"
+          awk '/</dict>/ && !x{print "    <key>UIBackgroundModes</key>\n    <array>\n      <string>location</string>\n    </array>"; x=1} {print}' "$PLIST" > "$PLIST.tmp" && mv "$PLIST.tmp" "$PLIST"
+        else
+          # S'assurer que 'location' est présent dans le tableau
+          if ! /usr/bin/plutil -convert xml1 -o - "$PLIST" 2>/dev/null | grep -A2 "<key>UIBackgroundModes</key>" | grep -q "<string>location</string>"; then
+            echo "Ajout de la valeur 'location' dans UIBackgroundModes"
+            awk '{
+              print
+              if ($0 ~ /<key>UIBackgroundModes</key>/) {
+                getline; print;
+                while ($0 !~ /<\/array>/) {
+                  print; getline
+                }
+                print "      <string>location</string>"
+                print $0
+                next
+              }
+            }' "$PLIST" > "$PLIST.tmp" && mv "$PLIST.tmp" "$PLIST"
+          fi
+        fi
+        
+        # Ajouter NSLocationWhenInUseUsageDescription si absent
+        if ! grep -q "<key>NSLocationWhenInUseUsageDescription</key>" "$PLIST"; then
+          echo "Ajout de NSLocationWhenInUseUsageDescription"
+          awk '/</dict>/ && !y{print "    <key>NSLocationWhenInUseUsageDescription</key>\n    <string>La localisation est utilisée pour fournir le suivi en temps réel lorsque l'application est ouverte.</string>"; y=1} {print}' "$PLIST" > "$PLIST.tmp" && mv "$PLIST.tmp" "$PLIST"
+        fi
+        
+        # Ajouter NSLocationAlwaysAndWhenInUseUsageDescription si absent
+        if ! grep -q "<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>" "$PLIST"; then
+          echo "Ajout de NSLocationAlwaysAndWhenInUseUsageDescription"
+          awk '/</dict>/ && !z{print "    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>\n    <string>La localisation est utilisée pour assurer le suivi même lorsque l'application est en arrière‑plan.</string>"; z=1} {print}' "$PLIST" > "$PLIST.tmp" && mv "$PLIST.tmp" "$PLIST"
+        fi
+        
+        echo "✅ Info.plist patch terminé"
       - name: Apply code signing
         script: |
           xcode-project use-profiles
