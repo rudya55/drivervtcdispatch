@@ -289,7 +289,9 @@ const Bookings = () => {
       };
 
       toast.success(successMessages[action] || 'Action effectuée !');
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      // Invalider tous les caches de courses pour synchroniser Home et Bookings
+      await queryClient.invalidateQueries({ queryKey: ['courses'] });
+      await queryClient.refetchQueries({ queryKey: ['courses', driver?.id] });
 
     } catch (error: any) {
       console.error(`❌ ${action} error:`, error);
@@ -552,8 +554,8 @@ const Bookings = () => {
                   className="p-4 cursor-pointer hover:bg-accent/5 transition-colors"
                   onClick={() => setSelectedCompletedCourse(course)}
                 >
-                  <div className="flex justify-between items-center">
-                    <div>
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
                       <p className="font-medium">
                         {extractCity(course.departure_location)} → {extractCity(course.destination_location)}
                       </p>
@@ -563,8 +565,33 @@ const Bookings = () => {
                           : new Date(course.completed_at || course.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                         }
                       </p>
+                      {/* Rating display */}
+                      {(course as any).rating && (
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span 
+                              key={star} 
+                              className={star <= (course as any).rating ? 'text-yellow-500' : 'text-muted-foreground/30'}
+                            >
+                              ★
+                            </span>
+                          ))}
+                          {(course as any).comment && (
+                            <span className="text-xs text-muted-foreground ml-2 truncate max-w-[150px]">
+                              {(course as any).comment}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <Badge className="bg-green-500">Terminée</Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className="bg-green-500">Terminée</Badge>
+                      {(course.net_driver || course.client_price) && (
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                          {(course.net_driver || course.client_price || 0).toFixed(0)} €
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))
