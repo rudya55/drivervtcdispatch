@@ -174,7 +174,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
   const steps = [
     { num: 1, label: 'Démarrer', icon: Navigation },
-    { num: 2, label: 'Arrivé', icon: MapPin },
+    { num: 2, label: 'Sur place', icon: MapPin },
     { num: 3, label: 'À bord', icon: UserCheck },
     { num: 4, label: 'Déposé', icon: MapPinOff },
     { num: 5, label: 'Terminer', icon: CheckCircle }
