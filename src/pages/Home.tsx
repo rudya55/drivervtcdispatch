@@ -177,7 +177,7 @@ const Home = () => {
       });
       if (error) throw error;
     },
-    onSuccess: (_, { action }) => {
+    onSuccess: async (_, { action }) => {
       const messages: Record<string, string> = {
         accept: 'Course acceptée',
         refuse: 'Course refusée',
@@ -188,7 +188,9 @@ const Home = () => {
         complete: 'Course terminée'
       };
       toast.success(messages[action] || 'Course mise à jour');
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      // Invalider et refetch pour synchroniser avec Bookings
+      await queryClient.invalidateQueries({ queryKey: ['courses'] });
+      await queryClient.refetchQueries({ queryKey: ['courses', driver?.id] });
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Erreur lors de la mise à jour de la course');

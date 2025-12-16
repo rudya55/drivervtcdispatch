@@ -281,12 +281,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           setShowRatingModal(true);
           setIsProcessing(false);
         } else {
-          // Protection contre les appels multiples de la même action
+          // Protection GLOBALE contre les appels multiples - bloque TOUTE action pendant 2 secondes
           const now = Date.now();
-          if (lastActionRef.current && 
-              lastActionRef.current.action === currentAction.action && 
-              lastActionRef.current.timestamp > now - 2000) {
-            console.warn('⚠️ Action déjà appelée récemment, ignorée:', currentAction.action);
+          if (lastActionRef.current && lastActionRef.current.timestamp > now - 2000) {
+            console.warn('⚠️ Action bloquée (protection 2s active):', currentAction.action, 'dernière action:', lastActionRef.current.action);
             setIsProcessing(false);
             setIsAnimating(false);
             setSwipeX(0);
