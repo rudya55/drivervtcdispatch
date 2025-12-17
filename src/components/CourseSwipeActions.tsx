@@ -91,6 +91,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   }, []);
 
   // Determine current step (1-5) for progress indicator
+  // Pour les courses multi-stops en mode picked_up, on reste à l'étape 4
   const getCurrentStep = (): number => {
     if (course.status === 'accepted') return 1;
     if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) return 2;
@@ -99,6 +100,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) return 5;
     return 1;
   };
+
+  // Vérifier si c'est une course multi-stops
+  const isMultiStopCourse = course.course_type === 'mise_dispo' || course.course_type === 'transfert';
+  const stops = course.stops || [];
+  const completedStops = stops.filter(s => s.completed).length;
+  const totalStops = stops.length;
+  const currentStop = stops.find(s => !s.completed);
 
   // Determine available actions based on course status
   const getAvailableActions = (): SwipeAction[] => {
@@ -141,7 +149,19 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    // Étape 4 : Client déposé (reconnaît 'picked_up' OU 'in_progress' avec picked_up_at sans dropped_off_at)
+    // Étape 4 : Multi-stops - Déposer client à l'arrêt actuel
+    if (isMultiStopCourse && currentStop && (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at))) {
+      return [{
+        id: 'complete_stop',
+        label: `Déposer ${currentStop.client_name || `client ${completedStops + 1}`}`,
+        icon: MapPinOff,
+        color: 'text-orange-500',
+        bgColor: 'bg-orange-500',
+        action: 'complete_stop'
+      }];
+    }
+
+    // Étape 4 (normal) : Client déposé (reconnaît 'picked_up' OU 'in_progress' avec picked_up_at sans dropped_off_at)
     if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) {
       return [{
         id: 'dropoff',
@@ -345,6 +365,10 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             actionData.latitude = currentLocation.lat;
             actionData.longitude = currentLocation.lng;
           }
+          // Pour les actions complete_stop, ajouter le stop_id
+          if (currentAction.action === 'complete_stop' && currentStop) {
+            actionData.stop_id = currentStop.id;
+          }
           // Appeler l'action une seule fois
           onAction(currentAction.action, actionData);
           // Réinitialiser après un délai pour permettre la mise à jour
@@ -428,6 +452,62 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             />
           </div>
         </div>
+
+        {/* Multi-stop progress indicator */}
+        {isMultiStopCourse && totalStops > 0 && (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at)) && (
+          <Card className="p-3 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Navigation className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                <span className="text-sm font-semibold text-orange-800 dark:text-orange-200">
+                  Arrêt {completedStops + 1} / {totalStops}
+                </span>
+              </div>
+              <Badge variant="outline" className="text-xs border-orange-300 text-orange-700 dark:text-orange-300">
+                {course.course_type === 'mise_dispo' ? 'Mise à dispo' : 'Transfert'}
+              </Badge>
+            </div>
+            
+            {currentStop && (
+              <div className="p-2 bg-white dark:bg-background rounded-lg border border-orange-200 dark:border-orange-800">
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">Prochaine destination</p>
+                    <p className="text-xs text-muted-foreground truncate">{currentStop.address}</p>
+                    {currentStop.client_name && (
+                      <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mt-1">
+                        👤 {currentStop.client_name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mini liste des arrêts restants */}
+            {stops.filter(s => !s.completed).length > 1 && (
+              <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-800">
+                <p className="text-xs text-muted-foreground mb-1">Arrêts suivants:</p>
+                <div className="space-y-1">
+                  {stops.filter(s => !s.completed).slice(1, 3).map((stop, idx) => (
+                    <div key={stop.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium">
+                        {stop.stop_order}
+                      </span>
+                      <span className="truncate">{stop.address}</span>
+                    </div>
+                  ))}
+                  {stops.filter(s => !s.completed).length > 3 && (
+                    <p className="text-xs text-muted-foreground">
+                      +{stops.filter(s => !s.completed).length - 3} autre(s)
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Main card with course info */}
         <Card className="p-4 space-y-2">

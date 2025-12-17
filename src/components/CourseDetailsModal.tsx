@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Course, supabase } from '@/lib/supabase';
-import { translateCourseStatus, formatFullDate } from '@/lib/utils';
+import { translateCourseStatus, formatFullDate, cn } from '@/lib/utils';
 import { GPSSelector } from '@/components/GPSSelector';
-import { MapPin, Plane, User, Briefcase, Users, Clock, MessageCircle, Navigation, Timer, Loader2, Baby, Euro } from 'lucide-react';
+import { MapPin, Plane, User, Briefcase, Users, Clock, MessageCircle, Navigation, Timer, Loader2, Baby, Euro, CheckCircle, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -332,6 +332,66 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
             <div className="pt-2 border-t">
               <p className="text-sm text-muted-foreground">{course.notes}</p>
             </div>
+          )}
+
+          {/* Liste des arrêts pour mise_dispo / transfert */}
+          {course.stops && course.stops.length > 0 && (
+            <Card className="p-3 border-primary/20 bg-primary/5">
+              <div className="flex items-center gap-2 mb-3">
+                <Navigation className="w-4 h-4 text-primary" />
+                <span className="font-medium text-sm">
+                  Arrêts ({course.stops.filter(s => s.completed).length}/{course.stops.length})
+                </span>
+                <Badge variant="outline" className="ml-auto text-xs">
+                  {course.course_type === 'mise_dispo' ? 'Mise à dispo' : 'Transfert'}
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                {course.stops.map((stop, index) => (
+                  <div 
+                    key={stop.id} 
+                    className={cn(
+                      "flex items-start gap-3 p-2 rounded-lg border transition-colors",
+                      stop.completed 
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800" 
+                        : "bg-background border-border"
+                    )}
+                  >
+                    <div className={cn(
+                      "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                      stop.completed 
+                        ? "bg-emerald-500 text-white" 
+                        : "bg-primary text-primary-foreground"
+                    )}>
+                      {stop.completed ? <CheckCircle className="w-4 h-4" /> : stop.stop_order}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "text-sm font-medium truncate",
+                        stop.completed && "line-through text-muted-foreground"
+                      )}>
+                        {stop.address}
+                      </p>
+                      {stop.client_name && (
+                        <p className="text-xs text-muted-foreground">
+                          Client: {stop.client_name}
+                        </p>
+                      )}
+                      {stop.notes && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          {stop.notes}
+                        </p>
+                      )}
+                    </div>
+                    {stop.completed && (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                        ✓ Déposé
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
 
           {/* Carte Google Maps */}

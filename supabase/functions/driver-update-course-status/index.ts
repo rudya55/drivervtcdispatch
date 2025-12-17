@@ -63,14 +63,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { course_id, action, latitude, longitude, rating, comment, final_price } = requestBody;
+    const { course_id, action, latitude, longitude, rating, comment, final_price, stop_id } = requestBody;
     console.log(`📍 Action received: "${action}" for course ${course_id}`, {
       course_id,
       action,
       hasLocation: !!(latitude && longitude),
       rating,
       comment,
-      final_price
+      final_price,
+      stop_id
     });
 
     if (!course_id) {
@@ -243,12 +244,73 @@ Deno.serve(async (req) => {
         trackingNotes = 'Course annulée';
         break;
 
+      case 'complete_stop':
+        // Action spéciale pour les courses multi-arrêts
+        if (!stop_id) {
+          return new Response(
+            JSON.stringify({ error: 'Missing stop_id for complete_stop action' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`📍 Completing stop ${stop_id} for course ${course_id}`);
+
+        // Marquer l'arrêt comme terminé
+        const { error: stopUpdateError } = await supabase
+          .from('course_stops')
+          .update({ 
+            completed: true, 
+            completed_at: now 
+          })
+          .eq('id', stop_id);
+
+        if (stopUpdateError) {
+          console.error('❌ Error updating stop:', stopUpdateError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to update stop', details: stopUpdateError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Récupérer l'arrêt pour obtenir l'ordre et les infos
+        const { data: currentStop } = await supabase
+          .from('course_stops')
+          .select('stop_order, address, client_name')
+          .eq('id', stop_id)
+          .single();
+
+        // Vérifier s'il reste des arrêts non complétés
+        const { data: remainingStops } = await supabase
+          .from('course_stops')
+          .select('id')
+          .eq('course_id', course_id)
+          .eq('completed', false);
+
+        if (!remainingStops || remainingStops.length === 0) {
+          // Tous les arrêts terminés → passer à l'étape dropoff
+          updateData = { 
+            status: 'dropped_off',
+            dropped_off_at: now,
+            current_stop_order: (currentStop?.stop_order || 0) + 1
+          };
+          trackingNotes = `Dernier arrêt terminé - ${currentStop?.client_name || 'Client'} déposé à ${currentStop?.address || 'destination'}`;
+        } else {
+          // Passer à l'arrêt suivant
+          updateData = { 
+            current_stop_order: (currentStop?.stop_order || 0) + 1
+          };
+          trackingNotes = `Arrêt ${currentStop?.stop_order || '?'} terminé - ${currentStop?.client_name || 'Client'} déposé`;
+        }
+
+        console.log(`✅ Stop completed. Remaining: ${remainingStops?.length || 0}`);
+        break;
+
       default:
         console.error(`❌ Invalid action received: "${action}"`);
         return new Response(
           JSON.stringify({ 
             error: `Invalid action: "${action}"`,
-            validActions: ['accept', 'refuse', 'start', 'arrived', 'pickup', 'dropoff', 'complete', 'cancel']
+            validActions: ['accept', 'refuse', 'start', 'arrived', 'pickup', 'dropoff', 'complete', 'cancel', 'complete_stop']
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -282,6 +344,7 @@ Deno.serve(async (req) => {
       'dropoff': 'dropped_off',
       'complete': 'completed',
       'cancel': 'cancelled',
+      'complete_stop': 'stop_completed',
     };
 
     const titleMapping: Record<string, string> = {
@@ -293,6 +356,7 @@ Deno.serve(async (req) => {
       'dropoff': 'Client déposé',
       'complete': 'Course terminée',
       'cancel': 'Course annulée',
+      'complete_stop': 'Arrêt complété',
     };
 
     // Insert tracking notification into driver_notifications
