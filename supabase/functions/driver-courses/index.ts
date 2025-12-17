@@ -91,12 +91,45 @@ Deno.serve(async (req) => {
     if (courses && courses.length > 0) {
       console.log('📋 Sample courses:');
       courses.slice(0, 3).forEach((c, i) => {
-        console.log(`  Course ${i+1}: id=${c.id}, status=${c.status}, dispatch_mode=${c.dispatch_mode}, driver_id=${c.driver_id}, vehicle_type=${c.vehicle_type}`);
+        console.log(`  Course ${i+1}: id=${c.id}, status=${c.status}, dispatch_mode=${c.dispatch_mode}, driver_id=${c.driver_id}, vehicle_type=${c.vehicle_type}, course_type=${c.course_type}`);
       });
     }
 
+    // Charger les arrêts pour les courses multi-stops (mise_dispo et transfert)
+    const courseIds = (courses || [])
+      .filter(c => c.course_type === 'mise_dispo' || c.course_type === 'transfert')
+      .map(c => c.id);
+
+    let stopsMap: Record<string, any[]> = {};
+    if (courseIds.length > 0) {
+      const { data: stops, error: stopsError } = await supabase
+        .from('course_stops')
+        .select('*')
+        .in('course_id', courseIds)
+        .order('stop_order', { ascending: true });
+
+      if (stopsError) {
+        console.log('⚠️ Stops query error (table may not exist):', stopsError.message);
+      } else if (stops) {
+        // Grouper les stops par course_id
+        stops.forEach(stop => {
+          if (!stopsMap[stop.course_id]) {
+            stopsMap[stop.course_id] = [];
+          }
+          stopsMap[stop.course_id].push(stop);
+        });
+        console.log(`📍 Loaded stops for ${Object.keys(stopsMap).length} multi-stop courses`);
+      }
+    }
+
+    // Attacher les stops aux courses
+    const coursesWithStops = (courses || []).map(course => ({
+      ...course,
+      stops: stopsMap[course.id] || []
+    }));
+
     // Filter courses based on visibility rules
-    const filteredCourses = (courses || []).filter((course) => {
+    const filteredCourses = coursesWithStops.filter((course) => {
       // Rule 1: Always show courses assigned to this driver
       if (course.driver_id === driverId) {
         console.log(`✅ Course ${course.id}: Assigned to this driver`);

@@ -142,9 +142,27 @@ const Bookings = () => {
       )
       .subscribe();
 
+    // Channel 3: Course stops updates (for multi-stop courses)
+    const stopsChannel = supabase
+      .channel('course-stops-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'course_stops',
+        },
+        (payload) => {
+          console.log('Course stop update:', payload);
+          queryClient.invalidateQueries({ queryKey: ['courses', driver.id] });
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(myCoursesChannel);
       supabase.removeChannel(autoDispatchChannel);
+      supabase.removeChannel(stopsChannel);
     };
   }, [driver, queryClient]);
 

@@ -42,6 +42,20 @@ export type Driver = {
   vehicle_photos_urls?: string[] | null;
 };
 
+// Type pour les arrêts multi-stops
+export type CourseStop = {
+  id: string;
+  course_id: string;
+  stop_order: number;
+  address: string;
+  client_name: string | null;
+  stop_type: 'pickup' | 'dropoff';
+  completed_at: string | null;
+  completed: boolean;
+  notes: string | null;
+  created_at: string;
+};
+
 export type Course = {
   id: string;
   driver_id: string | null;
@@ -77,6 +91,10 @@ export type Course = {
   // Paiement
   payment_type: string | null;
   tva: number | null;
+  // Multi-stops
+  course_type: 'simple' | 'mise_dispo' | 'transfert' | null;
+  current_stop_order: number | null;
+  stops?: CourseStop[];
 };
 
 export type DriverNotification = {
