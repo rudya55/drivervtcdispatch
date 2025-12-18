@@ -67,6 +67,26 @@ export default function Chat() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `course_id=eq.${courseId}`,
+        },
+        (payload) => {
+          console.log('💬 Message updated (read status):', payload);
+          const updatedMsg = payload.new as Message;
+          setMessages((current) =>
+            current.map((m) =>
+              m.id === updatedMsg.id
+                ? { ...m, read_by_fleet: updatedMsg.read_by_fleet, delivered_at: updatedMsg.delivered_at }
+                : m
+            )
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -138,10 +158,11 @@ export default function Chat() {
         }
       }
 
-      // Map 'message' field to 'content' for UI compatibility
+      // Map 'message' field to 'content' and 'read_at' to 'read_by_fleet'
       const mappedMessages = (data?.messages || []).map((m: Record<string, unknown>) => ({
         ...m,
-        content: m.message || m.content || ''
+        content: m.message || m.content || '',
+        read_by_fleet: m.read_at ? true : (m.read_by_fleet || false)
       }));
       setMessages(mappedMessages);
       setTableExists(true);
