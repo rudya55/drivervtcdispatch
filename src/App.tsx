@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { useChatNotifications } from "./hooks/useChatNotifications";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
@@ -51,10 +52,21 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const AppContent = () => {
-  const { session, loading } = useAuth();
+// Listener global pour les notifications chat sur TOUTES les pages
+const GlobalChatListener = () => {
+  const { driver } = useAuth();
+  
+  // Écouter les notifications chat globalement
+  useChatNotifications({ driver, enabled: !!driver });
+  
+  return null; // Ce composant ne rend rien, il écoute juste
+};
 
-  // Mode clair par défaut (pas de dark mode forcé)
+const AppContent = () => {
+  const { session, driver, loading } = useAuth();
+
+  // Écouter les notifications chat globalement quand connecté
+  useChatNotifications({ driver, enabled: !!driver });
 
   if (loading) {
     return (
