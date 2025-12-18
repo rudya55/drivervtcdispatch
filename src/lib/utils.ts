@@ -122,9 +122,16 @@ export function formatParisAddress(address: string): string {
 export const parseMultipleDestinations = (destinationLocation: string): string[] => {
   if (!destinationLocation) return [];
   
-  // Vérifier si contient le séparateur "→"
-  if (destinationLocation.includes('→')) {
-    return destinationLocation.split('→').map(addr => addr.trim()).filter(Boolean);
+  // Liste des séparateurs possibles (du plus spécifique au moins spécifique)
+  const separators = ['→', ' -> ', '->', ' - '];
+  
+  for (const sep of separators) {
+    if (destinationLocation.includes(sep)) {
+      const addresses = destinationLocation.split(sep).map(addr => addr.trim()).filter(Boolean);
+      if (addresses.length > 1) {
+        return addresses;
+      }
+    }
   }
   
   // Une seule destination
