@@ -58,9 +58,9 @@ export const CourseTimer = ({ pickupDate, onUnlock }: CourseTimerProps) => {
   const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
 
   return (
-    <Badge variant="secondary" className="bg-warning/20 text-warning border-warning/30">
-      <Timer className="w-3 h-3 mr-1" />
-      Débloquée dans {hours > 0 && `${hours}h `}{minutes}min {seconds}s
+    <Badge variant="secondary" className="bg-white/90 text-gray-800 border-white/50 shadow-sm font-semibold">
+      <Timer className="w-3 h-3 mr-1 text-amber-600" />
+      Déblocage dans {hours > 0 && `${hours}h `}{minutes}min {seconds}s
     </Badge>
   );
 };
