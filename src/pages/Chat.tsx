@@ -272,9 +272,9 @@ export default function Chat() {
             <Button 
               variant="outline" 
               className="mt-4"
-              onClick={() => navigate('/bookings')}
+              onClick={() => navigate('/chats')}
             >
-              Retour aux courses
+              Retour aux conversations
             </Button>
           </Card>
         </div>
@@ -291,7 +291,7 @@ export default function Chat() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/bookings')}
+          onClick={() => navigate('/chats')}
           className="h-10 w-10"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -303,7 +303,7 @@ export default function Chat() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate('/bookings')}
+          onClick={() => navigate('/chats')}
           className="h-10 w-10 rounded-full border-2 border-muted-foreground/30 hover:bg-destructive/10 hover:border-destructive"
         >
           <X className="w-6 h-6 text-muted-foreground" />
@@ -352,13 +352,16 @@ export default function Chat() {
                       <span className="flex items-center gap-1">
                         {message.read_by_fleet ? (
                           <>
-                            <CheckCheck className="w-4 h-4 text-red-500 stroke-[2.5]" />
-                            <span className="text-xs text-red-500 font-bold">Lu</span>
+                            <CheckCheck className="w-4 h-4 text-red-400 stroke-[3]" />
+                            <span className="text-xs text-red-400 font-bold">Lu</span>
                           </>
                         ) : message.delivered_at ? (
-                          <CheckCheck className="w-4 h-4 text-primary-foreground/70 stroke-[2.5]" />
+                          <>
+                            <CheckCheck className="w-4 h-4 text-gray-300 stroke-[3]" />
+                            <span className="text-xs text-gray-300 font-medium">Distribué</span>
+                          </>
                         ) : (
-                          <Check className="w-4 h-4 text-primary-foreground/50 stroke-[2.5]" />
+                          <Check className="w-4 h-4 text-gray-400/70 stroke-[2.5]" />
                         )}
                       </span>
                     )}
