@@ -390,11 +390,34 @@ const Home = () => {
                     <span className="text-sm font-medium">{course.departure_location}</span>
                   </div>
 
-                  {/* 7. Destination */}
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-red-500" />
-                    <span className="text-sm font-medium">{course.destination_location}</span>
-                  </div>
+                  {/* 7. Destination(s) - Numérotées si multi-destinations */}
+                  {(() => {
+                    const destinations = course.destination_location?.includes('→')
+                      ? course.destination_location.split('→').map((addr: string) => addr.trim()).filter(Boolean)
+                      : [course.destination_location];
+                    
+                    if (destinations.length > 1) {
+                      return (
+                        <div className="space-y-1">
+                          {destinations.map((dest: string, index: number) => (
+                            <div key={index} className="flex items-start gap-2">
+                              <div className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold flex-shrink-0">
+                                {index + 1}
+                              </div>
+                              <span className="text-sm font-medium">{dest}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-destructive" />
+                        <span className="text-sm font-medium">{course.destination_location}</span>
+                      </div>
+                    );
+                  })()}
 
                   {/* 8. Type de paiement */}
                   {course.payment_type && (

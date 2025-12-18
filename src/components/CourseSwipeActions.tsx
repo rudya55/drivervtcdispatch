@@ -90,12 +90,29 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     return () => window.removeEventListener('resize', updateSliderWidth);
   }, []);
 
-  // Vérifier si c'est une course multi-stops
-  const isMultiStopCourse = course.course_type === 'mise_dispo' || course.course_type === 'transfert';
-  const stops = course.stops || [];
-  const completedStops = stops.filter(s => s.completed).length;
+  // Parser les destinations multiples depuis destination_location (séparateur "→")
+  const parsedDestinations = course.destination_location?.includes('→')
+    ? course.destination_location.split('→').map((addr: string) => addr.trim()).filter(Boolean)
+    : [];
+  
+  // Vérifier si c'est une course multi-stops (via stops OU via destination_location avec "→")
+  const isMultiStopCourse = (course.stops && course.stops.length > 0) || parsedDestinations.length > 1;
+  
+  // Utiliser les stops existants ou créer des stops virtuels depuis les destinations parsées
+  const stops = course.stops && course.stops.length > 0
+    ? course.stops
+    : parsedDestinations.length > 1
+      ? parsedDestinations.map((addr: string, i: number) => ({
+          id: `parsed-${i}`,
+          stop_order: i + 1,
+          address: addr,
+          completed: false
+        }))
+      : [];
+  
+  const completedStops = course.stops?.filter((s: any) => s.completed).length || 0;
   const totalStops = stops.length;
-  const currentStop = stops.find(s => !s.completed);
+  const currentStop = stops.find((s: any) => !s.completed);
 
   // Construire les étapes dynamiquement selon le type de course
   type StepType = { num: number; label: string; icon: any };
@@ -540,9 +557,9 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">Prochaine destination</p>
                     <p className="text-xs text-muted-foreground truncate">{currentStop.address}</p>
-                    {currentStop.client_name && (
+                    {(currentStop as any).client_name && (
                       <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mt-1">
-                        👤 {currentStop.client_name}
+                        👤 {(currentStop as any).client_name}
                       </p>
                     )}
                   </div>

@@ -119,6 +119,24 @@ export function formatParisAddress(address: string): string {
   return extractCity(address);
 }
 
+export const parseMultipleDestinations = (destinationLocation: string): string[] => {
+  if (!destinationLocation) return [];
+  
+  // Vérifier si contient le séparateur "→"
+  if (destinationLocation.includes('→')) {
+    return destinationLocation.split('→').map(addr => addr.trim()).filter(Boolean);
+  }
+  
+  // Une seule destination
+  return [destinationLocation];
+};
+
+export const isMultiDestinationCourse = (course: { destination_location?: string; stops?: any[] }): boolean => {
+  if (course.stops && course.stops.length > 0) return true;
+  if (course.destination_location?.includes('→')) return true;
+  return false;
+};
+
 export const renderTextWithLinks = (text: string): React.ReactNode => {
   if (!text) return null;
   
