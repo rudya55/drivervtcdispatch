@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, parseMultipleDestinations } from '@/lib/utils';
 
 interface CourseSwipeActionsProps {
   course: Course;
@@ -90,10 +90,8 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     return () => window.removeEventListener('resize', updateSliderWidth);
   }, []);
 
-  // Parser les destinations multiples depuis destination_location (séparateur "→")
-  const parsedDestinations = course.destination_location?.includes('→')
-    ? course.destination_location.split('→').map((addr: string) => addr.trim()).filter(Boolean)
-    : [];
+  // Parser les destinations multiples avec la fonction utilitaire (gère tous les séparateurs)
+  const parsedDestinations = parseMultipleDestinations(course.destination_location || '');
   
   // Vérifier si c'est une course multi-stops (via stops OU via destination_location avec "→")
   const isMultiStopCourse = (course.stops && course.stops.length > 0) || parsedDestinations.length > 1;
@@ -652,14 +650,39 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             <span className="text-sm font-medium">{course.departure_location}</span>
           </button>
 
-          {/* 7. Destination */}
-          <button
-            onClick={() => setShowDestinationGPS(true)}
-            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors py-1"
-          >
-            <MapPin className="w-4 h-4 text-red-500" />
-            <span className="text-sm font-medium">{course.destination_location}</span>
-          </button>
+          {/* 7. Destination(s) - Numérotées si multi-destinations */}
+          {parsedDestinations.length > 1 ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-red-500" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  Destinations ({parsedDestinations.length} arrêts)
+                </span>
+              </div>
+              <div className="ml-6 space-y-2">
+                {parsedDestinations.map((dest: string, index: number) => (
+                  <button
+                    key={index}
+                    onClick={() => setShowDestinationGPS(true)}
+                    className="flex items-start gap-2 border-l-2 border-red-200 pl-2 w-full text-left hover:bg-accent/50 rounded-r-lg transition-colors py-1"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-medium">{dest}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowDestinationGPS(true)}
+              className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors py-1"
+            >
+              <MapPin className="w-4 h-4 text-red-500" />
+              <span className="text-sm font-medium">{course.destination_location}</span>
+            </button>
+          )}
 
           {/* 8. Type de paiement */}
           {course.payment_type && (
