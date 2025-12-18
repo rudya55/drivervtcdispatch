@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useChatNotifications } from '@/hooks/useChatNotifications';
 import { CourseTimer } from '@/components/CourseTimer';
 import { CourseDetailsModal } from '@/components/CourseDetailsModal';
 import { SignBoardModal } from '@/components/SignBoardModal';
@@ -25,9 +24,7 @@ const Bookings = () => {
   const { driver } = useAuth();
   const { unreadCount } = useNotifications(driver?.id || null, driver);
   const queryClient = useQueryClient();
-  
-  // Activer les notifications chat en temps réel
-  useChatNotifications({ driver, enabled: true });
+
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedCompletedCourse, setSelectedCompletedCourse] = useState<Course | null>(null);
