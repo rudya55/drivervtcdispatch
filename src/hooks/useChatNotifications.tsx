@@ -50,9 +50,9 @@ export const useChatNotifications = ({ driver, enabled = true }: UseChatNotifica
           const messageText = newMessage.message || newMessage.content || '';
           const preview = messageText.substring(0, 60) + (messageText.length > 60 ? '...' : '');
           
-          // Fonction pour ouvrir le chat
+          // Fonction pour ouvrir la liste des chats
           const openChat = () => {
-            navigate(`/chat/${courseId}`);
+            navigate('/chats');
           };
           
           // Toast avec action cliquable et wrapper cliquable
