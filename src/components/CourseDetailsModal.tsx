@@ -23,6 +23,7 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
   const { driver, session } = useAuth();
   const [showDepartureGPS, setShowDepartureGPS] = useState(false);
   const [showDestinationGPS, setShowDestinationGPS] = useState(false);
+  const [selectedStopAddress, setSelectedStopAddress] = useState<string | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [mapError, setMapError] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
@@ -291,14 +292,40 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
             <span className="text-sm font-medium">{course.departure_location}</span>
           </button>
 
-          {/* 7. Destination */}
-          <button
-            onClick={() => setShowDestinationGPS(true)}
-            className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors"
-          >
-            <MapPin className="w-4 h-4 text-red-500" />
-            <span className="text-sm font-medium">{course.destination_location}</span>
-          </button>
+          {/* 7. Destination(s) */}
+          {course.stops && course.stops.length > 0 ? (
+            <div className="space-y-2">
+              {course.stops.map((stop) => (
+                <button
+                  key={stop.id}
+                  onClick={() => {
+                    setSelectedStopAddress(stop.address);
+                    setShowDestinationGPS(true);
+                  }}
+                  className="flex items-start gap-2 w-full text-left hover:bg-accent/50 rounded-lg p-2 transition-colors border-l-2 border-red-300"
+                >
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold mt-0.5">
+                    {stop.stop_order}
+                  </span>
+                  <span className="text-sm font-medium flex-1">{stop.address}</span>
+                  {stop.completed && (
+                    <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setSelectedStopAddress(null);
+                setShowDestinationGPS(true);
+              }}
+              className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors"
+            >
+              <MapPin className="w-4 h-4 text-red-500" />
+              <span className="text-sm font-medium">{course.destination_location}</span>
+            </button>
+          )}
 
           {/* 8. Type de paiement */}
           {course.payment_type && (
@@ -461,10 +488,13 @@ export const CourseDetailsModal = ({ course, open, onOpenChange, onOpenSignBoard
 
       {/* GPS Selector pour Destination */}
       <GPSSelector
-        address={course.destination_location}
+        address={selectedStopAddress || course.destination_location}
         open={showDestinationGPS}
-        onOpenChange={setShowDestinationGPS}
-        label="Adresse de destination"
+        onOpenChange={(open) => {
+          setShowDestinationGPS(open);
+          if (!open) setSelectedStopAddress(null);
+        }}
+        label={selectedStopAddress ? "Adresse de l'arrêt" : "Adresse de destination"}
       />
     </Dialog>
   );
