@@ -90,15 +90,15 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     return () => window.removeEventListener('resize', updateSliderWidth);
   }, []);
 
-  // Determine current step (1-5) for progress indicator
-  // Pour les courses multi-stops en mode picked_up, on reste à l'étape 4
+  // Determine current step (0-5) for progress indicator
+  // 0 = aucune étape démarrée (accepted), 1 = démarrer complété, etc.
   const getCurrentStep = (): number => {
-    if (course.status === 'accepted') return 1;
-    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) return 2;
-    if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) return 3;
-    if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) return 4;
-    if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) return 5;
-    return 1;
+    if (course.status === 'accepted') return 0; // Toutes les étapes grises
+    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) return 1;
+    if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) return 2;
+    if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) return 3;
+    if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) return 4;
+    return 0;
   };
 
   // Vérifier si c'est une course multi-stops
