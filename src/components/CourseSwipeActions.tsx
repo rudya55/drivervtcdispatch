@@ -90,17 +90,6 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     return () => window.removeEventListener('resize', updateSliderWidth);
   }, []);
 
-  // Determine current step (0-5) for progress indicator
-  // 0 = aucune étape démarrée (accepted), 1 = démarrer complété, etc.
-  const getCurrentStep = (): number => {
-    if (course.status === 'accepted') return 0; // Toutes les étapes grises
-    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) return 1;
-    if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) return 2;
-    if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) return 3;
-    if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) return 4;
-    return 0;
-  };
-
   // Vérifier si c'est une course multi-stops
   const isMultiStopCourse = course.course_type === 'mise_dispo' || course.course_type === 'transfert';
   const stops = course.stops || [];
@@ -108,9 +97,74 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   const totalStops = stops.length;
   const currentStop = stops.find(s => !s.completed);
 
+  // Construire les étapes dynamiquement selon le type de course
+  type StepType = { num: number; label: string; icon: any };
+  
+  const buildSteps = (): StepType[] => {
+    const baseSteps: StepType[] = [
+      { num: 1, label: 'Démarrer', icon: Navigation },
+      { num: 2, label: 'Sur place', icon: MapPin },
+      { num: 3, label: 'À bord', icon: UserCheck },
+    ];
+
+    if (isMultiStopCourse && totalStops > 0) {
+      // Ajouter une étape pour chaque arrêt
+      for (let i = 0; i < totalStops; i++) {
+        baseSteps.push({
+          num: 4 + i,
+          label: `Déposé ${i + 1}`,
+          icon: MapPinOff
+        });
+      }
+      // Étape finale
+      baseSteps.push({
+        num: 4 + totalStops,
+        label: 'Terminer',
+        icon: CheckCircle
+      });
+    } else {
+      // Course simple - 5 étapes standard
+      baseSteps.push(
+        { num: 4, label: 'Déposé', icon: MapPinOff },
+        { num: 5, label: 'Terminer', icon: CheckCircle }
+      );
+    }
+
+    return baseSteps;
+  };
+
+  const steps = buildSteps();
+  const totalStepsCount = steps.length;
+
+  // Determine current step for progress indicator
+  // 0 = aucune étape démarrée (accepted), 1 = démarrer complété, etc.
+  const getCurrentStep = (): number => {
+    if (course.status === 'accepted') return 0;
+    if (course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) return 1;
+    if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) return 2;
+    
+    // Pour multi-arrêts : calculer l'étape basée sur les arrêts complétés
+    if (isMultiStopCourse && totalStops > 0) {
+      if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) {
+        return 3 + completedStops; // 3 = À bord, +0 = premier arrêt, +1 = deuxième, etc.
+      }
+      if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) {
+        return 3 + totalStops; // Tous les arrêts complétés, étape Terminer
+      }
+    } else {
+      // Course simple
+      if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) return 3;
+      if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) return 4;
+    }
+    
+    return 0;
+  };
+
+  const currentStep = getCurrentStep();
+
   // Determine available actions based on course status
   const getAvailableActions = (): SwipeAction[] => {
-  // Étape 1 : Démarrer la course
+    // Étape 1 : Démarrer la course
     if (course.status === 'accepted') {
       return [{
         id: 'start',
@@ -123,7 +177,6 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
     }
 
     // Étape 2 : Arrivé sur place (reconnaît 'started' OU 'in_progress' sans arrived_at)
-    // IMPORTANT: Vérifier que started_at existe et que arrived_at n'existe pas encore
     if ((course.status === 'started' || (course.status === 'in_progress' && !course.arrived_at)) 
         && course.started_at 
         && !course.arrived_at) {
@@ -137,7 +190,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    // Étape 3 : Client à bord (reconnaît 'arrived' OU 'in_progress' avec arrived_at sans picked_up_at)
+    // Étape 3 : Client à bord
     if (course.status === 'arrived' || (course.status === 'in_progress' && course.arrived_at && !course.picked_up_at)) {
       return [{
         id: 'pickup',
@@ -151,9 +204,12 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
     // Étape 4 : Multi-stops - Déposer client à l'arrêt actuel
     if (isMultiStopCourse && currentStop && (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at))) {
+      const isLastStop = completedStops + 1 === totalStops;
       return [{
         id: 'complete_stop',
-        label: `Déposer ${currentStop.client_name || `client ${completedStops + 1}`}`,
+        label: isLastStop 
+          ? `Déposer client ${completedStops + 1} (dernier)`
+          : `Déposer client ${completedStops + 1}/${totalStops}`,
         icon: MapPinOff,
         color: 'text-orange-500',
         bgColor: 'bg-orange-500',
@@ -161,7 +217,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    // Étape 4 (normal) : Client déposé (reconnaît 'picked_up' OU 'in_progress' avec picked_up_at sans dropped_off_at)
+    // Étape 4 (normal) : Client déposé
     if (course.status === 'picked_up' || (course.status === 'in_progress' && course.picked_up_at && !course.dropped_off_at)) {
       return [{
         id: 'dropoff',
@@ -173,7 +229,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
       }];
     }
 
-    // Étape 5 : Terminer (reconnaît 'dropped_off' OU 'in_progress' avec dropped_off_at)
+    // Étape 5 : Terminer
     if (course.status === 'dropped_off' || (course.status === 'in_progress' && course.dropped_off_at)) {
       return [{
         id: 'complete',
@@ -190,15 +246,6 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
 
   const actions = getAvailableActions();
   const currentAction = actions[0];
-  const currentStep = getCurrentStep();
-
-  const steps = [
-    { num: 1, label: 'Démarrer', icon: Navigation },
-    { num: 2, label: 'Sur place', icon: MapPin },
-    { num: 3, label: 'À bord', icon: UserCheck },
-    { num: 4, label: 'Déposé', icon: MapPinOff },
-    { num: 5, label: 'Terminer', icon: CheckCircle }
-  ];
 
   const maxSwipeDistance = sliderWidth;
   const threshold = maxSwipeDistance * 0.55; // 55% de la distance - plus accessible
@@ -412,14 +459,21 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   return (
     <>
       <div className="space-y-4">
-        {/* Progress Indicator - 5 Steps */}
+        {/* Progress Indicator - Dynamic Steps */}
         <div className="px-2">
-          <div className="flex items-center justify-between relative">
+          <div className={cn(
+            "flex items-center justify-between relative",
+            totalStepsCount > 5 && "overflow-x-auto pb-2 gap-1"
+          )}>
             {steps.map((step) => (
-              <div key={step.num} className="flex flex-col items-center relative z-10">
+              <div key={step.num} className={cn(
+                "flex flex-col items-center relative z-10",
+                totalStepsCount > 5 ? "min-w-[40px]" : ""
+              )}>
                 <div
                   className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                    "rounded-full flex items-center justify-center border-2 transition-all",
+                    totalStepsCount > 5 ? "w-8 h-8" : "w-10 h-10",
                     step.num < currentStep
                       ? "bg-success border-success"
                       : step.num === currentStep
@@ -427,16 +481,24 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
                       : "bg-background border-muted-foreground/30"
                   )}
                 >
-                  <step.icon
-                    className={cn(
-                      "w-5 h-5",
-                      step.num <= currentStep ? "text-white" : "text-muted-foreground"
-                    )}
-                  />
+                  {step.num < currentStep ? (
+                    <CheckCircle className={cn(
+                      totalStepsCount > 5 ? "w-4 h-4" : "w-5 h-5",
+                      "text-white"
+                    )} />
+                  ) : (
+                    <step.icon
+                      className={cn(
+                        totalStepsCount > 5 ? "w-4 h-4" : "w-5 h-5",
+                        step.num <= currentStep ? "text-white" : "text-muted-foreground"
+                      )}
+                    />
+                  )}
                 </div>
                 <span
                   className={cn(
-                    "text-[10px] mt-1 font-medium",
+                    "mt-1 font-medium text-center whitespace-nowrap",
+                    totalStepsCount > 5 ? "text-[8px]" : "text-[10px]",
                     step.num === currentStep ? "text-primary" : "text-muted-foreground"
                   )}
                 >
@@ -445,10 +507,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
               </div>
             ))}
             {/* Connecting lines */}
-            <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted-foreground/20 -z-0" />
+            <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted-foreground/20 -z-0" style={{ top: totalStepsCount > 5 ? '16px' : '20px' }} />
             <div
-              className="absolute top-5 left-0 h-0.5 bg-success transition-all duration-500 -z-0"
-              style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
+              className="absolute left-0 h-0.5 bg-success transition-all duration-500 -z-0"
+              style={{ 
+                width: `${Math.max(0, ((currentStep - 1) / (totalStepsCount - 1)) * 100)}%`,
+                top: totalStepsCount > 5 ? '16px' : '20px'
+              }}
             />
           </div>
         </div>
