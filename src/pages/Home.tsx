@@ -30,7 +30,7 @@ import {
   Plane,
   Baby
 } from 'lucide-react';
-import { formatFullDate, formatParisAddress } from '@/lib/utils';
+import { formatFullDate, formatParisAddress, parseMultipleDestinations } from '@/lib/utils';
 
 const Home = () => {
   const { driver, session } = useAuth();
@@ -392,28 +392,34 @@ const Home = () => {
 
                   {/* 7. Destination(s) - Numérotées si multi-destinations */}
                   {(() => {
-                    const destinations = course.destination_location?.includes('→')
-                      ? course.destination_location.split('→').map((addr: string) => addr.trim()).filter(Boolean)
-                      : [course.destination_location];
+                    const destinations = parseMultipleDestinations(course.destination_location);
                     
                     if (destinations.length > 1) {
                       return (
-                        <div className="space-y-1">
-                          {destinations.map((dest: string, index: number) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <div className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold flex-shrink-0">
-                                {index + 1}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-red-500" />
+                            <span className="text-xs text-muted-foreground font-medium">
+                              Destinations ({destinations.length} arrêts)
+                            </span>
+                          </div>
+                          <div className="ml-6 space-y-2">
+                            {destinations.map((dest: string, index: number) => (
+                              <div key={index} className="flex items-start gap-2 border-l-2 border-red-200 pl-2">
+                                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">
+                                  {index + 1}
+                                </span>
+                                <span className="text-sm font-medium">{dest}</span>
                               </div>
-                              <span className="text-sm font-medium">{dest}</span>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       );
                     }
                     
                     return (
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-destructive" />
+                        <MapPin className="w-4 h-4 text-red-500" />
                         <span className="text-sm font-medium">{course.destination_location}</span>
                       </div>
                     );

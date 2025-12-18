@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, Course } from '@/lib/supabase';
-import { translateCourseStatus, extractCity, formatFullDate, formatParisAddress } from '@/lib/utils';
+import { translateCourseStatus, extractCity, formatFullDate, formatParisAddress, parseMultipleDestinations } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -393,11 +393,40 @@ const Bookings = () => {
           <span className="text-sm font-medium">{course.departure_location}</span>
         </div>
 
-        {/* 7. Destination */}
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-red-500" />
-          <span className="text-sm font-medium">{course.destination_location}</span>
-        </div>
+        {/* 7. Destination(s) - Numérotées si multi-destinations */}
+        {(() => {
+          const destinations = parseMultipleDestinations(course.destination_location);
+          
+          if (destinations.length > 1) {
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-500" />
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Destinations ({destinations.length} arrêts)
+                  </span>
+                </div>
+                <div className="ml-6 space-y-2">
+                  {destinations.map((dest: string, index: number) => (
+                    <div key={index} className="flex items-start gap-2 border-l-2 border-red-200 pl-2">
+                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm font-medium">{dest}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          
+          return (
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-red-500" />
+              <span className="text-sm font-medium">{course.destination_location}</span>
+            </div>
+          );
+        })()}
 
         {/* 8. Type de paiement */}
         {course.payment_type && (
