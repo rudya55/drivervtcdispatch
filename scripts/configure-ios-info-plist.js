@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const infoPlistPath = path.join(__dirname, '..', 'ios', 'App', 'App', 'Info.plist');
 
@@ -13,28 +17,28 @@ if (!fs.existsSync(infoPlistPath)) {
 let content = fs.readFileSync(infoPlistPath, 'utf8');
 
 const locationPermissions = `
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Cette app a besoin de votre position pour vous assigner des courses a proximite</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Cette app suit votre position en arriere-plan pour mettre a jour votre localisation pendant les courses</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Cette app a besoin d'acceder a votre position en permanence pour le suivi des courses</string>`;
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Cette app a besoin de votre position pour vous assigner des courses a proximite</string>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>Cette app suit votre position en arriere-plan pour mettre a jour votre localisation pendant les courses</string>
+  <key>NSLocationAlwaysUsageDescription</key>
+  <string>Cette app a besoin d'acceder a votre position en permanence pour le suivi des courses</string>`;
 
 const cameraPermission = `
-	<key>NSCameraUsageDescription</key>
-	<string>Cette app a besoin d'acceder a la camera pour prendre des photos de documents et de vehicules</string>`;
+  <key>NSCameraUsageDescription</key>
+  <string>Cette app a besoin d'acceder a la camera pour prendre des photos de documents et de vehicules</string>`;
 
 const photoLibraryPermission = `
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Cette app a besoin d'acceder a vos photos pour telecharger des documents et images de vehicules</string>`;
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Cette app a besoin d'acceder a vos photos pour telecharger des documents et images de vehicules</string>`;
 
 const backgroundModes = `
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
-		<string>fetch</string>
-		<string>remote-notification</string>
-	</array>`;
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>location</string>
+    <string>fetch</string>
+    <string>remote-notification</string>
+  </array>`;
 
 const closingDict = '</dict>';
 const lastClosingDictIndex = content.lastIndexOf(closingDict);
