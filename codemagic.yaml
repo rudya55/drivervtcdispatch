@@ -32,29 +32,22 @@ workflows:
       - name: Apply code signing
         script: |
           xcode-project use-profiles
-
           
-
-   - name: Configure Info.plist
-    script: |
-      node scripts/configure-ios-info-plist.js
-
-    - name: Set iOS build number
-    script: |
-      NEW_BUILD_NUMBER=$(date "+%Y%m%d%H%M")
-      /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" ios/App/App/Info.plist
-
-  - name: Build IPA
-    script: |
-      xcode-project build-ipa \
-        --workspace "$XCODE_WORKSPACE" \
-        --scheme "$XCODE_SCHEME"
+      - name: Configure Info.plist
+        script: |
+          node scripts/configure-ios-info-plist.js
+      - name: Set iOS build number
+        script: |
+          NEW_BUILD_NUMBER=$(date "+%Y%m%d%H%M")
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" ios/App/App/Info.plist
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/**/*.log
-facts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
       - "*.dSYM.zip"
     publishing:
       email:
@@ -64,7 +57,6 @@ facts:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-
   ios-simulator:
     name: iOS Simulator Build (Test)
     max_build_duration: 120
@@ -100,7 +92,6 @@ facts:
     artifacts:
       - build/ios/ipa/*.app
       - /tmp/xcodebuild_logs/*.log
-
   android-release:
     name: Android Release Build
     max_build_duration: 60
@@ -135,7 +126,6 @@ facts:
       email:
         recipients:
           - fasttransport26@gmail.com
-
   android-debug:
     name: Android Debug Build
     max_build_duration: 60
