@@ -32,6 +32,18 @@ workflows:
       - name: Apply code signing
         script: |
           xcode-project use-profiles
+
+          
+
+  - name: Configure Info.plist
+    script: |
+      node scripts/configure-ios-info-plist.js
+  - name: Set iOS build number
+    script: |
+      NEW_BUILD_NUMBER=$(date +"%Y%m%d%H%M")
+      /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" ios/App/App/Info.plist
+
+
       - name: Build IPA
         script: |
           xcode-project build-ipa \
