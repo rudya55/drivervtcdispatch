@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const projectPath = path.join(__dirname, '..', 'ios', 'App', 'App.xcodeproj', 'project.pbxproj');
 
@@ -17,14 +21,13 @@ const entitlementsContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>aps-environment</key>
-	<string>development</string>
-	<key>com.apple.developer.associated-domains</key>
-	<array>
-	</array>
+  <key>aps-environment</key>
+  <string>development</string>
+  <key>com.apple.developer.associated-domains</key>
+  <array>
+  </array>
 </dict>
-</plist>
-`;
+</plist>`;
 
 const entitlementsPath = path.join(__dirname, '..', 'ios', 'App', 'App', 'App.entitlements');
 const entitlementsDir = path.dirname(entitlementsPath);
