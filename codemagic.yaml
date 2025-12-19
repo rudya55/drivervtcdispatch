@@ -35,22 +35,24 @@ workflows:
 
           
 
-  - name: Configure Info.plist
+   - name: Configure Info.plist
     script: |
       node scripts/configure-ios-info-plist.js
-  - name: Set iOS build number
+
+    - name: Set iOS build number
     script: |
-      NEW_BUILD_NUMBER=$(date +"%Y%m%d%H%M")
+      NEW_BUILD_NUMBER=$(date "+%Y%m%d%H%M")
       /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" ios/App/App/Info.plist
 
-
-      - name: Build IPA
-        script: |
-          xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
-            
+  - name: Build IPA
+    script: |
+      xcode-project build-ipa \
+        --workspace "$XCODE_WORKSPACE" \
+        --scheme "$XCODE_SCHEME"
     artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/**/*.log
+facts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - "*.dSYM.zip"
