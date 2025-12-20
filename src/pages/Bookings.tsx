@@ -666,8 +666,8 @@ const Bookings = () => {
           open={showSignBoard}
           onOpenChange={setShowSignBoard}
           clientName={selectedCourse?.client_name || ''}
-          companyName={driver?.company_name}
-          companyLogoUrl={driver?.company_logo_url}
+          companyName={selectedCourse?.company_name}
+          companyLogoUrl={selectedCourse?.company_logo_url}
         />
 
       <BottomNav />
