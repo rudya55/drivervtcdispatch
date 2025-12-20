@@ -15,6 +15,8 @@ import { MapWithStatusButton } from '@/components/MapWithStatusButton';
 import { CourseSwipeActions } from '@/components/CourseSwipeActions';
 import { StatusToggle } from '@/components/StatusToggle';
 import { CourseTimer } from '@/components/CourseTimer';
+import { ClientWithCompany } from '@/components/ClientWithCompany';
+import { SignBoardModal } from '@/components/SignBoardModal';
 import { toast } from 'sonner';
 import {
   MapPin,
@@ -352,10 +354,14 @@ const Home = () => {
                     </div>
                   )}
 
-                  {/* 3. Nom du client */}
+                  {/* 3. Nom du client avec logo société */}
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{course.client_name}</span>
+                    <ClientWithCompany
+                      clientName={course.client_name}
+                      companyName={course.company_name}
+                      companyLogoUrl={course.company_logo_url}
+                    />
                   </div>
 
                   {/* 4. Passagers et bagages */}
