@@ -53,6 +53,7 @@ type SwipeAction = {
 
 import { CourseTimer } from '@/components/CourseTimer';
 import { SignBoardModal } from '@/components/SignBoardModal';
+import { ClientWithCompany } from '@/components/ClientWithCompany';
 
 export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart = true, onViewDetails }: CourseSwipeActionsProps) => {
   const [swipeX, setSwipeX] = useState(0);
@@ -637,13 +638,18 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             </div>
           )}
 
-          {/* 3. Nom du client - Cliquable pour SignBoard */}
+          {/* 3. Nom du client avec logo société - Cliquable pour SignBoard */}
           <button
             onClick={() => setShowSignBoard(true)}
             className="flex items-center gap-2 w-full text-left hover:bg-accent/50 rounded-lg transition-colors py-1"
           >
             <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium underline">{course.client_name}</span>
+            <ClientWithCompany
+              clientName={course.client_name}
+              companyName={course.company_name}
+              companyLogoUrl={course.company_logo_url}
+              className="underline"
+            />
           </button>
 
           {/* 4. Passagers et bagages */}

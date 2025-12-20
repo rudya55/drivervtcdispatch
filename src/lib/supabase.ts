@@ -77,6 +77,7 @@ export type Course = {
   flight_number: string | null;
   flight_train_number: string | null;
   company_name: string | null;
+  company_logo_url: string | null;
   created_at: string;
   accepted_at: string | null;
   started_at: string | null;
