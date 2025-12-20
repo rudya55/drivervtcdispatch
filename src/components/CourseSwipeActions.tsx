@@ -338,19 +338,90 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
   };
 
   const handleTouchEnd = () => {
-    if (isAnimating || isProcessing) return;
+    // Protection principale : bloquer si déjà en traitement
+    if (isAnimating || isProcessing) {
+      console.log('⚠️ Swipe ignoré: animation ou traitement en cours');
+      return;
+    }
+    
+    // Protection secondaire : bloquer si pas d'action disponible
+    if (!currentAction) {
+      console.log('⚠️ Swipe ignoré: aucune action disponible');
+      setSwipeX(0);
+      return;
+    }
     
     // Validation par distance OU par vélocité rapide
     const isDistanceValid = swipeX > threshold;
     const isVelocityValid = velocityRef.current > velocityThreshold && swipeX > maxSwipeDistance * 0.25;
     
-    if ((isDistanceValid || isVelocityValid) && currentAction) {
-      // Empêcher les appels multiples
-      if (isProcessing) return;
+    if ((isDistanceValid || isVelocityValid)) {
+      // BLOQUER IMMÉDIATEMENT avant toute autre opération
       setIsProcessing(true);
+      setIsAnimating(true);
+      
+      // Protection temporelle GLOBALE - 3 secondes entre chaque action
+      const now = Date.now();
+      if (lastActionRef.current && lastActionRef.current.timestamp > now - 3000) {
+        console.warn('⚠️ Action bloquée (protection 3s active):', currentAction.action, 'dernière action:', lastActionRef.current.action);
+        // Reset et retour
+        setTimeout(() => {
+          setIsProcessing(false);
+          setIsAnimating(false);
+          setSwipeX(0);
+          setActiveAction(null);
+        }, 100);
+        return;
+      }
+      
+      // Validation du statut AVANT de continuer - UNE SEULE ÉTAPE À LA FOIS
+      const expectedStatus: Record<string, string[]> = {
+        'start': ['accepted'],
+        'arrived': ['started', 'in_progress'],
+        'pickup': ['arrived', 'in_progress'],
+        'complete_stop': ['picked_up', 'in_progress'],
+        'dropoff': ['picked_up', 'in_progress'],
+        'complete': ['dropped_off', 'in_progress'],
+      };
+      
+      const validStatuses = expectedStatus[currentAction.action] || [];
+      if (validStatuses.length > 0 && !validStatuses.includes(course.status)) {
+        console.warn(`⚠️ Action ${currentAction.action} refusée: statut ${course.status} invalide (attendu: ${validStatuses.join(' ou ')})`);
+        toast.error('Action non disponible pour ce statut');
+        setTimeout(() => {
+          setIsProcessing(false);
+          setIsAnimating(false);
+          setSwipeX(0);
+          setActiveAction(null);
+        }, 100);
+        return;
+      }
+      
+      // Validations supplémentaires spécifiques
+      if (currentAction.action === 'arrived' && !course.started_at) {
+        console.warn('⚠️ Action arrived refusée: course non démarrée');
+        toast.error('Veuillez d\'abord démarrer la course');
+        setTimeout(() => {
+          setIsProcessing(false);
+          setIsAnimating(false);
+          setSwipeX(0);
+          setActiveAction(null);
+        }, 100);
+        return;
+      }
+      
+      if (currentAction.action === 'arrived' && course.arrived_at) {
+        console.warn('⚠️ Action arrived refusée: déjà arrivé');
+        setTimeout(() => {
+          setIsProcessing(false);
+          setIsAnimating(false);
+          setSwipeX(0);
+          setActiveAction(null);
+        }, 100);
+        return;
+      }
       
       // Animation vers la fin
-      setIsAnimating(true);
       setSwipeX(maxSwipeDistance);
       
       // Vibration forte de confirmation
@@ -358,67 +429,23 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         navigator.vibrate([50, 30, 100]);
       }
       
+      // Mémoriser l'action AVANT l'appel
+      lastActionRef.current = {
+        action: currentAction.action,
+        timestamp: now
+      };
+      
       setTimeout(() => {
         if (currentAction.action === 'complete') {
           setShowRatingModal(true);
-          setIsProcessing(false);
+          // Reset après ouverture du modal
+          setTimeout(() => {
+            setIsProcessing(false);
+            setIsAnimating(false);
+            setSwipeX(0);
+            setActiveAction(null);
+          }, 300);
         } else {
-          // Protection GLOBALE contre les appels multiples - bloque TOUTE action pendant 2 secondes
-          const now = Date.now();
-          if (lastActionRef.current && lastActionRef.current.timestamp > now - 2000) {
-            console.warn('⚠️ Action bloquée (protection 2s active):', currentAction.action, 'dernière action:', lastActionRef.current.action);
-            setIsProcessing(false);
-            setIsAnimating(false);
-            setSwipeX(0);
-            setActiveAction(null);
-            return;
-          }
-          
-          // Validation supplémentaire avant d'appeler l'action
-          // Pour 'start': vérifier que le statut est bien 'accepted'
-          if (currentAction.action === 'start' && course.status !== 'accepted') {
-            console.warn('⚠️ Action start refusée: statut invalide', course.status);
-            setIsProcessing(false);
-            setIsAnimating(false);
-            setSwipeX(0);
-            setActiveAction(null);
-            return;
-          }
-          
-          // Pour 'arrived': vérifier que le statut est 'started' et que started_at existe
-          if (currentAction.action === 'arrived') {
-            if (course.status !== 'started' && course.status !== 'in_progress') {
-              console.warn('⚠️ Action arrived refusée: statut invalide', course.status);
-              setIsProcessing(false);
-              setIsAnimating(false);
-              setSwipeX(0);
-              setActiveAction(null);
-              return;
-            }
-            if (!course.started_at) {
-              console.warn('⚠️ Action arrived refusée: started_at manquant');
-              setIsProcessing(false);
-              setIsAnimating(false);
-              setSwipeX(0);
-              setActiveAction(null);
-              return;
-            }
-            if (course.arrived_at) {
-              console.warn('⚠️ Action arrived refusée: déjà arrivé');
-              setIsProcessing(false);
-              setIsAnimating(false);
-              setSwipeX(0);
-              setActiveAction(null);
-              return;
-            }
-          }
-          
-          // Mémoriser l'action pour éviter les doublons
-          lastActionRef.current = {
-            action: currentAction.action,
-            timestamp: now
-          };
-          
           const actionData: any = { 
             course_id: course.id,
             action: currentAction.action 
@@ -431,16 +458,18 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           if (currentAction.action === 'complete_stop' && currentStop) {
             actionData.stop_id = currentStop.id;
           }
-          // Appeler l'action une seule fois
+          
+          console.log('✅ Exécution action:', currentAction.action);
           onAction(currentAction.action, actionData);
-          // Réinitialiser après un délai pour permettre la mise à jour
+          
+          // Reset après un délai plus long (3s) pour éviter double swipe
           setTimeout(() => {
             setIsProcessing(false);
-          }, 1500);
+            setIsAnimating(false);
+            setSwipeX(0);
+            setActiveAction(null);
+          }, 3000);
         }
-        setSwipeX(0);
-        setActiveAction(null);
-        setIsAnimating(false);
       }, 200);
     } else {
       // Retour élastique avec animation
@@ -923,7 +952,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         onOpenChange={setShowSignBoard}
         clientName={course.client_name}
         companyName={course.company_name}
-        companyLogoUrl={driver?.company_logo_url}
+        companyLogoUrl={undefined}
       />
     </>
   );
