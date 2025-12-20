@@ -194,7 +194,8 @@ const Accounting = () => {
     }));
   };
 
-  const getTotalRevenue = () => courses.reduce((sum, c) => sum + (c.net_driver || c.client_price), 0);
+  const getTotalClientPrice = () => courses.reduce((sum, c) => sum + (c.client_price || 0), 0);
+  const getTotalRevenue = () => courses.reduce((sum, c) => sum + (c.net_driver || c.client_price || 0), 0);
   const getTotalCommission = () => courses.reduce((sum, c) => sum + (c.commission || 0), 0);
   const getNetRevenue = () => getTotalRevenue() - getTotalCommission();
 
@@ -380,14 +381,23 @@ const Accounting = () => {
         )}
 
         {/* Revenue Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-6 border-2 border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 mb-2">
+              <Euro className="w-5 h-5 text-blue-500" />
+              <h3 className="font-semibold">Prix Client</h3>
+            </div>
+            <p className="text-3xl font-bold text-blue-500">{getTotalClientPrice().toFixed(2)}€</p>
+            <p className="text-sm text-muted-foreground mt-1">{courses.length} courses</p>
+          </Card>
+
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-2">
               <Euro className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Chiffre d'affaires</h3>
             </div>
             <p className="text-3xl font-bold">{getTotalRevenue().toFixed(2)}€</p>
-            <p className="text-sm text-muted-foreground mt-1">{courses.length} courses</p>
+            <p className="text-sm text-muted-foreground mt-1">Net chauffeur brut</p>
           </Card>
 
           <Card className="p-6">
@@ -397,11 +407,11 @@ const Accounting = () => {
             </div>
             <p className="text-3xl font-bold text-warning">{getTotalCommission().toFixed(2)}€</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {((getTotalCommission() / getTotalRevenue()) * 100).toFixed(1)}% du CA
+              {getTotalClientPrice() > 0 ? ((getTotalCommission() / getTotalClientPrice()) * 100).toFixed(1) : '0'}% du prix client
             </p>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-6 border-2 border-green-200 dark:border-green-800">
             <div className="flex items-center gap-2 mb-2">
               <FileText className="w-5 h-5 text-success" />
               <h3 className="font-semibold">Net chauffeur</h3>

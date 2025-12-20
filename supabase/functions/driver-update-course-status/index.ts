@@ -228,6 +228,7 @@ Deno.serve(async (req) => {
         if (comment) {
           updateData.notes = (course.notes ? course.notes + '\n\n' : '') + 
                             `Commentaire chauffeur: ${comment}`;
+          updateData.driver_comment = comment;
         }
         if (final_price !== undefined) {
           updateData.client_price = final_price;
@@ -235,6 +236,7 @@ Deno.serve(async (req) => {
         
         trackingNotes = 'Course terminée';
         if (rating) trackingNotes += ` - Note: ${rating}/5`;
+        if (comment) trackingNotes += ` - Commentaire: ${comment}`;
         break;
 
       case 'cancel':
@@ -424,6 +426,33 @@ Deno.serve(async (req) => {
           .insert(adminNotifications);
         
         console.log(`✅ ${adminNotifications.length} notification(s) envoyée(s) au dispatch`);
+      }
+
+      // Notification spécifique pour le commentaire du chauffeur
+      if (action === 'complete' && comment && adminUsers && adminUsers.length > 0) {
+        const commentNotifications = adminUsers.map(admin => ({
+          driver_id: null,
+          course_id,
+          type: 'driver_comment',
+          title: `💬 Commentaire de ${driver.name}`,
+          message: comment,
+          read: false,
+          data: {
+            driver_id: driver.id,
+            driver_name: driver.name,
+            course_id,
+            client_name: course.client_name,
+            comment,
+            rating: rating || null,
+            timestamp: new Date().toISOString(),
+          },
+        }));
+
+        await supabase
+          .from('driver_notifications')
+          .insert(commentNotifications);
+        
+        console.log(`✅ Notification commentaire envoyée au dispatch`);
       }
     } catch (adminNotificationError) {
       console.error('⚠️ Failed to send admin notifications:', adminNotificationError);
