@@ -27,7 +27,8 @@ import {
   Plane,
   FileText,
   Car,
-  Baby
+  Baby,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -462,13 +463,13 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
           console.log('✅ Exécution action:', currentAction.action);
           onAction(currentAction.action, actionData);
           
-          // Reset après un délai plus long (3s) pour éviter double swipe
+          // Reset après un délai de 5 secondes pour éviter tout double swipe
           setTimeout(() => {
             setIsProcessing(false);
             setIsAnimating(false);
             setSwipeX(0);
             setActiveAction(null);
-          }, 3000);
+          }, 5000);
         }
       }, 200);
     } else {
@@ -808,6 +809,16 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
+            {/* OVERLAY DE CHARGEMENT - Bloque visuellement le slider */}
+            {isProcessing && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full z-50">
+                <div className="flex items-center gap-2 text-white">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="font-semibold text-sm">Mise à jour...</span>
+                </div>
+              </div>
+            )}
+
             {/* Barre de progression visuelle */}
             <div 
               className="absolute left-0 top-0 bottom-0 bg-white/20 pointer-events-none rounded-full"

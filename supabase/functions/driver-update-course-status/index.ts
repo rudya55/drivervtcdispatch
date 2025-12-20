@@ -140,6 +140,37 @@ Deno.serve(async (req) => {
 
     console.log('✅ Course found:', course.id, 'status:', course.status);
 
+    // ========== VALIDATION STRICTE DES TRANSITIONS DE STATUT ==========
+    // Empêche les sauts d'étapes (ex: start → arrived en un seul swipe)
+    const allowedTransitions: Record<string, string[]> = {
+      'accept': ['pending', 'dispatched'],
+      'refuse': ['pending', 'dispatched'],
+      'start': ['accepted'],  // UNIQUEMENT depuis accepted
+      'arrived': ['started'], // UNIQUEMENT depuis started
+      'pickup': ['arrived'],  // UNIQUEMENT depuis arrived
+      'complete_stop': ['picked_up'], // UNIQUEMENT depuis picked_up
+      'dropoff': ['picked_up'], // UNIQUEMENT depuis picked_up
+      'complete': ['dropped_off'], // UNIQUEMENT depuis dropped_off
+      'cancel': ['pending', 'dispatched', 'accepted', 'started', 'arrived', 'picked_up'],
+    };
+
+    const allowedStatuses = allowedTransitions[action];
+    if (allowedStatuses && !allowedStatuses.includes(course.status)) {
+      console.warn(`⛔ VALIDATION REJETÉE: Action "${action}" impossible depuis le statut "${course.status}". Statuts autorisés: ${allowedStatuses.join(', ')}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Action non autorisée pour le statut actuel`,
+          message: `Impossible d'effectuer "${action}" quand le statut est "${course.status}"`,
+          current_status: course.status,
+          action: action,
+          allowed_statuses: allowedStatuses
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    console.log(`✅ VALIDATION OK: Action "${action}" autorisée depuis le statut "${course.status}"`);
+    // ===================================================================
+
     const now = new Date().toISOString();
     let updateData: Record<string, unknown> = {};
     let trackingNotes = '';
