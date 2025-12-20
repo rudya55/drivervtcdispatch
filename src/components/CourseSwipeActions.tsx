@@ -969,7 +969,7 @@ export const CourseSwipeActions = ({ course, onAction, currentLocation, canStart
         onOpenChange={setShowSignBoard}
         clientName={course.client_name}
         companyName={course.company_name}
-        companyLogoUrl={undefined}
+        companyLogoUrl={course.company_logo_url}
       />
     </>
   );
