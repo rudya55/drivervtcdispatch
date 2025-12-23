@@ -7,6 +7,16 @@ export const notificationSounds = [
   { id: 'chime', name: 'Carillon', url: '/sounds/chime.mp3' },
   { id: 'alert', name: 'Alerte', url: '/sounds/alert.mp3' },
   { id: 'gentle', name: 'Doux', url: '/sounds/gentle.mp3' },
+  { id: 'ding', name: 'Ding', url: '/sounds/ding.mp3' },
+  { id: 'cash', name: 'Caisse 💰', url: '/sounds/cash.mp3' },
+  { id: 'success', name: 'Succès', url: '/sounds/success.mp3' },
+  { id: 'horn', name: 'Klaxon 🚗', url: '/sounds/horn.mp3' },
+  { id: 'whistle', name: 'Sifflet', url: '/sounds/whistle.mp3' },
+  { id: 'doorbell', name: 'Sonnette', url: '/sounds/doorbell.mp3' },
+  { id: 'arcade', name: 'Arcade 🎮', url: '/sounds/arcade.mp3' },
+  { id: 'pop', name: 'Pop', url: '/sounds/pop.mp3' },
+  { id: 'radar', name: 'Radar', url: '/sounds/radar.mp3' },
+  { id: 'taxi', name: 'Taxi 🚕', url: '/sounds/taxi.mp3' },
 ];
 
 export const playNotificationSound = (soundId: string = 'default') => {
