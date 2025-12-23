@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { MapPin, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from 'next-themes';
+import { darkModeStyles, lightModeStyles } from '@/lib/mapStyles';
 
 interface GoogleMapProps {
   center?: { lat: number; lng: number };
@@ -42,6 +44,8 @@ const GoogleMap = ({
   const [mapError, setMapError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
 
   // Load Google Maps API key and script
   useEffect(() => {
@@ -121,13 +125,7 @@ const GoogleMap = ({
         mapInstanceRef.current = new google.maps.Map(mapRef.current, {
           center,
           zoom,
-          styles: [
-            {
-              featureType: 'poi',
-              elementType: 'labels',
-              stylers: [{ visibility: 'off' }],
-            },
-          ],
+          styles: isDarkMode ? darkModeStyles : lightModeStyles,
         });
         console.log('✅ Google Maps initialized successfully');
       }
@@ -195,6 +193,15 @@ const GoogleMap = ({
       setMapError(true);
     }
   }, [center, zoom, markers, driverMarker, routePoints, apiKeyLoaded]);
+
+  // Update map styles when theme changes
+  useEffect(() => {
+    if (mapInstanceRef.current && apiKeyLoaded) {
+      mapInstanceRef.current.setOptions({
+        styles: isDarkMode ? darkModeStyles : lightModeStyles,
+      });
+    }
+  }, [isDarkMode, apiKeyLoaded]);
 
   // Fallback map display when Google Maps is not available
   if (mapError) {
