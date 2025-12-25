@@ -77,6 +77,39 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
+
+                - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}-ios
+          release_name: iOS Release v${{ github.run_number }}
+          body: |
+            🚀 **Driver VTC Dispatch - iOS Release**
+            
+            📱 **IPA téléchargeable ci-dessous**
+            
+            ✅ Fonctionnalités incluses:
+            - Push notifications
+            - Localisation GPS en direct
+            - Réception de notifications
+            - Toutes les dernières mises à jour
+            
+            📅 Build: ${{ github.sha }}
+          draft: false
+          prerelease: false
+
+      - name: Upload IPA to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: $PWD/build/App.xcarchive
+          asset_name: vtcdispatch-driver-v${{ github.run_number }}.xcarchive
+          asset_content_type: application/zip
           path: |
             ios/App/build/App.xcarchive
           retention-days: 7
