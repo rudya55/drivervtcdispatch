@@ -40,6 +40,8 @@ workflows:
         script: |
           NEW_BUILD_NUMBER=$(date "+%Y%m%d%H%M")
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" ios/App/App/Info.plist
+                  VERSION=$(node -p "require('./package.json').version")
+                          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" ios/App/App/Info.plist
       - name: Build IPA
         script: |
           xcode-project build-ipa \
