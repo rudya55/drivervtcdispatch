@@ -53,8 +53,12 @@ const Home = () => {
   // Native push notifications
   useNativePushNotifications(driver?.id);
 
-  // Get center for map
-  const mapCenter = locationState.coordinates || { lat: 48.8566, lng: 2.3522 };
+  // Map state with zoom control
+  const [mapZoom, setMapZoom] = useState(13);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // Get center for map - use manual override or GPS location
+  const effectiveMapCenter = mapCenter || locationState.coordinates || { lat: 48.8566, lng: 2.3522 };
   const mapMarkers = locationState.coordinates ? [
     { 
       lat: locationState.coordinates.lat, 
@@ -62,6 +66,14 @@ const Home = () => {
       label: 'Vous'
     }
   ] : [];
+
+  // Handle locate me button
+  const handleLocateMe = () => {
+    if (locationState.coordinates) {
+      setMapCenter({ ...locationState.coordinates });
+      setMapZoom(16);
+    }
+  };
 
   // Fetch courses
   const { data: courses = [], isLoading } = useQuery({
@@ -276,8 +288,8 @@ const Home = () => {
           <div className="h-96">
             <MapWithStatusButton
               key={mapsReady ? 'ready' : 'loading'}
-              center={mapCenter}
-              zoom={13}
+              center={effectiveMapCenter}
+              zoom={mapZoom}
               markers={mapMarkers}
               driverStatus={driver?.status || 'inactive'}
               onStatusChange={(status) => statusMutation.mutate(status)}
@@ -289,6 +301,7 @@ const Home = () => {
                 accuracy: locationState.accuracy,
                 error: locationState.error
               }}
+              onLocateMe={handleLocateMe}
             />
           </div>
         </Card>

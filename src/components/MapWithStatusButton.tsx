@@ -18,6 +18,7 @@ interface MapWithStatusButtonProps {
   driverIcon?: 'car' | 'taxi' | 'van' | 'motorcycle' | 'suv';
   driverHeading?: number;
   gpsState?: GPSState;
+  onLocateMe?: () => void;
 }
 
 export const MapWithStatusButton = ({
@@ -29,7 +30,8 @@ export const MapWithStatusButton = ({
   isUpdating = false,
   driverIcon = 'car',
   driverHeading = 0,
-  gpsState
+  gpsState,
+  onLocateMe
 }: MapWithStatusButtonProps) => {
   const isOnline = driverStatus === 'active';
 
@@ -46,6 +48,8 @@ export const MapWithStatusButton = ({
           icon: driverIcon,
           heading: driverHeading
         }}
+        showLocateButton={!!onLocateMe}
+        onLocateMe={onLocateMe}
       />
 
       {/* GPS Indicator - Top Left Corner */}
