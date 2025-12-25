@@ -44,3 +44,6 @@ verify_jwt = true
 
 [functions.driver-chat]
 verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = false
