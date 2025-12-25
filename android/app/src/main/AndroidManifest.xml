@@ -70,7 +70,7 @@
         <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDCCm7q4pFt9F1ZVWp9F89f__2DfRU8ZtQ"/>
+            android:value="AIzaSyBPKoTQNaLRjl3qdbiwAHIVvjXWWqYL6MY"/>
             
         <!-- Firebase Cloud Messaging default channel -->
         <meta-data

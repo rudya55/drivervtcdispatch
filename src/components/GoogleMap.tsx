@@ -192,7 +192,8 @@ const GoogleMap = ({
       }
 
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.setCenter(center);
+        mapInstanceRef.current.panTo(center);
+        mapInstanceRef.current.setZoom(zoom);
       }
     } catch (error) {
       console.error('❌ Google Maps error:', error);
