@@ -11,19 +11,34 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('🗺️ get-google-maps-key function called - v2');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Require authenticated user
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) throw new Error('Non autorisé');
+    if (!authHeader) {
+      console.log('❌ No authorization header');
+      throw new Error('Non autorisé');
+    }
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) throw new Error('Non autorisé');
+    if (authError || !user) {
+      console.log('❌ Auth error:', authError?.message);
+      throw new Error('Non autorisé');
+    }
+    
+    console.log('✅ User authenticated:', user.id);
 
     const key = Deno.env.get('GOOGLE_MAPS_API_KEY');
-    if (!key) throw new Error('Clé API manquante');
+    if (!key) {
+      console.log('❌ GOOGLE_MAPS_API_KEY not found in secrets');
+      throw new Error('Clé API manquante');
+    }
+    
+    console.log('✅ Google Maps API key retrieved successfully, length:', key.length);
 
     return new Response(JSON.stringify({ key }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
