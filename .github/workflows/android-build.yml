@@ -161,6 +161,41 @@ jobs:
           
           if [ "${{ env.BUILD_TYPE }}" == "release" ]; then
             echo "✅ APK and AAB available in artifacts" >> $GITHUB_STEP_SUMMARY
+
+                  - name: Create Release
+        if: env.BUILD_TYPE == 'release'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}-android
+          release_name: Android Release v${{ github.run_number }}
+          body: |
+            🚀 **Driver VTC Dispatch - Android Release**
+            
+            📱 **APK téléchargeable ci-dessous**
+            
+            ✅ Fonctionnalités incluses:
+            - Push notifications
+            - Localisation GPS en direct
+            - Réception de notifications
+            - Toutes les dernières mises à jour
+            
+            📅 Build: ${{ github.sha }}
+          draft: false
+          prerelease: false
+
+      - name: Upload APK to Release
+        if: env.BUILD_TYPE == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: android/app/build/outputs/apk/release/app-release.apk
+          asset_name: vtcdispatch-driver-v${{ github.run_number }}.apk
+          asset_content_type: application/vnd.android.package-archive
           else
             echo "✅ Debug APK available in artifacts" >> $GITHUB_STEP_SUMMARY
           fi
