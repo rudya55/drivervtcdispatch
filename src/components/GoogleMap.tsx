@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapPin, AlertCircle } from 'lucide-react';
+import { MapPin, AlertCircle, LocateFixed } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface GoogleMapProps {
@@ -14,6 +14,8 @@ interface GoogleMapProps {
   };
   routePoints?: Array<{ lat: number; lng: number }>;
   className?: string;
+  showLocateButton?: boolean;
+  onLocateMe?: () => void;
 }
 
 const getVehicleIconPath = (icon: string): string => {
@@ -33,7 +35,9 @@ const GoogleMap = ({
   markers = [],
   driverMarker,
   routePoints = [],
-  className = ''
+  className = '',
+  showLocateButton = false,
+  onLocateMe
 }: GoogleMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -239,12 +243,25 @@ const GoogleMap = ({
   }
 
   return (
-    <div ref={mapRef} className={`w-full h-full rounded-lg bg-muted flex items-center justify-center ${className}`}>
-      {isLoading && (
-        <div className="flex flex-col items-center gap-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground text-sm">Chargement de la carte...</p>
-        </div>
+    <div className={`relative w-full h-full ${className}`}>
+      <div ref={mapRef} className="w-full h-full rounded-lg bg-muted flex items-center justify-center">
+        {isLoading && (
+          <div className="flex flex-col items-center gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground text-sm">Chargement de la carte...</p>
+          </div>
+        )}
+      </div>
+      
+      {/* Locate Me Button */}
+      {showLocateButton && onLocateMe && !isLoading && !mapError && (
+        <button
+          onClick={onLocateMe}
+          className="absolute bottom-4 right-4 z-10 bg-white dark:bg-slate-800 rounded-full p-3 shadow-lg hover:bg-gray-100 dark:hover:bg-slate-700 active:bg-gray-200 dark:active:bg-slate-600 transition-colors border border-border"
+          aria-label="Ma position"
+        >
+          <LocateFixed className="w-6 h-6 text-primary" />
+        </button>
       )}
     </div>
   );
